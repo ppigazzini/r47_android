@@ -1,1 +1,2 @@
-Fixed the "NOP" display discrepancy
+- Synced to commit 338b4319
+- Fixed the "NOP" display discrepancy
