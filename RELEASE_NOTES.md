@@ -1,1 +1,1 @@
-App synced to branch [629a3c88](https://gitlab.com/rpncalculators/c43/-/commits/master?ref_type=HEADS)
+App synced to release [00.109.03.01b0](https://forum.swissmicros.com/viewtopic.php?f=45&t=4757)
