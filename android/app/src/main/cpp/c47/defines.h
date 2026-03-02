@@ -9,7 +9,7 @@
 // VARIOUS OPTIONS
 //*********************************
 
-#define VERSION1 "0.109.03.01a-internal"       // major release . minor release . tracked build . internal OR un/tracked OR subrelease : Alpha / Beta / RC1
+#define VERSION1 "0.109.03.01b0"       // major release . minor release . tracked build . internal OR un/tracked OR subrelease : Alpha / Beta / RC1
 
 // Version 0.109.02.07b11   Public Release C47 & R47
 // Version 0.109.02.07b12   Public Release C47 & R47 launch
@@ -19,6 +19,7 @@
 // Version 0.109.03.00b1    Public C47 & R47, with 2 packages for DM42
 // Version 0.109.03.00a2    Internal C47 & R47
 // Version 0.109.03.00b2    Public C47 & R47
+// Version 0.109.03.01b0    Public C47 & R47
 
 
 #if !defined(CALCMODEL)
@@ -139,62 +140,62 @@
   #if defined(PACKAGE1_NOBESSEL_NOORTHO)   // PACKAGE 1
       //  #define SAVE_SPACE_DM42_6        //  1352 bytes // Without ELEC functions
       //  #define SAVE_SPACE_DM42_8F       //  1216 bytes // Without Font Browsers
-    #define SAVE_SPACE_DM42_12BESSEL       //  5168 bytes // Without BESSEL
-    #define SAVE_SPACE_DM42_12ORTHO        //  0744 bytes // Without ORTHO MENU
+    #define SAVE_SPACE_DM42_12BESSEL       //  5168 bytes // Without X.FN BESSEL
+    #define SAVE_SPACE_DM42_12ORTHO        //  0744 bytes // Without X.FN ORTHO MENU
       //  #define SAVE_SPACE_DM42_14       //   184 bytes // Without Load programming sample programs testPgms
       //  #define SAVE_SPACE_DM42_15       // 10056 bytes // Without all distributions, i.e. , cauchy, chi, expo, logis, t, weibull
       //  #define SAVE_SPACE_DM42_16       //  2168 bytes // Without Norml distribution
       //  #define SAVE_SPACE_DM42_17       //  9840 bytes // Without Poisson/Hyper/Binomial/Geometrical/f distributions
     #define SAVE_SPACE_DM42_21_HP35        //     0 bytes // Without config file activations only. Not complete removal
     #define SAVE_SPACE_DM42_24_PROFILES    //   240 bytes // Without any dev profile shortcuts, and no JM, RJ & HP35
-    #undef OPTION_TVM_FORMULAS             //  2280 bytes // Use analytical formulas where possible
-    #undef OPTION_TVM_NEWTON               //  1864 bytes // Use additional newton raphson in the brent solver for tvm where possible
+    #undef OPTION_TVM_FORMULAS             //  2280 bytes // Use TVM analytical formulas where possible
+    #undef OPTION_TVM_NEWTON               //  1864 bytes // Use TVM additional newton raphson in the brent solver for tvm where possible
   #endif
 
   #if defined(PACKAGE2_NODISTR)            // PACKAGE 2
       //  #define SAVE_SPACE_DM42_6        //  1352 bytes // Without ELEC functions
       //  #define SAVE_SPACE_DM42_8F       //  1216 bytes // Without Font Browsers
-      //  #define SAVE_SPACE_DM42_12BESSEL //  5168 bytes // Without BESSEL
-      //  #define SAVE_SPACE_DM42_12ORTHO  //  0744 bytes // Without ORTHO MENU
+      //  #define SAVE_SPACE_DM42_12BESSEL //  5168 bytes // Without X.FN BESSEL
+      //  #define SAVE_SPACE_DM42_12ORTHO  //  0744 bytes // Without X.FN ORTHO MENU
       //  #define SAVE_SPACE_DM42_14       //   184 bytes // Without Load programming sample programs testPgms
     #define SAVE_SPACE_DM42_15             // 10056 bytes // Without all distributions, i.e. , cauchy, chi, expo, logis, t, weibull
       //  #define SAVE_SPACE_DM42_16       //  2168 bytes // Without Norml distribution
     #define SAVE_SPACE_DM42_17             //  9840 bytes // Without Poisson/Hyper/Binomial/Geometrical/f distributions
       //  #define SAVE_SPACE_DM42_21_HP35  //     0 bytes // Without config file activations only. Not complete removal
       //  #define SAVE_SPACE_DM42_24_PROFILES// 240 bytes // Without any dev profile shortcuts, and no JM, RJ & HP35
-      #define OPTION_TVM_FORMULAS          //  2280 bytes // Use analytical formulas where possible
-      #define OPTION_TVM_NEWTON            //  1864 bytes // Use additional newton raphson in the brent solver for tvm where possible
+      #define OPTION_TVM_FORMULAS          //  2280 bytes // Use TVM analytical formulas where possible
+      #define OPTION_TVM_NEWTON            //  1864 bytes // Use TVM additional newton raphson in the brent solver for tvm where possible
   #endif
 
 
   #if defined(PACKAGE3_NOBESSEL_NOORTHO_NOFBR) // PACKAGE 3
     #define SAVE_SPACE_DM42_6              //  1352 bytes // Without ELEC functions
     #define SAVE_SPACE_DM42_8F             //  1216 bytes // Without Font Browsers
-    #define SAVE_SPACE_DM42_12BESSEL       //  5168 bytes // Without BESSEL
-    #define SAVE_SPACE_DM42_12ORTHO        //  0744 bytes // Without ORTHO MENU
+    #define SAVE_SPACE_DM42_12BESSEL       //  5168 bytes // Without X.FN BESSEL
+    #define SAVE_SPACE_DM42_12ORTHO        //  0744 bytes // Without X.FN ORTHO MENU
       //  #define SAVE_SPACE_DM42_14       //   184 bytes // Without Load programming sample programs testPgms
       //  #define SAVE_SPACE_DM42_15       // 10056 bytes // Without all distributions, i.e. , cauchy, chi, expo, logis, t, weibull
       //  #define SAVE_SPACE_DM42_16       //  2168 bytes // Without Norml distribution
       //  #define SAVE_SPACE_DM42_17       //  9840 bytes // Without Poisson/Hyper/Binomial/Geometrical/f distributions
     #define SAVE_SPACE_DM42_21_HP35        //     0 bytes // Without config file activations only. Not complete removal
     #define SAVE_SPACE_DM42_24_PROFILES    //   240 bytes // Without any dev profile shortcuts, and no JM, RJ & HP35
-    #undef  OPTION_TVM_FORMULAS            //  2280 bytes // Use analytical formulas where possible
-    #define OPTION_TVM_NEWTON              //  1864 bytes // Use additional newton raphson in the brent solver for tvm where possible
+    #undef  OPTION_TVM_FORMULAS            //  2280 bytes // Use TVM analytical formulas where possible
+    #define OPTION_TVM_NEWTON              //  1864 bytes // Use TVM additional newton raphson in the brent solver for tvm where possible
   #endif
 
   #if defined(PACKAGE4_MINIMAL_MATH)       // PACKAGE 4 FOR GITLAB PIPELINE COMPILE
       //  #define SAVE_SPACE_DM42_6        //  1352 bytes // Without ELEC functions
       //  #define SAVE_SPACE_DM42_8F       //  1216 bytes // Without Font Browsers
-    #define SAVE_SPACE_DM42_12BESSEL       //  5168 bytes // Without BESSEL
-    #define SAVE_SPACE_DM42_12ORTHO        //  0744 bytes // Without ORTHO MENU
+    #define SAVE_SPACE_DM42_12BESSEL       //  5168 bytes // Without X.FN BESSEL
+    #define SAVE_SPACE_DM42_12ORTHO        //  0744 bytes // Without X.FN ORTHO MENU
     #define SAVE_SPACE_DM42_14             //   184 bytes // Without Load programming sample programs testPgms
     #define SAVE_SPACE_DM42_15             // 10056 bytes // Without all distributions, i.e. , cauchy, chi, expo, logis, t, weibull
     #define SAVE_SPACE_DM42_16             //  2168 bytes // Without Norml distribution
     #define SAVE_SPACE_DM42_17             //  9840 bytes // Without Poisson/Hyper/Binomial/Geometrical/f distributions
       //  #define SAVE_SPACE_DM42_21_HP35  //     0 bytes // Without config file activations only. Not complete removal
       //  #define SAVE_SPACE_DM42_24_PROFILES// 240 bytes // Without any dev profile shortcuts, and no JM, RJ & HP35
-    #define OPTION_TVM_FORMULAS            //  2280 bytes // Use analytical formulas where possible
-    #undef  OPTION_TVM_NEWTON              //  1864 bytes // Use additional newton raphson in the brent solver for tvm where possible
+    #define OPTION_TVM_FORMULAS            //  2280 bytes // Use TVM analytical formulas where possible
+    #undef  OPTION_TVM_NEWTON              //  1864 bytes // Use TVM additional newton raphson in the brent solver for tvm where possible
   #endif
 
 
@@ -484,8 +485,9 @@
 #define shortcutProfile   (calcModel == USER_C47 ? USER_C47 : isR47FAM ? USER_R47 : 0)
 #define INTEGERSHORTCUTS  ((calcMode == CM_NIM || calcMode == CM_PEM) && (calcModel == USER_C47 || isR47FAM))
 
-#define isArrowUp(code)     ( isR47FAM && code == 22 ) || (!isR47FAM && code == 17 ) // UP
-#define isArrowDown(code)   ( isR47FAM && code == 27 ) || (!isR47FAM && code == 22 ) // DN
+#define isArrowUp(code)   (( isR47FAM && code == 22 ) || (!isR47FAM && code == 17 )) // UP
+#define isArrowDown(code) (( isR47FAM && code == 27 ) || (!isR47FAM && code == 22 )) // DN
+#define isShift(code)     (( isR47FAM && code == 10 ) || ( isR47FAM && code == 11 ) || (!isR47FAM && code == 27 )) // All shifts
 
 //fnKeysManagement
 #define JM_ASSIGN        28
