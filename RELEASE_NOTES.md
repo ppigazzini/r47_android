@@ -1,1 +1,1 @@
-- Updated to commit 37515086 which fixes TVM bug
+- Updated to commit a3b8a7af which fixes TVM bug
