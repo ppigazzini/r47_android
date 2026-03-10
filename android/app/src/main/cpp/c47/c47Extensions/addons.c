@@ -2077,7 +2077,7 @@ void fnP_Alpha(void) {
     tmpString_csv_out(5);          //aimBuffer now already copied to tmpString
     xcopy(aimBuffer,tmpString, ERROR_MESSAGE_LENGTH + AIM_BUFFER_LENGTH + NIM_BUFFER_LENGTH);        //   This total area must be less than the tmpString storage area, which it is.
     //print_linestr(aimBuffer,false);
-  #endif
+#endif
 }
 
 
