@@ -292,6 +292,8 @@ void fnRunProgram(uint16_t unusedButMandatoryParameter) {
 
 void fnStopProgram(uint16_t unusedButMandatoryParameter) {
   programRunStop = PGM_WAITING;
+  screenUpdatingMode &= ~SCRUPD_MANUAL_STATUSBAR;
+//  refreshStatusBar();
 }
 
 
@@ -856,6 +858,16 @@ void runProgram(bool_t singleStep, uint16_t menuLabel) {
       temporaryInformation = TI_NO_INFO;
     }
     stepsToBeAdvanced = executeOneStep(currentStep);
+    #if defined(ANDROID)
+    {
+      static int androidYieldCounter = 0;
+      if (androidYieldCounter++ > 10) { // exactly 10 steps as per Master Guide 3.13
+        androidYieldCounter = 0;
+        void yieldToAndroid();
+        yieldToAndroid();
+      }
+    }
+    #endif
     if(lastErrorCode == ERROR_NONE) {
       switch(stepsToBeAdvanced) {
         case -1: { // Already the pointer is set
@@ -876,17 +888,7 @@ void runProgram(bool_t singleStep, uint16_t menuLabel) {
       }
     }
     else {
-      break;
-    }
-    #if defined(ANDROID_BUILD)
-      // Android: Yield control periodically to allow UI updates and stop requests
-      // Yielding every 10 steps reduces JNI overhead and avoids breaking tight RPN loops.
-      static int yieldCounter = 0;
-      if (++yieldCounter >= 10) {
-          yieldToAndroid();
-          yieldCounter = 0;
       }
-    #endif
     #if defined(DMCP_BUILD)
       if(!nestedEngine) {
           int key = C47PopKeyNoBuffer(DISPLAY_WAIT_FOR_RELEASE) + 1;

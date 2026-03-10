@@ -115,6 +115,7 @@ extern void triggerQuit(void);
 
 extern void processCoreTasksNative(void);
 extern void yieldToAndroid(void);
+extern void yieldToAndroidWithMs(int ms);
 extern uint32_t sys_current_ms(void);
 extern gint64 g_get_monotonic_time(void);
 extern gint64 g_get_real_time(void);
