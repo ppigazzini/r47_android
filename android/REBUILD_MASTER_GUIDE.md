@@ -57,10 +57,11 @@ The application employs a dual-thread model to decouple the computationally inte
 
 ### 1.1. Thread Split & Persistence
 
-* **UI Thread (Main)**:
+- **UI Thread (Main)**:
   - Manages the `ReplicaOverlay` and standard Android View hierarchy.
   - Drives the `Choreographer` frame callback (60fps) for display updates.
   - Handles asynchronous OS events (SAF pickers, Permissions, Insets).
+
 - **Core Thread (Background)**:
   - **PERSISTENCE**: The engine loop and `isAppRunningShared` flag MUST reside in a static context (`companion object`). This allows the engine to survive Activity recreations during PiP transitions.
   - **Unified Input Queue**: ALL user inputs (touch zones, physical keyboard, PiP events) MUST be routed through the `coreTasks: LinkedBlockingQueue<Runnable>` queue. The legacy `keyQueue` has been removed. This ensures strict ordering of key events relative to other core tasks (like state saving).
@@ -73,12 +74,14 @@ The application employs a dual-thread model to decouple the computationally inte
 ### 1.2. Function Visibility & Linkage
 
 To support Android and GTK automation, specific core functions MUST be made public (remove `static`):
+
 - **Navigation**: `menuUp()` and `menuDown()` in `src/c47/keyboard.c` MUST be public and declared in `src/c47/softmenus.h`.
 - **State**: `doSave()` in `src/c47/saveRestoreCalcState.c` MUST be public.
 
 ### 1.3. Synchronization & JNI Strategy
 
 To prevent Application Not Responding (ANR) errors and deadlocks:
+
 - **Mutex**: A native `screenMutex` MUST be `PTHREAD_MUTEX_RECURSIVE`.
 - **Minimal Contention (Memcpy-and-Release)**: The UI thread and core thread must never hold the mutex during blocking I/O. Functions like `fnScreenDump` (SNAP) or `getDisplayPixels` MUST lock, `memcpy` data to a local buffer, and unlock IMMEDIATELY before processing.
 - **Locking Strategy**:
@@ -89,17 +92,40 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 ### 1.3. Direct JNI Extensions (The Bridge)
 
 Standard key emulation is insufficient for system-level actions. The JNI layer (`native-lib.c`) MUST include:
+
 - `sendSimMenuNative(menuId)`: Jumps directly to system menus (e.g., `HOME` = -1921, `MyMenu` = -1349).
 - `sendSimFuncNative(funcId)`: Executes core functions directly (e.g., Imaginary `i` = 1159, SI Multipliers 1802-1806) bypassing the keyboard logic for instant results.
 
 ### 1.4. Advanced Threading & UI Synchronization
 
 To ensure a fluid UI even during intensive calculations or program pauses:
+
 - **Timed Yielding (`yieldToAndroidWithMs`)**: The native `yieldToAndroidWithMs(ms)` function MUST be used for any intentional delay (like `PAUSE` or `WAIT`).
   - **Mechanism**: It fully unlocks the `screenMutex` by decrementing the recursive count to zero, performs an `usleep(ms * 1000)`, and then re-acquires the mutex to the original level.
   - **Why**: Recursive mutexes (`PTHREAD_MUTEX_RECURSIVE`) do not release ownership to other threads until the lock count hits zero. Simply calling `usleep` while holding a lock prevents the Android UI thread (which needs the lock for `getDisplayPixels`) from ever rendering, leading to "frozen" screen output.
 - **PAUSE Implementation**: In `src/c47/programming/input.c`, long-running pauses (e.g., `PAUSE 09` for 0.9s) MUST be broken into smaller yielding chunks (100ms) using `yieldToAndroidWithMs(100)`. This gives the UI thread regular 100ms windows to capture intermediate register states and redraw the LCD.
 - **Heartbeat Yield**: The `checkHalfSec` function in `screen.c` MUST call `yieldToAndroid()` to ensure the UI remains responsive during the core's "housekeeping" tasks.
+
+### 1.5. Dynamic Menu Labels ("DYNMNU" Resolution)
+
+The core engine uses placeholder strings for custom user-defined labels. These MUST be resolved in the JNI layer to show correct names on Android keys:
+
+- **Placeholders**: "DYNMNU", "XEQ", and "RCL" indicate that a custom label should be fetched from `userKeyLabel`.
+- **Key Logical ID**: The hardware `keyId` (1-37) must be mapped to a sequential `keyLogicalId` (0-36) using a piecewise linear function:
+
+```c
+static int16_t calculateKeyLogicalId(int16_t keyId) {
+  if (keyId < 30) return keyId - 21;
+  if (keyId < 40) return keyId - 25;
+  if (keyId < 50) return keyId - 29;
+  if (keyId < 60) return keyId - 34;
+  if (keyId < 70) return keyId - 39;
+  if (keyId < 80) return keyId - 44;
+  return keyId - 49;
+}
+```
+
+- **Resolution**: Use `getNthString((uint8_t *)userKeyLabel, keyLogicalId * 6 + keyState)` where `keyState` is 0=Primary, 1=f, 2=g, 3=Alpha. If the string is non-empty, use it instead of the placeholder.
 
 ---
 
@@ -107,20 +133,23 @@ To ensure a fluid UI even during intensive calculations or program pauses:
 
 ### 2.1. Dynamic Scaling & Layout Sync
 
-* **Logical Canvas**: 537 x 1005 pixels.
+- **Logical Canvas**: 537 x 1005 pixels.
+
 - **Scaling Rule**: `scale = ViewWidth / 537f`.
 - **The Maximization Bug**: `ReplicaOverlay` MUST calculate the scale factor using the width provided directly to `onMeasure(w, h)` and `onLayout()`. Do NOT rely on `this.width` or `this.height` during transitions.
 - **Positioning**: The hardware body is centered vertically. Areas above/below are filled with `#2B2A29`.
 
 ### 2.2. LCD Calibration
 
-* **Viewport**: `(25.5, 67.5)` relative to the logical canvas.
+- **Viewport**: `(25.5, 67.5)` relative to the logical canvas.
+
 - **Size**: `486 x 266.7` logical pixels.
 - **Rendering**: Pixels are mapped using a color mask (`pix & 0xFFFFFF`) to handle alpha variations.
 
 ### 2.3. Touch Grid Calibration (Non-Linear)
 
 To match the photographic skin's perspective and spacing, the following offsets are applied in `setupInteractiveZones()`:
+
 - **Vertical Row Offsets**:
   - Row 0: `y + 27f`, `height + 5f` (Shifts up, increased height).
   - Row 1: `y + 22f`.
@@ -139,6 +168,7 @@ To match the photographic skin's perspective and spacing, the following offsets 
 ### 3.1. Encoding Artifact Prevention (The "䊰" Bug)
 
 Double-encoding occurs if symbols are converted to UTF-8 before the core `stringToUtf8` function.
+
 - **Rule**: `ascii_clean` in `android_helpers.c` MUST NOT convert core symbols (like `\x80\xb0` degree) to UTF-8.
 - **Flattening Table**: `ascii_clean` MUST map the following byte sequences to standard ASCII:
   - `\xa1\x48` → ` i ` (Imaginary i)
@@ -156,7 +186,8 @@ Double-encoding occurs if symbols are converted to UTF-8 before the core `string
 
 ### 3.2. RPN Paste Mapping
 
-* **Digits 0-9**: 33, 28, 29, 30, 23, 24, 25, 18, 19, 20.
+- **Digits 0-9**: 33, 28, 29, 30, 23, 24, 25, 18, 19, 20.
+
 - **Imaginary i/j**: Map to `sendSimFuncNative` with IDs 1159 and 1160 respectively.
 - **Plus '+'**: Map to `ENTER` (37) to facilitate RPN complex number entry (e.g. `1+2i` pasted as `1`, `ENTER`, `2`, `i`).
 - **Locale**: `String.format` calls for simulated key IDs MUST use `java.util.Locale.US`.
@@ -185,6 +216,7 @@ To maintain parity with the hardware and simulator folder structures, users can 
 ### 4.3. High-Latency Mitigation (Buffering)
 
 SAF descriptors are slow.
+
 - **Implementation**: Data is assembled in a local 16KB memory buffer and written to the SAF descriptor in a single block operation.
 - **Persistence**: Implementations MUST call `fflush()` and `fsync(fileno(fp))` before closing.
 
@@ -211,7 +243,7 @@ To prevent transient messages (like "Saving state file...") from being stuck on 
 
 ### 5.2. Fortify SIGABRT Prevention
 
-* **Rule**: All native file pointers MUST be checked: `if (fp != NULL) { fwrite(...); }`. `fclose(NULL)` and `fwrite(..., NULL)` are fatal on Android.
+- **Rule**: All native file pointers MUST be checked: `if (fp != NULL) { fwrite(...); }`. `fclose(NULL)` and `fwrite(..., NULL)` are fatal on Android.
 
 ---
 
@@ -219,12 +251,13 @@ To prevent transient messages (like "Saving state file...") from being stuck on 
 
 ### 6.1. Aspect Ratio & Transitions
 
-* **Ratio**: `4860:2667`.
+- **Ratio**: `4860:2667`.
+
 - **Deferred Updates**: All UI changes during PiP transitions MUST be wrapped in `mainHandler.post`.
 
 ### 6.2. LCD Interactivity
 
-* In PiP, touch events on the LCD map horizontally: `X / width * 6` maps to keys F1-F6.
+- In PiP, touch events on the LCD map horizontally: `X / width * 6` maps to keys F1-F6.
 
 ---
 
@@ -242,11 +275,12 @@ To accommodate users who prefer the Android 3-button navigation bar over gesture
 ### 7.2. View Attachment & Insets
 
 Accessing the `WindowInsetsController` or system bars before the view is attached causes a `NullPointerException`.
+
 - **Rule**: System bar `hide()` and appearance configuration MUST be deferred until `onAttachedToWindow` or wrapped in `mainHandler.post` within `onCreate`.
 
 ### 7.2. Settings Menu Accessibility
 
-* **Touch Interception**: `ReplicaOverlay.onInterceptTouchEvent` MUST return `true` for taps in the top bezel area (`lY < 67.5f`) to ensure the Android settings/context menu can be triggered reliably even when core touch processing is active.
+- **Touch Interception**: `ReplicaOverlay.onInterceptTouchEvent` MUST return `true` for taps in the top bezel area (`lY < 67.5f`) to ensure the Android settings/context menu can be triggered reliably even when core touch processing is active.
 
 ### 7.3. EXIT Logic: Minimize vs. Force Close
 
@@ -260,6 +294,7 @@ The `quitApp()` function in `MainActivity.kt` handles the native `fnOff` callbac
 ### 7.4. Haptic Feedback
 
 To provide tactile confirmation:
+
 - **Implementation**: Uses `performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)` on button views.
 - **Waveform**: Uses `VibrationEffect` waveform (Click + small bounce) for mechanical feel.
 
@@ -307,7 +342,8 @@ To support the `system_volume_linked` preference:
 
 ### 10.1. Input Logic
 
-* **Modifier Logic**: External `Shift` and `Ctrl` act as modifiers while held. They trigger `f-shift`/`g-shift` ONLY upon release, and ONLY if no other key was pressed during the hold (Tap logic).
+- **Modifier Logic**: External `Shift` and `Ctrl` act as modifiers while held. They trigger `f-shift`/`g-shift` ONLY upon release, and ONLY if no other key was pressed during the hold (Tap logic).
+
 - **activeKeyIdMap**: To prevent "stuck" keys, the app tracks the exact Simulator ID sent during `onKeyDown` and uses it for `onKeyUp`.
 
 ### 10.2. Final Verified Mapping Table
@@ -352,6 +388,7 @@ To support the `system_volume_linked` preference:
 ## 11. Quick Slot Persistence & Atomic Switching
 
 To ensure stable state switching:
+
 - **Atomic Sequencing**: Switches MUST occur in a single background thread: `[Save Old Slot] -> [Update ID] -> [Load New Slot]`.
 - **Situational Refresh**: Loading triggers `doFnReset`, `doLoad(autoLoad)`, re-scanning programs (`scanLabelsAndPrograms`), and a full screen redraw.
 - **Concurrency**: Uses an `AtomicBoolean` (`isNativeBusy`) to prevent overlapping state operations.
