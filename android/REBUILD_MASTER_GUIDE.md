@@ -127,16 +127,6 @@ The `quitApp()` function respects the `force_close_on_exit` preference, allowing
 
 ---
 
-## 8. Robust Synchronization Strategy
-
-To maintain custom work while pulling latest upstream changes, the `sync_public.sh` script MUST follow these rules:
-
-1. **Backup All Custom Assets**: The `android/` directory is the primary asset requiring persistence.
-2. **Upstream Reset**: The script pulls the math core from the authoritative source and populates the workspace.
-3. **Local Patch Restoration**: Immediately after the upstream pull, the script re-applies the Android Port modifications. This ensures that the optimized code takes precedence over the generic core.
-
----
-
 ## 9. Audio & Beeper Implementation
 
 ### 9.1. Timing Accuracy & Note Separation

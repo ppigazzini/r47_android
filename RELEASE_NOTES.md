@@ -1,1 +1,3 @@
-- Sync to comming [5bed4479](https://gitlab.com/rpncalculators/c43/-/commits/master?ref_type=HEADS)
+- Sync to commit [44e6d242](https://gitlab.com/rpncalculators/c43/-/commits/master?ref_type=HEADS)
+- Implemented Dynamic Shift Label Toggle (enable/disable through preference toggle)
+  - Disabled by default

@@ -83,6 +83,9 @@ fi
 
 # --- 3. Generate Assets (make sim) ---
 echo "--- Generating Core Assets (running make sim) ---"
+# Clean polluted generated headers that might break Meson include precedence
+rm -f src/generated/*.c src/generated/constantPointers.h src/generated/softmenuCatalogs.h
+
 if [ -d "build.sim" ] && [ ! -f "build.sim/build.ninja" ]; then
     rm -rf build.sim
 fi
