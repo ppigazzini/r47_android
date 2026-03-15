@@ -568,7 +568,8 @@ JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
                                                        jobject thiz,
                                                        jint keyCode,
-                                                       jint type) {
+                                                       jint type,
+                                                       jboolean isDynamic) {
   if (!ram)
     return (*env)->NewStringUTF(env, "");
   pthread_mutex_lock(&screenMutex);
@@ -580,7 +581,9 @@ Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
                     getSystemFlag(0x800e)) ||
                    ((tam.mode != 0 || tam.alpha) && getSystemFlag(0x800e));
 
-  const calcKey_t *keys = getSystemFlag(0x8014) ? kbd_usr : kbd_std;
+  // If dynamic labels are enabled, allow the USER keyboard layout.
+  // Otherwise, strictly force the standard layout to maintain physical parity.
+  const calcKey_t *keys = (isDynamic && getSystemFlag(0x8014)) ? kbd_usr : kbd_std;
   if (keyCode < 1 || keyCode > 37) {
     pthread_mutex_unlock(&screenMutex);
     return (*env)->NewStringUTF(env, "");
@@ -606,12 +609,18 @@ Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
   } else {
     switch (type) {
     case 0: {
-      if (shiftF)
-        item = key->fShifted;
-      else if (shiftG)
-        item = key->gShifted;
-      else
+      // If dynamic shifting is enabled, allow the primary label to show the f/g action.
+      // Otherwise, the primary label remains static.
+      if (isDynamic) {
+        if (shiftF)
+          item = key->fShifted;
+        else if (shiftG)
+          item = key->gShifted;
+        else
+          item = key->primary;
+      } else {
         item = key->primary;
+      }
       break;
     }
     case 1:
@@ -636,8 +645,9 @@ Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
     return (*env)->NewStringUTF(env, "");
   }
 
-  // Resolve dynamic labels (user-defined labels)
-  if ((userKeyLabelSize > 0) &&
+  // Resolve dynamic labels (user-defined labels or runtime menu labels)
+  // Only execute this substitution if dynamic shifting is permitted.
+  if (isDynamic && (userKeyLabelSize > 0) &&
       (strcmp(name, "DYNMNU") == 0 || strcmp(name, "XEQ") == 0 ||
        strcmp(name, "RCL") == 0)) {
     int16_t keyLogicalId = calculateKeyLogicalId(key->keyId);

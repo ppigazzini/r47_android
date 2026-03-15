@@ -134,19 +134,21 @@ class CalculatorKeyView @JvmOverloads constructor(
         baseMainSize = btnH * mainLabelFactor
         
         // Initial sync of font size (will be updated again in updateLabels)
-        updateFontSize(fOn = false, gOn = false)
+        updateFontSize(fOn = false, gOn = false, isDynamicEnabled = false)
         fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, smallSize)
         gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, smallSize)
         letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, letterSize)
     }
 
-    private fun updateFontSize(fOn: Boolean, gOn: Boolean) {
+    private fun updateFontSize(fOn: Boolean, gOn: Boolean, isDynamicEnabled: Boolean) {
         isShiftedState = fOn || gOn
-        var factor = if (isShiftedState) 0.70f else 1.0f
+        
+        // Only shrink UI labels if dynamic scaling is explicitly allowed by the user.
+        var factor = if (isDynamicEnabled && isShiftedState) 0.70f else 1.0f
         
         // Target specific labels per user request: "40% smaller" means 60% size
-        if (fOn && keyCode == 14) factor = 0.60f // f-shift for x<->y (LASTx)
-        if (gOn && keyCode == 35) factor = 0.60f // g-shift for . (SHOW a b/c)
+        if (isDynamicEnabled && fOn && keyCode == 14) factor = 0.60f // f-shift for x<->y (LASTx)
+        if (isDynamicEnabled && gOn && keyCode == 35) factor = 0.60f // g-shift for . (SHOW a b/c)
         
         val size = baseMainSize * factor
         primaryLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, if (isFnKey) size * 0.8f else size)
@@ -299,27 +301,30 @@ class CalculatorKeyView @JvmOverloads constructor(
                 val fOn = state[0] != 0
                 val gOn = state[1] != 0
                 alphaOn = state[4] != 0
-                updateFontSize(fOn, gOn || alphaOn) // Treat alpha entry as a shifted state for font scaling
-                updateLayoutPositioning(alphaOn) // Switch layout configuration based on mode
+                
+                // Allow scaling if either the toggle is ON, or we are in Alpha Mode (which is always dynamic)
+                val allowDynamicScaling = main.isDynamicShiftEnabled || alphaOn
+                updateFontSize(fOn, gOn || alphaOn, allowDynamicScaling)
+                updateLayoutPositioning(alphaOn)
             }
 
-            primaryLabel.text = main.getButtonLabelNative(keyCode, 0)
+            primaryLabel.text = main.getButtonLabelNative(keyCode, 0, main.isDynamicShiftEnabled)
 
             if (keyCode == 11) {
-                fLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 1) else "HOME"
-                gLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 2) else ""
+                fLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 1, main.isDynamicShiftEnabled) else "HOME"
+                gLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 2, main.isDynamicShiftEnabled) else ""
             } else if (keyCode == 12) {
-                fLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 1) else "CUST"
-                gLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 2) else ""
+                fLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 1, main.isDynamicShiftEnabled) else "CUST"
+                gLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 2, main.isDynamicShiftEnabled) else ""
             } else {
-                fLabel.text = main.getButtonLabelNative(keyCode, 1)
-                gLabel.text = main.getButtonLabelNative(keyCode, 2)
+                fLabel.text = main.getButtonLabelNative(keyCode, 1, main.isDynamicShiftEnabled)
+                gLabel.text = main.getButtonLabelNative(keyCode, 2, main.isDynamicShiftEnabled)
             }
             
             if (keyCode == 37) { 
                 letterLabel.text = "_"
             } else {
-                letterLabel.text = main.getButtonLabelNative(keyCode, 3)
+                letterLabel.text = main.getButtonLabelNative(keyCode, 3, main.isDynamicShiftEnabled)
             }
         }
     }
