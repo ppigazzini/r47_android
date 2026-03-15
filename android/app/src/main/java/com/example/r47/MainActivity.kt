@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private var isBeeperEnabled = true
     private var showTouchZones = false
+    var isDynamicShiftEnabled = false
 
     private val saveLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -321,6 +322,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 currentSkin = prefs.getString(key, "r47_texture") ?: "r47_texture"
                 replicaOverlay.setSkin(currentSkin)
                 setupInteractiveZones()
+            }
+            "dynamic_shift_labels" -> {
+                isDynamicShiftEnabled = prefs.getBoolean(key, false)
+                if (currentSkin == "r47_background_v2") {
+                    updateDynamicKeys()
+                }
             }
             "lcd_mode" -> {
                 lcdMode = prefs.getString(key, "vintage") ?: "vintage"
@@ -695,6 +702,7 @@ private fun offerCoreTask(task: Runnable) {
         scalingMode = prefs.getString("scaling_mode", "full_width") ?: "full_width"
         isBeeperEnabled = prefs.getBoolean("beeper_enabled", true)
         showTouchZones = prefs.getBoolean("show_touch_zones", false)
+        isDynamicShiftEnabled = prefs.getBoolean("dynamic_shift_labels", false)
         if (prefs.getBoolean("keep_screen_on", false)) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         
         setupInteractiveZones()
@@ -1293,8 +1301,8 @@ private fun offerCoreTask(task: Runnable) {
     private external fun setLcdColors(text: Int, bg: Int)
     
     // New dynamic label and state APIs
-    external fun getButtonLabelNative(keyCode: Int, type: Int): String
-    external fun getSoftkeyLabelNative(keyCode: Int): String
+    external fun getButtonLabelNative(keyCode: Int, type: Int, isDynamic: Boolean): String
+    external fun getSoftkeyLabelNative(fnKeyIndex: Int): String
     external fun getKeyboardStateNative(): IntArray // returns [shiftF, shiftG, calcMode, userMode, alphaFlag]
 
     @Keep fun onFileSelected(fd: Int) { onFileSelectedNative(fd) }
