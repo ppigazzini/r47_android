@@ -103,7 +103,7 @@
         <Preference
             app:key="about_version"
             app:title="Version"
-            app:summary="R47 Android Port (b16568eee)" />
+            app:summary="R47 Android Port (f930785ad)" />
         <Preference
             app:key="visit_gitlab"
             app:title="Visit Project Page (GitLab)" />
