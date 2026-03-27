@@ -59,6 +59,7 @@ typedef void cairo_surface_t;
 typedef void GtkClipboard;
 typedef void* gpointer;
 typedef int gboolean;
+typedef unsigned int guint;
 typedef long long gint64;
 typedef void* GSourceFunc;
 typedef void* GMainContext;
@@ -110,6 +111,7 @@ extern void triggerQuit(void);
 #define gdk_threads_add_timeout(...) 0
 
 #define g_timeout_add(...) 0
+#define g_source_remove(...) (void)0
 #define g_main_context_iteration(...) 0
 #define g_main_context_default(...) NULL
 
