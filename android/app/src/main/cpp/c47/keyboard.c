@@ -4,8 +4,6 @@
 #include "c47.h"
 
 
-#if !defined(TESTSUITE_BUILD)
-
 TO_QSPI static const char bugScreenNonexistentMenu[] = "In function determineFunctionKeyItem: nonexistent menu specified!";
 TO_QSPI static const char bugScreenItemNotDetermined[] = "In function determineItem: item was not determined!";
 
@@ -776,9 +774,9 @@ static void executeFunction(const char *data, int16_t item_);
       }
       default: {
         displayCalcErrorMessage(ERROR_CANNOT_ASSIGN_HERE, ERR_REGISTER_LINE, NIM_REGISTER_LINE);
-        #if defined(PC_BUILD)
+        #if (EXTRA_INFO_ON_CALC_ERROR == 1)
           moreInfoOnError("In function _assignToMenu:", "the menu", indexOfItems[-currentMenu()].itemCatalogName, "is write-protected.");
-        #endif // PC_BUILD
+        #endif // (EXTRA_INFO_ON_CALC_ERROR == 1)
 endReturnTrue:
         calcMode = previousCalcMode;
         shiftF = shiftG = false;
@@ -1034,7 +1032,7 @@ endReturnTrue:
               showSoftmenu(item);
             }
             else if((tam.mode == TM_MENU) && (item != -MNU_MENU) && !tam.alpha) {
-              if ((currentMenu() ==  -MNU_TAMINDIRECT) && ((item == -MNU_VAR) || (item == -MNU_REG))) {
+              if((currentMenu() ==  -MNU_TAMINDIRECT) && ((item == -MNU_VAR) || (item == -MNU_REG))) {
                 showSoftmenu(item);
               }
               else {
@@ -1312,7 +1310,7 @@ endReturnTrue:
                 else {
                   if(item == ITM_XEQ && dynamicMenuItem > -1) {
                     char *varCatalogItem = dynmenuGetLabel(dynamicMenuItem);
-                    if (strcmp(varCatalogItem, "XEQ") != 0) {
+                    if(strcmp(varCatalogItem, "XEQ") != 0) {
                       calcRegister_t regist = findNamedLabel(varCatalogItem);
                       if(regist != INVALID_VARIABLE) {
                         item = regist - FIRST_LABEL + ASSIGN_LABELS;
@@ -1328,7 +1326,7 @@ endReturnTrue:
                   }
                   else if(item == ITM_RCL && dynamicMenuItem > -1) {
                     char *varCatalogItem = dynmenuGetLabel(dynamicMenuItem);
-                    if (strcmp(varCatalogItem, "RCL") != 0) {
+                    if(strcmp(varCatalogItem, "RCL") != 0) {
                       calcRegister_t regist = findNamedVariable(varCatalogItem);
                       if(regist != INVALID_VARIABLE) {
                         item = regist - FIRST_NAMED_VARIABLE + ASSIGN_NAMED_VARIABLES;
@@ -1621,7 +1619,7 @@ endReturnTrue:
           default:;
         }
       }
-      if ((calcMode == CM_EIM) && (result == -MNU_AIMCATALOG)) {
+      if((calcMode == CM_EIM) && (result == -MNU_AIMCATALOG)) {
         result = -MNU_EIMCATALOG;
       }
     }
@@ -1633,7 +1631,7 @@ endReturnTrue:
                shiftG ? key->gShifted :
                         key->primary;
       if(calcMode == CM_REGISTER_BROWSER) {
-        if (shiftF && key->primaryAim >= ITM_A && key->primaryAim <= ITM_Z) {
+        if(shiftF && key->primaryAim >= ITM_A && key->primaryAim <= ITM_Z) {
           result = key->primaryAim;
         }
       }
@@ -1694,7 +1692,7 @@ endReturnTrue:
           break;
         }
         default: {
-          if (key->primaryAim >= ITM_A && key->primaryAim <= ITM_Z) {
+          if(key->primaryAim >= ITM_A && key->primaryAim <= ITM_Z) {
             result = key->primaryAim;
           }
         }
@@ -2054,6 +2052,12 @@ bool_t nimWhenButtonPressed = false;                  //PHM eRPN 2021-07
       screenUpdatingMode |= SCRUPD_MANUAL_MENU;
       screenUpdatingMode &= ~SCRUPD_SKIP_MENU_ONE_TIME;
 
+      if(calcMode == CM_NORMAL && showFunctionNameItem == 0 && lastKeyItemDetermined == ITM_RS) {
+        showFunctionNameItem = ITM_RS;
+        temporaryInformation = TI_NO_INFO;
+        refreshRegisterLine(REGISTER_T);
+      }
+
       if(calcMode == CM_ASSIGN && itemToBeAssigned != 0 && tamBuffer[0] == 0) {
         assignToKey((char *)data);
         if(previousCalcMode == CM_AIM) {             //vv JM RETURN TO AIM MODE
@@ -2259,7 +2263,6 @@ RELEASE_END:
     }
 
 
-#endif //!TESTSUITE_BUILD
   void leavePem(void) {
     if(freeProgramBytes >= 4) { // Push the programs to the end of RAM
       uint32_t newProgramSize = (uint32_t)((uint8_t *)(ram + RAM_SIZE_IN_BLOCKS) - beginOfProgramMemory) - (freeProgramBytes & 0xfffc);
@@ -2287,7 +2290,6 @@ RELEASE_END:
     }
   }
 
-#if !defined(TESTSUITE_BUILD)
   void processKeyAction(int16_t item) {
 
                     #if defined(PC_BUILD) && defined(MONITOR_CLRSCR)
@@ -2416,6 +2418,17 @@ RELEASE_END:
           }
           break;
         }
+
+        case ITM_RS:
+          showStep();
+          keyActionProcessed = true;
+          showFunctionNameItem = 0;
+          #if defined(DMCP_BUILD)
+            lcd_refresh();
+          #else // !DMCP_BUILD
+            refreshLcd(NULL);
+          #endif // DMCP_BUILD
+          break;
 
         case ITM_DOWN1: {
           if(calcMode != CM_CONFIRMATION) {
@@ -3310,13 +3323,11 @@ RELEASE_END:
                       printf("#### menuDown: screenUpdatingMode=%u\n",screenUpdatingMode);
                     #endif // PC_BUILD &&MONITOR_CLRSCR
   }
-#endif // !TESTSUITE_BUILD
 
 
 
 void fnKeyEnter(uint16_t unusedButMandatoryParameter) {
   doRefreshSoftMenu = true;     //dr
-  #if !defined(TESTSUITE_BUILD)
     switch(calcMode) {
       case CM_NORMAL: {
 
@@ -3503,12 +3514,10 @@ ram_full:
                     #endif // DEBUGUNDO
     fnUndo(NOPARAM);
     return;
-  #endif // !TESTSUITE_BUILD
 }
 
 
 
-#if !defined(TESTSUITE_BUILD)
   static void stayInAIM(void) {
     if(calcMode == CM_AIM && (currentMenu() != -MNU_ALPHA && currentMenu() != -MNU_MyAlpha) ) {   //JM
       changeToALPHA();
@@ -3523,12 +3532,10 @@ ram_full:
 
     refreshModeGui(); //JM refreshModeGui
   }
-#endif // !TESTSUITE_BUILD
 
 
 
 void fnKeyExit(uint16_t unusedButMandatoryParameter) {
-  #if !defined(TESTSUITE_BUILD)
     if(tam.mode == TM_KEY && !tam.keyInputFinished) {
       if(tam.digitsSoFar == 0) {
         tamProcessInput(ITM_2);
@@ -3976,14 +3983,12 @@ undo_disabled:
 //    screenUpdatingMode &= ~SCRUPD_MANUAL_MENU;
 //    refreshScreen(128);
     return;
-  #endif // !TESTSUITE_BUILD
 }
 
 
 
 void fnKeyCC(uint16_t complex_Type) {    //JM Using 'unusedButMandatoryParameter' complex_Type=KEY_COMPLEX
     doRefreshSoftMenu = true;     //dr
-    #if !defined(TESTSUITE_BUILD)
     bool_t polarOk, rectOk;
     // The switch statement is broken up here, due to multiple conditions.                      //JM
     if((calcMode == CM_NIM) && (complex_Type == KEY_COMPLEX)) {
@@ -4107,13 +4112,11 @@ void fnKeyCC(uint16_t complex_Type) {    //JM Using 'unusedButMandatoryParameter
         displayBugScreen(errorMessage);
       }
     }
-  #endif // !TESTSUITE_BUILD
 }
 
 
 
 void fnKeyBackspace(uint16_t unusedButMandatoryParameter) {
-  #if !defined(TESTSUITE_BUILD)
     uint16_t lg;
   #if !defined(SAVE_SPACE_DM42_10)
     uint8_t *nextStep;
@@ -4377,14 +4380,12 @@ void fnKeyBackspace(uint16_t unusedButMandatoryParameter) {
         displayBugScreen(errorMessage);
     }
     }
-  #endif // !TESTSUITE_BUILD
 }
 
 
 
 
 void fnKeyUp(uint16_t unusedButMandatoryParameter) {
-  #if !defined(TESTSUITE_BUILD)
     int16_t menuId = softmenuStack[0].softmenuId; //JM
 
 
@@ -4600,13 +4601,11 @@ void fnKeyUp(uint16_t unusedButMandatoryParameter) {
         displayBugScreen(errorMessage);
     }
     }
-  #endif // !TESTSUITE_BUILD
 }
 
 
 
 void fnKeyDown(uint16_t unusedButMandatoryParameter) {
-  #if !defined(TESTSUITE_BUILD)
     int16_t menuId = softmenuStack[0].softmenuId; //JM
 
 //--     if(SHOWMODE && currentMenu() != -MNU_EQN && !tam.mode) { //JMSHOW vv
@@ -4833,13 +4832,11 @@ void fnKeyDown(uint16_t unusedButMandatoryParameter) {
         displayBugScreen(errorMessage);
     }
     }
-  #endif // !TESTSUITE_BUILD
 }
 
 
 
 void fnKeyDotD(uint16_t unusedButMandatoryParameter) {
-  #if !defined(TESTSUITE_BUILD)
     switch(calcMode) {
       case CM_NORMAL: {
         int32_t flag = getSystemFlag(FLAG_IRFRQ) ? FLAG_IRFRAC : FLAG_FRACT ;
@@ -4875,7 +4872,6 @@ void fnKeyDotD(uint16_t unusedButMandatoryParameter) {
         displayBugScreen(errorMessage);
       }
     }
-  #endif // !TESTSUITE_BUILD
 }
 
 

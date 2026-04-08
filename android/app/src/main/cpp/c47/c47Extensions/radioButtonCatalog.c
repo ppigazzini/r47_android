@@ -504,9 +504,7 @@ int8_t fnCbIsSet(int16_t item) {
 
 
 void fnRefreshState(void) {                      // 2023-07-18 This seems antiquated. If it has no effect, all calls to fnRefreshState can be removed. Leaving commented for a while.
-  #if !defined(TESTSUITE_BUILD)
-    doRefreshSoftMenu = true;
-  #endif //!TESTSUITE_BUILD
+  doRefreshSoftMenu = true;
 }
 
 
@@ -544,7 +542,6 @@ int16_t fnItemShowValue(int16_t item) {
     case ITM_VOL:
     case ITM_VOLPLUS:
     case ITM_VOLMINUS:  result = getBeepVolume();                                   break; // DL
-    case ITM_YY_DFLT:   result = lastCenturyHighUsed & 0x3FFF;                        break;
     default:            if(indexOfItems[itemNr].func == itemToBeCoded) {
                          result = ITEM_NOT_CODED;
                         }

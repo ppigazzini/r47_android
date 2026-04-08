@@ -3,9 +3,7 @@
 
 #include "c47.h"
 
-#if !defined(TESTSUITE_BUILD)
-  TO_QSPI static const char bugScreenIdMustNotBe0[] = "In function showSoftmenu: id must not be 0!";
-#endif //TESTSUITE_BUILD
+TO_QSPI static const char bugScreenIdMustNotBe0[] = "In function showSoftmenu: id must not be 0!";
 
 
 /* The numbers refer to the index of items in items.c
@@ -1121,7 +1119,6 @@ dynamicSoftmenu_t dynamicSoftmenu[NUMBER_OF_DYNAMIC_SOFTMENUS] = {
 };
 
 
-
 uint8_t *getNthString(uint8_t *ptr, int16_t n) { // Starting with string 0 (the 1st string is returned for n=0)
   while(n) {
     ptr += stringByteLength((char *)ptr) + 1;
@@ -1139,14 +1136,13 @@ void fnDynamicMenu(uint16_t unusedButMandatoryParameter) {
 
 
 
-#if !defined(TESTSUITE_BUILD)
-  static void initVariableSoftmenu(int16_t menu);
-#endif // !TESTSUITE_BUILD
+static void changeToHOME (void);
+static void changeToPFN  (void);
+static void initVariableSoftmenu(int16_t menu);
 
 
 
 void fnOpenMenu(uint16_t menu) {
-#if !defined(TESTSUITE_BUILD)
   int16_t i, numItems;
   i=0;
   while(softmenu[i].menuItem != 0) {
@@ -1209,7 +1205,6 @@ void fnOpenMenu(uint16_t menu) {
     }
   }
   menuPageNumber = 1;                                                // Restore default menu page number
-#endif // !TESTSUITE_BUILD
 }
 
 void _stripMenuName(char *buffer, char *name) {
@@ -1239,7 +1234,6 @@ void _stripMenuName(char *buffer, char *name) {
 
 int16_t findMenu(char *buffer) {
   int16_t menu_id = INVALID_MENU;
-#if !defined(TESTSUITE_BUILD)
   char name[16];
   int16_t i, menuItem;
   bool found = false;
@@ -1293,7 +1287,6 @@ int16_t findMenu(char *buffer) {
   if(menu_id == INVALID_MENU) {
     menuPageNumber = 1;       // Restore default menu page number
   }
-#endif // !TESTSUITE_BUILD
   return menu_id;
 }
 
@@ -1307,7 +1300,6 @@ void _add_digitglyph(char* tmp, int16_t xx) {
 }
 
 void fnGetMenu(uint16_t funusedButMandatoryParameter) {
-#if !defined(TESTSUITE_BUILD)
   int16_t lenInBytes;
   int16_t menuItem   = -softmenu[softmenuStack[0].softmenuId].menuItem;
   int16_t userMenuId = softmenuStack[0].userMenuId;
@@ -1351,11 +1343,9 @@ void fnGetMenu(uint16_t funusedButMandatoryParameter) {
     }
     xcopy(REGISTER_STRING_DATA(REGISTER_X), userMenus[userMenuId].menuName, lenInBytes);
   }
-#endif // !TESTSUITE_BUILD
 }
 
 
-#if !defined(TESTSUITE_BUILD)
   static int sortMenu(void const *a, void const *b) {
     return compareString(a, b, CMP_EXTENSIVE);
   }
@@ -1797,8 +1787,8 @@ bool_t maxfgLines(int16_t y) {
 
   void greyRect(int16_t x, int16_t y, int16_t dx, int16_t dy) {
     int16_t col, row;
-    for (row=y; row<dy+y; row++) {
-      for (col=x+mod(x+row,2); col<dx+x; col+=2) {
+    for(row=y; row<dy+y; row++) {
+      for(col=x+mod(x+row,2); col<dx+x; col+=2) {
         setBlackPixel(col, row);
       }
     }
@@ -2300,26 +2290,32 @@ void changeSoftKey(int16_t menuNr, int16_t itemNr, char * itemName, videoMode_t 
                         }
                         break;
 
-      case ITM_YY_DFLT: *showValue = lastCenturyHighUsed & 0x3FFF;
+      case ITM_YY_DFLT: *showValue = lastCenturyHighUsed & (YY_MASK_TRACKING - 1);
                         showText[0] = 0;
-                        if(lastCenturyHighUsed & 0x8000) {
+                        if(lastCenturyHighUsed & YY_MASK_OFF) {
                           *showValue = NOVAL;
                           strcpy(showText,STD_SUB_o STD_SUB_f STD_SUB_f);
                         }
-                        if(followYY()) {
+                        if(lastCenturyHighUsed & YY_MASK_TRACKING) {
                           strcat(showText,STD_SPACE_3_PER_EM STD_SUB_t);
                         }
                         break;
 
-      case ITM_GAP_L  : if(gapItemLeft == ITM_NULL) stringCopy(showText + stringByteLength(showText), "\1\1");
-                        else stringCopy(showText + stringByteLength(showText), indexOfItems[gapItemLeft].itemSoftmenuName);  //  gapCharLeft);
+      case ITM_GAP_L  : if(gapItemLeft == ITM_NULL) {
+                          stringCopy(showText + stringByteLength(showText), "\1\1");
+                        } else {
+                          stringCopy(showText + stringByteLength(showText), indexOfItems[gapItemLeft].itemSoftmenuName);  //  gapCharLeft);
+                        }
                         *showValue = NOVAL;
                         break;
       case ITM_GAP_RX : stringCopy(showText + stringByteLength(showText), indexOfItems[gapItemRadix].itemSoftmenuName);  //  gapCharRadix);
                         *showValue = NOVAL;
                         break;
-      case ITM_GAP_R  : if(gapItemRight == ITM_NULL) stringCopy(showText + stringByteLength(showText), "\1\1");
-                        else stringCopy(showText + stringByteLength(showText), indexOfItems[gapItemRight].itemSoftmenuName);  //  gapCharRight);
+      case ITM_GAP_R  : if(gapItemRight == ITM_NULL) {
+                          stringCopy(showText + stringByteLength(showText), "\1\1");
+                        } else {
+                          stringCopy(showText + stringByteLength(showText), indexOfItems[gapItemRight].itemSoftmenuName);  //  gapCharRight);
+                        }
                         *showValue = NOVAL;
                         break;
       case ITM_GRP_L  : *showValue = grpGroupingLeft;
@@ -2358,7 +2354,7 @@ void changeSoftKey(int16_t menuNr, int16_t itemNr, char * itemName, videoMode_t 
 
 
 bool_t savedspace(int16_t itemNr) {  //strike out all SAVED_SPACE items
-  switch (itemNr) {
+  switch(itemNr) {
 
     #ifdef SAVE_SPACE_DM42_12ORTHO
       case -MNU_ORTHOG:
@@ -3119,9 +3115,9 @@ void showSoftmenuCurrentPart(void) {
         return false;
       }
     }
-    #if defined (PC_BUILD)
+    #if defined(PC_BUILD)
       printf("----------- ############################ CREATING HOME #########################\n");
-    #endif //PC_BUILD
+    #endif // PC_BUILD
     for(uint16_t ii=0; ii<18; ii++) {
       itemToBeAssigned = ITM_ENTER;
       screenUpdatingMode = ~SCRUPD_AUTO;
@@ -3149,9 +3145,9 @@ void showSoftmenuCurrentPart(void) {
         return false;
       }
     }
-    #if defined (PC_BUILD)
+    #if defined(PC_BUILD)
       printf("----------- ############################ CREATING PFN #########################\n");
-    #endif //PC_BUILD
+    #endif // PC_BUILD
     for(uint16_t ii=0; ii<18; ii++) {
       itemToBeAssigned = ITM_ENTER;
       screenUpdatingMode = ~SCRUPD_AUTO;
@@ -3172,12 +3168,16 @@ void showSoftmenuCurrentPart(void) {
 
 
 
-  void changeToHOME(void) {
-    showSoftmenu(-MNU_HOME);
+  static void changeToHOME(void) {
+    if(!setCurrentUserMenu(-MNU_DYNAMIC,"HOME")) {
+      showSoftmenu(-MNU_HOME);
+    }
   }
 
-  void changeToPFN(void) {
-    showSoftmenu(-MNU_PFN);
+  static void changeToPFN(void) {
+    if(!setCurrentUserMenu(-MNU_DYNAMIC,"P.FN")) {
+      showSoftmenu(-MNU_PFN);
+    }
   }
 
   void changeToALPHA(void) {
@@ -3518,9 +3518,6 @@ void showSoftmenuCurrentPart(void) {
   }
 
 
-#endif // !TESTSUITE_BUILD
-
-
 // input param is (PageNumber << 14) +MenuNumber
 void fnPseudoMenu(uint16_t target) {
   menuPageNumber = target >> 14;
@@ -3561,15 +3558,12 @@ char *dynmenuGetLabelWithDup(int16_t menuitem, int16_t *dupNum) {
 
 
 void fnBaseMenu(uint16_t unusedButMandatoryParameter) {
-  #if !defined(TESTSUITE_BUILD)
-    BASE_OVERRIDEONCE = true;
-    showSoftmenu(-MNU_MyMenu);
-  #endif // !TESTSUITE_BUILD
+  BASE_OVERRIDEONCE = true;
+  showSoftmenu(-MNU_MyMenu);
 }
 
 
 void fnExitAllMenus(uint16_t unusedButMandatoryParameter) {
-  #if !defined(TESTSUITE_BUILD)
   uint16_t cnt = SOFTMENU_STACK_SIZE - 1;
   while((softmenu[softmenuStack[0].softmenuId].menuItem != -MNU_MyMenu && softmenu[softmenuStack[0].softmenuId].menuItem != -MNU_MyAlpha) || (softmenu[softmenuStack[1].softmenuId].menuItem != -MNU_MyMenu)) {
     popSoftmenu();
@@ -3579,7 +3573,6 @@ void fnExitAllMenus(uint16_t unusedButMandatoryParameter) {
   popSoftmenu();
 
   //fnDumpMenus(0);   //Easy place to access the Dump Menus: PFN / More / ExitAll
-#endif // !TESTSUITE_BUILD
 }
 
 

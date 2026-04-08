@@ -5,8 +5,6 @@
 
 bool_t delayCloseNim = false;
 
-#if !defined(TESTSUITE_BUILD)
-
 TO_QSPI static const char bugScreenNoParam[] = "In function addItemToBuffer:item should not be NOPARAM=7654!";
 
   void fnAim(uint16_t unusedButMandatoryParameter) {
@@ -137,9 +135,7 @@ uint16_t convertItemToSubOrSup(uint16_t item, int16_t subOrSup) {
     asmBuffer[0] = 0;
     fnKeyInCatalog = 0;
     fnTimerStop(TO_ASM_ACTIVE);
-    #if !defined(TESTSUITE_BUILD)                   //JMvv
-      kill_ASB_icon();
-    #endif // TESTSUITE_BUILD                       //JM^^
+    kill_ASB_icon();
   }
 
 
@@ -672,20 +668,7 @@ typedef struct {
   char     noStr[3];
 } numStr;
 
-#if !defined(TESTSUITE_BUILD)
-  TO_QSPI static const numStr NumMsg[] = {
-    { "^0" },
-    { "^1" },
-    { "^2" },
-    { "^3" },
-    { "^4" },
-    { "^5" },
-    { "^6" },
-    { "^7" },
-    { "^8" },
-    { "^9" },
-  };
-#endif //TESTSUITE_BUILD
+TO_QSPI static const numStr NumMsg[] = { { "^0" }, { "^1" }, { "^2" }, { "^3" }, { "^4" }, { "^5" }, { "^6" }, { "^7" }, { "^8" }, { "^9" } };
 
   void nimFractionToDisplayBuffer(const char *buffer, char *displayBuffer);
 
@@ -930,9 +913,7 @@ typedef struct {
           softmenuStack[0].firstItem = findFirstItem(asmBuffer);
           setCatalogLastPos();
           fnTimerStart(TO_ASM_ACTIVE, TO_ASM_ACTIVE, 3000);
-          #if !defined(TESTSUITE_BUILD)
-            light_ASB_icon();
-          #endif // !TESTSUITE_BUILD
+          light_ASB_icon();
         }
         if(calcMode == CM_PEM) {
           hourGlassIconEnabled = false;
@@ -1369,7 +1350,7 @@ typedef struct {
 
             int16_t numeratorLocation = HP32SII ? 1 : strchr(aimBuffer, '.') - aimBuffer + 1;
             int32_t numerator = toInt32(aimBuffer + numeratorLocation);
-            if (numerator < 0 || numerator > 999999999) {
+            if(numerator < 0 || numerator > 999999999) {
               break;
             }
 
@@ -1405,7 +1386,7 @@ typedef struct {
 
             int16_t numeratorLocation = HP32SII ? imaginaryMantissaSignLocation + 2 : strchr(aimBuffer + imaginaryMantissaSignLocation + 2, '.') - aimBuffer + 1;
             int32_t numerator = toInt32(aimBuffer + numeratorLocation);
-            if (numerator < 0 || numerator > 999999999) {
+            if(numerator < 0 || numerator > 999999999) {
               break;
             }
 
@@ -1928,7 +1909,7 @@ typedef struct {
 
           //Accommodate 2-digit xx.xxYY, and change to xx.xx00YY
           int16_t tmplen = stringByteLength(aimBuffer);
-          if(!(lastCenturyHighUsed & 0x8000) && !getSystemFlag(FLAG_YMD) && (
+          if(!(lastCenturyHighUsed & YY_MASK_OFF) && !getSystemFlag(FLAG_YMD) && (
                (tmplen == 8 && (isValidNumber(aimBuffer, "sdd.dddd")))                                //+11.1123
             || (tmplen == 7 && (isValidNumber(aimBuffer, "sd.dddd")))                                 // +1.1123  +1.1120
              )) {
@@ -2078,7 +2059,7 @@ typedef struct {
           savedNimNumberPart = nimNumberPart;
           nimNumberPart = nimRealPart;
 
-          if (nimNumberPart == NP_FRACTION_DENOMINATOR || nimNumberPart == NP_HP32SII_DENOMINATOR) {
+          if(nimNumberPart == NP_FRACTION_DENOMINATOR || nimNumberPart == NP_HP32SII_DENOMINATOR) {
             nimFractionToDisplayBuffer(aimBuffer, nimBufferDisplay + 2);
           }
           else {
@@ -2110,7 +2091,7 @@ typedef struct {
 
           // Imaginary part
           if(aimBuffer[imaginaryMantissaSignLocation+2] != 0) {
-            if (nimNumberPart == NP_COMPLEX_FRACTION_DENOMINATOR || nimNumberPart == NP_COMPLEX_HP32SII_DENOMINATOR) {
+            if(nimNumberPart == NP_COMPLEX_FRACTION_DENOMINATOR || nimNumberPart == NP_COMPLEX_HP32SII_DENOMINATOR) {
               nimFractionToDisplayBuffer(aimBuffer + imaginaryMantissaSignLocation + 1, nimBufferDisplay + stringByteLength(nimBufferDisplay));
             }
             else {
@@ -2335,7 +2316,7 @@ typedef struct {
   void nimFractionToDisplayBuffer(const char *buffer, char *displayBuffer) {
     int16_t index;
 
-    if (nimNumberPart == NP_FRACTION_DENOMINATOR || nimNumberPart == NP_COMPLEX_FRACTION_DENOMINATOR) {
+    if(nimNumberPart == NP_FRACTION_DENOMINATOR || nimNumberPart == NP_COMPLEX_FRACTION_DENOMINATOR) {
       nimBufferToDisplayBuffer(buffer, displayBuffer);
       strcat(displayBuffer, STD_SPACE_4_PER_EM);
 
@@ -2343,7 +2324,7 @@ typedef struct {
       }
     }
     else {
-      if (buffer[0] == '-') {
+      if(buffer[0] == '-') {
         strcat(displayBuffer, "-");
       }
       index = 0;
@@ -2355,15 +2336,15 @@ typedef struct {
 
     for(; buffer[index]!='/'; index++) {
     }
-    if (buffer[++index] == '+') { // There is an imaginary part
+    if(buffer[++index] == '+') { // There is an imaginary part
       subNumberToDisplayString(lastDenominator, displayBuffer + stringByteLength(displayBuffer), NULL);
     }
-    else if (buffer[index] != 0) {
+    else if(buffer[index] != 0) {
       int32_t denominator = toInt32(buffer + index);
       subNumberToDisplayString(denominator, displayBuffer + stringByteLength(displayBuffer), NULL);
       for(; buffer[index] >= '0' && buffer[index] <= '9'; index++) {
       }
-      if (buffer[index] == '+') {
+      if(buffer[index] == '+') {
         lastDenominator = denominator;
       }
     }
@@ -2426,7 +2407,7 @@ typedef struct {
       }
     }
 
-    if (posSpace != 0) {
+    if(posSpace != 0) {
       source[posSpace] = 0;
       integer = toInt32(source + 1);
     }
@@ -2466,7 +2447,7 @@ typedef struct {
   void nimRealToDisplayBuffer(const char *buffer, int16_t exponentLocation, char *displayBuffer) {
     nimBufferToDisplayBuffer(buffer, displayBuffer);
 
-    if (nimNumberPart == NP_REAL_EXPONENT || nimNumberPart == NP_COMPLEX_EXPONENT) {
+    if(nimNumberPart == NP_REAL_EXPONENT || nimNumberPart == NP_COMPLEX_EXPONENT) {
       exponentToDisplayString(stringToInt32(buffer + exponentLocation), displayBuffer + stringByteLength(displayBuffer), NULL, true);
       if(buffer[exponentLocation + 1] == 0 && buffer[exponentLocation] == '-') {
         strcat(displayBuffer, STD_SUP_MINUS);
@@ -2487,14 +2468,14 @@ typedef struct {
     aimBuffer[imaginaryMantissaSignLocation+1] = aimBuffer[imaginaryMantissaSignLocation];
     aimBuffer[imaginaryMantissaSignLocation] = 0;
 
-    if (nimRealPart == NP_FRACTION_DENOMINATOR || nimRealPart == NP_HP32SII_DENOMINATOR) {
+    if(nimRealPart == NP_FRACTION_DENOMINATOR || nimRealPart == NP_HP32SII_DENOMINATOR) {
       nimFractionToReal34(aimBuffer, dest_r);
     }
     else {
       stringToReal34(aimBuffer, dest_r);
     }
 
-    if (nimNumberPart == NP_COMPLEX_FRACTION_DENOMINATOR || nimNumberPart == NP_COMPLEX_HP32SII_DENOMINATOR) {
+    if(nimNumberPart == NP_COMPLEX_FRACTION_DENOMINATOR || nimNumberPart == NP_COMPLEX_HP32SII_DENOMINATOR) {
       nimFractionToReal34(aimBuffer + imaginaryMantissaSignLocation + 1, dest_i);
     }
     else {
@@ -2963,5 +2944,3 @@ typedef struct {
   void fnAlphaCursorEnd(uint16_t unusedButMandatoryParameter) {
     alphaCursor = (uint16_t)stringGlyphLength(aimBuffer);
   }
-
-#endif // !TESTSUITE_BUILD

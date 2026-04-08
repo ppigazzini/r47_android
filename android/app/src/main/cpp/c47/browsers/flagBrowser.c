@@ -48,9 +48,6 @@ TO_QSPI const  letteredFlagDisplay_t letteredFlagDisplay[] = {
 };
 
 
-#if !defined(TESTSUITE_BUILD)
-
-
   /********************************************//**
    * \brief The flag browser application
    *
@@ -273,7 +270,7 @@ TO_QSPI const  letteredFlagDisplay_t letteredFlagDisplay[] = {
       uint16_t param;
       uint16_t x1, x2, y1, fOffset = currentFlgScr == SYSTEM_FLAGS_SCREEN_1?0:60;
       for(f=0; f<=59; f++) {
-        if (f+fOffset > NUMBER_OF_SYSTEM_FLAGS - 1) {
+        if(f+fOffset > NUMBER_OF_SYSTEM_FLAGS - 1) {
           break;
         }
         systemFlag = menu_SYSFL[f+fOffset];
@@ -346,4 +343,3 @@ TO_QSPI const  letteredFlagDisplay_t letteredFlagDisplay[] = {
     lastFlgScr = currentFlgScr;
   #endif // !SAVE_SPACE_DM42_8FL
   }
-#endif // !TESTSUITE_BUILD

@@ -10,7 +10,6 @@
 #define AsnDispShortForm (previousCalcMode == CM_AIM || previousCalcMode == CM_EIM || tam.alpha)
 #define AsnDisplayUSER   (fnAsnDisplayUSER ^ (AsnDispShortForm & !getSystemFlag(FLAG_USER)))
 
-#if !defined(TESTSUITE_BUILD)
   #if !defined(SAVE_SPACE_DM42_8ASN)
   TO_QSPI const int      KEY_X_5[6] = {-1, 80, 160, 240, 320, 400};
   static void fnAsnDisplay(uint8_t page) {                // Heavily modified by JM from the original fnShow
@@ -41,7 +40,7 @@
     showString( "[" STD_UP_ARROW "][" STD_DOWN_ARROW "] Browse - [.] Toggle STD/USER View", &standardFont, 20, 220, vmNormal, false, false);
 
     for(key=0; key<37; key++) {
-      if (key<17) {
+      if(key<17) {
         x1 = KEY_X[key % 6 + (key > 12)];
         x2 = KEY_X[(key + (key > 11)) % 6 + 1];
         yy = key/6 + 1;
@@ -88,7 +87,7 @@
       if(strcmp(Name, "0000") == 0) {
         Name[0]=0;
       }
-      if (Norm_Key_00_used) {
+      if(Norm_Key_00_used) {
          if((Norm_Key_00.funcParam[0] != 0) && ((Norm_Key_00.func == -MNU_DYNAMIC)|| (Norm_Key_00.func == ITM_XEQ) || (Norm_Key_00.func == ITM_RCL)))  {
           strcpy(Name, (char *)&Norm_Key_00.funcParam);       // name of a user menu, program or variable assigned to the Norm key
         }
@@ -135,11 +134,9 @@
     temporaryInformation = TI_NO_INFO;
   }
   #endif // !SAVE_SPACE_DM42_8ASN
-#endif // !TESTSUITE_BUILD
 
 
 void fnAsnViewer(uint16_t unusedButMandatoryParameter) {
-#if !defined(TESTSUITE_BUILD)
   #if !defined(SAVE_SPACE_DM42_8ASN)
     hourGlassIconEnabled = false;
     if(calcMode != CM_ASN_BROWSER) {
@@ -151,6 +148,4 @@ void fnAsnViewer(uint16_t unusedButMandatoryParameter) {
     }
   fnAsnDisplay(currentAsnScr);
   #endif // !SAVE_SPACE_DM42_8ASN
-#endif // !TESTSUITE_BUILD
-
-  }
+}

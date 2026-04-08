@@ -424,8 +424,8 @@ overRange:
 
       real34ToReal(real34,&valueReal);
       realCopyAbs(&valueReal,&valueRealAbs);
-      for (unsigned int i=0; i<nbrOfElements(replacements); i++)
-        if ((limitIrfrac >= replacements[i].option && runningOnSimOrUSB) || limitIrfrac == FULLIRFRAC)
+      for(unsigned int i=0; i<nbrOfElements(replacements); i++)
+        if((limitIrfrac >= replacements[i].option && runningOnSimOrUSB) || limitIrfrac == FULLIRFRAC)
           if(checkForAndChange(displayString, &valueReal, &valueRealAbs, replacements[i].cnst, toleranceIrrational, replacements[i].name, frontSpace, complex)) {
             IrFractionsCurrentStatus = CF_NORMAL;
             return;
@@ -439,7 +439,7 @@ overRange:
   //printReal34ToConsole(real34," ------- 001 >>>>>"," <<<<<\n");   //JM
   if(displayFormat == DF_SF) {                                 //convert real34 to string, eat away all zeroes from the right and give back to FIX as a real
     exponent = real34GetExponent(real34) + real34Digits(real34) - 1;
-    if (abs(exponent) <= displayHasNDigits) {
+    if(abs(exponent) <= displayHasNDigits) {
       char tmpString100[100];                           //cleaning up the REAL
       real34_t reduced;
       real_t tmp1;
@@ -1310,7 +1310,7 @@ void complex34ToDisplayString(const complex34_t *complex34, char *displayString,
       displayHasNDigits = max(displayHasNDigits - overflowDigits, 2);
     }
     else {
-      if (displayFormat == DF_FIX) {
+      if(displayFormat == DF_FIX) {
         if(displayFormatDigits == 0 || noFix) {
           noFix = true;
           displayHasNDigits = max(displayHasNDigits - overflowDigits, 2);
@@ -1335,7 +1335,7 @@ void complex34ToDisplayString(const complex34_t *complex34, char *displayString,
     complex34ToDisplayString2(complex34, displayString, displayHasNDigits, limitExponent, frontSpace, tagAngle, tagPolar, limitIrfrac);
     overflow = stringWidth(displayString, font, true, true) - maxWidth;
   }
-  // if (overflown && overflow < -3 * digitWidth) {
+  // if(overflown && overflow < -3 * digitWidth) {
   //   printf("oops: %d\n", overflow);
   // }
 
@@ -1839,7 +1839,7 @@ void longIntegerToHexDisplayString(calcRegister_t regist, char *displayString, b
 
   sign = (lgInt->_mp_size < 0);
 
-  while (!longIntegerIsZero(lgInt)) {
+  while(!longIntegerIsZero(lgInt)) {
     digit = (int32_t)longIntegerModuloUInt(lgInt, (int32_t)(dispBase));
     longIntegerDivideUInt(lgInt, (int32_t)(dispBase), lgInt);
     displayString[i++] = baseDigits[digit];
@@ -2824,7 +2824,6 @@ void complex34MatrixToDisplayString(calcRegister_t regist, char *displayString) 
 }
 
 
-#if !defined(TESTSUITE_BUILD)
 bool_t vectorToDisplayString(calcRegister_t regist, char *displayString) {
   if(getRegisterDataType(regist) == dtReal34Matrix) {
     matrixHeader_t *matrixHeader = REGISTER_MATRIX_HEADER(regist);
@@ -2882,42 +2881,38 @@ static void _complex34ToShowTmpString(const real34_t *r, const real34_t *i) {
     tmpString[2*SHOWLineSize] = 0;
   }
 }
-#endif //TESTSUITE_BUILD
 
 
 void mimShowElement(void) {
-  #if !defined(TESTSUITE_BUILD)
-    uint8_t savedDisplayFormat = displayFormat, savedDisplayFormatDigits = displayFormatDigits;
+  uint8_t savedDisplayFormat = displayFormat, savedDisplayFormatDigits = displayFormatDigits;
 
-    int16_t i = getIRegisterAsInt(true);
-    int16_t j = getJRegisterAsInt(true);
+  int16_t i = getIRegisterAsInt(true);
+  int16_t j = getJRegisterAsInt(true);
 
-    displayFormat = DF_ALL;
-    displayFormatDigits = 0;
+  displayFormat = DF_ALL;
+  displayFormatDigits = 0;
 
-    uint8_t ix;
-    for(ix=0; ix<=SHOWLineMax; ix++) { //L1 ... L7
-      tmpString[ix*SHOWLineSize]=0;
-    }
+  uint8_t ix;
+  for(ix=0; ix<=SHOWLineMax; ix++) { //L1 ... L7
+    tmpString[ix*SHOWLineSize]=0;
+  }
 
-    temporaryInformation = TI_SHOW_REGISTER;
+  temporaryInformation = TI_SHOW_REGISTER;
 
-    if(getRegisterDataType(matrixIndex) == dtReal34Matrix) {
-      real34ToDisplayString(&openMatrixMIMPointer.realMatrix.matrixElements[i * openMatrixMIMPointer.header.matrixColumns + j], amNone, tmpString, &standardFont, 2000, 34, !LIMITEXP, !FRONTSPACE, NOIRFRAC);
-    }
+  if(getRegisterDataType(matrixIndex) == dtReal34Matrix) {
+    real34ToDisplayString(&openMatrixMIMPointer.realMatrix.matrixElements[i * openMatrixMIMPointer.header.matrixColumns + j], amNone, tmpString, &standardFont, 2000, 34, !LIMITEXP, !FRONTSPACE, NOIRFRAC);
+  }
 
-    else {
-      _complex34ToShowTmpString(VARIABLE_REAL34_DATA(&openMatrixMIMPointer.complexMatrix.matrixElements[i * openMatrixMIMPointer.header.matrixColumns + j]),
-                                VARIABLE_IMAG34_DATA(&openMatrixMIMPointer.complexMatrix.matrixElements[i * openMatrixMIMPointer.header.matrixColumns + j]));
-    }
+  else {
+    _complex34ToShowTmpString(VARIABLE_REAL34_DATA(&openMatrixMIMPointer.complexMatrix.matrixElements[i * openMatrixMIMPointer.header.matrixColumns + j]),
+                              VARIABLE_IMAG34_DATA(&openMatrixMIMPointer.complexMatrix.matrixElements[i * openMatrixMIMPointer.header.matrixColumns + j]));
+  }
 
-    displayFormat = savedDisplayFormat;
-    displayFormatDigits = savedDisplayFormatDigits;
-  #endif
+  displayFormat = savedDisplayFormat;
+  displayFormatDigits = savedDisplayFormatDigits;
 }
 
 
-#if !defined(TESTSUITE_BUILD)
 #if !defined(SAVE_SPACE_DM42_9)
 
 static void RegName(void) {    //JM using standard reg name, using showRegis, not using prefixWidth
@@ -3146,8 +3141,6 @@ static void prepLongintIntoLines(int16_t *last, int16_t *source, int16_t *dest, 
   #endif //MONITOR_SHOW
 }
 
-#endif //TESTSUITE_BUILD
-
 
 
 void realToSci(real_t* num, char* dispString) {
@@ -3225,7 +3218,6 @@ int16_t source = 0;
 
 void fnC47Show(uint16_t fnShow_param) {
 #if !defined(SAVE_SPACE_DM42_9)
-  #if !defined(TESTSUITE_BUILD)
     uint8_t savedDisplayFormat = displayFormat, savedDisplayFormatDigits = displayFormatDigits;
     uint64_t ssf0 = systemFlags0;
     uint64_t ssf1 = systemFlags1;
@@ -3335,13 +3327,11 @@ void fnC47Show(uint16_t fnShow_param) {
 // printf("fnC47Show: fnShow_param=%i startingLine=%i IntShowMode=%i source=%i\n",fnShow_param, startingLine, IntShowMode, source);
 
 
-    #if !defined(TESTSUITE_BUILD)
-      #if defined(PC_BUILD) && defined(MONITOR_CLRSCR)
-        printf(">>> ---- clearScreenOld from display.c fnC47Show\n");
-      #endif // PC_BUILD && MONITOR_CLRSCR
-        //      clearScreenOld(!clrStatusBar, clrRegisterLines, !clrSoftkeys); //Clear screen content while NEW SHOW
-        refreshScreen(153);
-    #endif // !TESTSUITE_BUILD
+    #if defined(PC_BUILD) && defined(MONITOR_CLRSCR)
+      printf(">>> ---- clearScreenOld from display.c fnC47Show\n");
+    #endif // PC_BUILD && MONITOR_CLRSCR
+      //      clearScreenOld(!clrStatusBar, clrRegisterLines, !clrSoftkeys); //Clear screen content while NEW SHOW
+    refreshScreen(153);
 
     SHOW_reset();
 
@@ -3556,7 +3546,7 @@ goBreak1:
         int32_t strWid = stringWidth(tmpString + 2100, &numericFont, true, true);
         d = 2100;
         int16_t hadFirstRealDigit = 0;
-        while ( d < 2100 + stringByteLength(tmpString + 2100)) {
+        while( d < 2100 + stringByteLength(tmpString + 2100)) {
           if(hadFirstRealDigit == 0 && tmpString[d] >= '0' && tmpString[d] <='9') {
             hadFirstRealDigit = d - 2100;
           }
@@ -3900,7 +3890,6 @@ goBreak1:
       printf("SHOW:Done |%s|\n",tmpString);
     #endif
 
-  #endif // !TESTSUITE_BUILD
 #else
     fnView(REGISTER_X); // Re-direct to use VIEW instead. No more accuracy though
 #endif // !SAVE_SPACE_DM42_9

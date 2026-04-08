@@ -7,10 +7,8 @@
 void fnPlotRegressionLine(uint16_t plotMode);
 
 
-#if !defined(TESTSUITE_BUILD)
-  static real_t RR,SMI,aa0,aa1,aa2,sa0, sa1; //L.R. variables
-  static void drawline(uint16_t selection, real_t *RR, real_t *SMI, real_t *aa0, real_t *aa1, real_t *aa2, real_t *sa0, real_t *sa1);
-#endif // !TESTSUITE_BUILD
+static real_t RR,SMI,aa0,aa1,aa2,sa0, sa1; //L.R. variables
+static void drawline(uint16_t selection, real_t *RR, real_t *SMI, real_t *aa0, real_t *aa1, real_t *aa2, real_t *sa0, real_t *sa1);
 
 
 float     graph_dx;
@@ -45,7 +43,6 @@ void statGraphReset(void){
 
 
 
-#if !defined(TESTSUITE_BUILD)
   float grf_x(int i) {
                                   #ifdef STATDEBUG
                                     char prefix[100];
@@ -110,17 +107,17 @@ int16_t screen_window_x(float x_min, float x, float x_max) {
 
     tempr = ((x - x_min) / (x_max - x_min) * (float)(SCREEN_HEIGHT_GRAPH - 1));
 
-    if (tempr > 32766) {
+    if(tempr > 32766) {
         temp = 32767;
-    } else if (tempr < -32766) {
+    } else if(tempr < -32766) {
         temp = -32767;
     } else {
         temp = (int16_t)ROUND_F2I(tempr);
     }
 
-    if (temp > SCREEN_HEIGHT_GRAPH - 1) {
+    if(temp > SCREEN_HEIGHT_GRAPH - 1) {
         temp = SCREEN_HEIGHT_GRAPH - 1;
-    } else if (temp < 0) {
+    } else if(temp < 0) {
         temp = 0;
     }
 
@@ -135,27 +132,27 @@ int16_t _screen_window_y(float y_min, float y, float y_max, bool_t nolimit) {
 
     tempr = ((y - y_min) / (y_max - y_min) * (float)(SCREEN_HEIGHT_GRAPH - 1 - minn));
 
-    if (tempr > 32766) {
+    if(tempr > 32766) {
         temp = 32767;
-    } else if (tempr < -32766) {
+    } else if(tempr < -32766) {
         temp = -32767;
     } else {
         temp = (int16_t)ROUND_F2I(tempr);
     }
 
-    if (!nolimit) {
-        if (temp > SCREEN_HEIGHT_GRAPH - 1 - minn) {
+    if(!nolimit) {
+        if(temp > SCREEN_HEIGHT_GRAPH - 1 - minn) {
             temp = SCREEN_HEIGHT_GRAPH - 1 - minn;
-        } else if (temp < 0) {
+        } else if(temp < 0) {
             temp = 0;
         }
     }
 
     #if defined(PC_BUILD)
-    if (SCREEN_HEIGHT_GRAPH - 1 - temp < 0) {
+    if(SCREEN_HEIGHT_GRAPH - 1 - temp < 0) {
         printf("In function screen_window_y Y NEGATIVE %6d; ", SCREEN_HEIGHT_GRAPH - 1 - temp);
     }
-    if (SCREEN_HEIGHT_GRAPH - 1 - temp > 239) {
+    if(SCREEN_HEIGHT_GRAPH - 1 - temp > 239) {
         printf("In function screen_window_y Y EXCEEDED %6d; ", SCREEN_HEIGHT_GRAPH - 1 - temp);
     }
     #endif
@@ -176,37 +173,27 @@ int16_t _screen_window_y(float y_min, float y, float y_max, bool_t nolimit) {
 
 
 
-#endif // !TESTSUITE_BUILD
-
-
 void placePixel(uint32_t x, uint32_t y) {
-  #if !defined(TESTSUITE_BUILD)
   if(x < SCREEN_WIDTH_GRAPH && y < SCREEN_HEIGHT_GRAPH && y >= 1 + minn) {
     setBlackPixel(x, y);
   }
-#endif //!TESTSUITE_BUILD
 }
 
 
 void removePixel(uint32_t x, uint32_t y) {
-  #if !defined(TESTSUITE_BUILD)
   if(x < SCREEN_WIDTH_GRAPH && y < SCREEN_HEIGHT_GRAPH && y >= 1 + minn) {
     setWhitePixel(x, y);
   }
-#endif //!TESTSUITE_BUILD
 }
 
 
 void clearScreenPixels(void) {
-  #if !defined(TESTSUITE_BUILD)
-    lcd_fill_rect(SCREEN_WIDTH-SCREEN_HEIGHT_GRAPH, 0, SCREEN_HEIGHT_GRAPH, SCREEN_HEIGHT_GRAPH, LCD_SET_VALUE);
-    lcd_fill_rect(0, Y_POSITION_OF_REGISTER_T_LINE, SCREEN_WIDTH-SCREEN_HEIGHT_GRAPH, 171-5-Y_POSITION_OF_REGISTER_T_LINE+1, LCD_SET_VALUE);
-    lcd_fill_rect(19, 171-5, SCREEN_WIDTH-SCREEN_HEIGHT_GRAPH-19+1, 5, LCD_SET_VALUE);
-  #endif //!TESTSUITE_BUILD
+  lcd_fill_rect(SCREEN_WIDTH-SCREEN_HEIGHT_GRAPH, 0, SCREEN_HEIGHT_GRAPH, SCREEN_HEIGHT_GRAPH, LCD_SET_VALUE);
+  lcd_fill_rect(0, Y_POSITION_OF_REGISTER_T_LINE, SCREEN_WIDTH-SCREEN_HEIGHT_GRAPH, 171-5-Y_POSITION_OF_REGISTER_T_LINE+1, LCD_SET_VALUE);
+  lcd_fill_rect(19, 171-5, SCREEN_WIDTH-SCREEN_HEIGHT_GRAPH-19+1, 5, LCD_SET_VALUE);
 }
 
 
-#if !defined(TESTSUITE_BUILD)
 void plotcross(int16_t xn, int16_t yn) {              // Plots cross at xn,yn
   plotline1(max((int16_t)xn-2,0),max((int16_t)yn-2,0),xn+2,yn+2);                       //   PLOT a cross
   plotline1(max((int16_t)xn-2,0),yn+2,xn+2,max((int16_t)yn-2,0));
@@ -315,18 +302,18 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
     static int count = 0;
     static int z[5] = {0};
 
-    if (first_time) {
+    if(first_time) {
         count = 0;
         memset(z, 0, sizeof(z));
         return;
     }
 
-    if (!final_segment) {
-        if (count < 5) {
+    if(!final_segment) {
+        if(count < 5) {
             px[count] = xn;
             py[count] = yn;
 
-            if (count > 0) {
+            if(count > 0) {
                 int dx = abs((int)px[count] - (int)px[count - 1]);
                 int dy = abs((int)py[count] - (int)py[count - 1]);
                 z[count] = (int)(sqrtf((float)(dx*dx + dy*dy)) + 0.5f);
@@ -334,7 +321,7 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
 
             count++;
         } else {
-            for (int i = 0; i < 4; i++) {
+            for(int i = 0; i < 4; i++) {
                 px[i] = px[i + 1];
                 py[i] = py[i + 1];
                 z[i] = z[i + 1];
@@ -347,13 +334,13 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
             z[4] = (int)(sqrtf((float)(dx*dx + dy*dy)) + 0.5f);
         }
 
-        if (count < 2) return;
+        if(count < 2) return;
 
-        if (count == 2) {
+        if(count == 2) {
             float prev_x = px[0], prev_y = py[0];
             if(ifAnyMax(px, py, count)) {
                 int steps = min(1,max(maxSteps,z[1]));
-                for (int i = 1; i <= steps; i++) {
+                for(int i = 1; i <= steps; i++) {
                     float t = (float)i / steps;
                     float sx = (1 - t) * px[0] + t * px[1];
                     float sy = (1 - t) * py[0] + t * py[1];
@@ -366,11 +353,11 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
 
 
 
-        } else if (count == 3) {
+        } else if(count == 3) {
             float prev_x = px[0], prev_y = py[0];
             if(!ifAnyMax(px, py, count)) {
                 int steps = min(1,max(maxSteps,z[1] + z[2]));
-                for (int i = 1; i <= steps; i++) {
+                for(int i = 1; i <= steps; i++) {
                     float t = (float)i / steps;
                     float u = 1 - t;
                     float sx = u*u*px[0] + 2*u*t*px[1] + t*t*px[2];
@@ -384,7 +371,7 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
 
 
 
-        } else if (count == 4) {
+        } else if(count == 4) {
             float t1x = (px[2] - px[0]) / 2.0f;
             float t1y = (py[2] - py[0]) / 2.0f;
             float t2x = (px[3] - px[1]) / 2.0f;
@@ -393,7 +380,7 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
             float prev_x = px[1], prev_y = py[1];
             if(!ifAnyMax(px, py, count)) {
                 int steps = min(1,max(maxSteps,z[1] + z[2] + z[3]));
-                for (int i = 1; i <= steps; i++) {
+                for(int i = 1; i <= steps; i++) {
                     float sx, sy;
                     evalHermite((float)i / steps,
                                 px[1], px[2], t1x, t2x,
@@ -417,7 +404,7 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
                 float prev_x = px[1], prev_y = py[1];
                 if(!ifAnyMax(px, py, 5)) {
                     int steps = min(1,max(maxSteps,z[1] + z[2]));
-                    for (int i = 1; i <= steps; i++) {
+                    for(int i = 1; i <= steps; i++) {
                         float sx, sy;
                         evalHermite((float)i / steps, px[1], px[2], t1x, t2x, py[1], py[2], t1y, t2y, &sx, &sy);
                         plotline2(ROUND_F2I(prev_x), ROUND_F2I(prev_y), ROUND_F2I(sx), ROUND_F2I(sy));
@@ -437,7 +424,7 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
                 float prev_x = px[2], prev_y = py[2];
                 if(!ifAnyMax(px, py, 5)) {
                     int steps = min(1,max(maxSteps,z[2] + z[3] + z[4]));
-                    for (int i = 1; i <= steps; i++) {
+                    for(int i = 1; i <= steps; i++) {
                         float sx, sy;
                         evalHermite((float)i / steps, px[2], px[3], t1x, t2x, py[2], py[3], t1y, t2y, &sx, &sy);
                         plotline2(ROUND_F2I(prev_x), ROUND_F2I(prev_y), ROUND_F2I(sx), ROUND_F2I(sy));
@@ -450,7 +437,7 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
         }
 
 
-    } else if (final_segment && count == 5) {
+    } else if(final_segment && count == 5) {
         float t1x = (px[4] - px[2]) / 2.0f;
         float t1y = (py[4] - py[2]) / 2.0f;
         float t2x = (px[4] - px[3]) / 2.0f;
@@ -459,7 +446,7 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
         if(!ifAnyMax(px, py, count)) {
             float prev_x = px[3], prev_y = py[3];
             int steps = min(1,max(maxSteps,z[3] + z[4]));
-            for (int i = 1; i <= steps; i++) {
+            for(int i = 1; i <= steps; i++) {
                 float sx, sy;
                 evalHermite((float)i / steps,
                             px[3], px[4], t1x, t2x,
@@ -475,8 +462,6 @@ void plotline3(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t first_time
     }
   #endif //USECURVES
 }
-#endif //TESTSUITE_BUILD
-
 
 
 
@@ -518,10 +503,9 @@ void pixelline(int16_t xo, int16_t yo, int16_t xn, int16_t yn, bool_t vmNormal) 
 
 void graphAxisDraw (void){
 #if !defined(SAVE_SPACE_DM42_13GRF)
-  #if !defined(TESTSUITE_BUILD)
-    if(x_min <= FLoatingMin || x_min >= FLoatingMax || x_max <= FLoatingMin || x_max >= FLoatingMax || y_min <= FLoatingMin || y_min >= FLoatingMax || y_max <= FLoatingMin || y_max >= FLoatingMax) {
-      return;
-    }
+  if(x_min <= FLoatingMin || x_min >= FLoatingMax || x_max <= FLoatingMin || x_max >= FLoatingMax || y_min <= FLoatingMin || y_min >= FLoatingMax || y_max <= FLoatingMin || y_max >= FLoatingMax) {
+    return;
+  }
   uint32_t cnt;
 
   clearScreenPixels();
@@ -697,7 +681,7 @@ void graphAxisDraw (void){
   }
   //printf("PLOT_ZMY=%i tick_int_x=%f, tick_int_y=%f\n",PLOT_ZMY, tick_int_x, tick_int_y);
   force_refresh(timed);
-  #endif
+//  #endif
 #endif //SAVE_SPACE_DM42_13GRF
 }
 
@@ -766,7 +750,6 @@ return tick_int_f;
 
 void graph_axis (void){
 #if !defined(SAVE_SPACE_DM42_13GRF)
-  #if !defined(TESTSUITE_BUILD)
     graph_dx = 0; //XXX override manual setting from GRAPH to auto, temporarily. Can program these to fixed values.
     graph_dy = 0;
 
@@ -789,7 +772,6 @@ void graph_axis (void){
     #endif // STATDEBUG
 
 
-  #endif // !TESTSUITE_BUILD
   graphAxisDraw();
 #endif //SAVE_SPACE_DM42_13GRF
 }
@@ -817,9 +799,9 @@ char * radixProcess(char *output, const char * ss) {  //  .  HIERDIE WERK GLAD N
 
 void nanCheck(char* s02) { //eg. change (nanE-3 or ;nanE-3) to NaN
   if(stringByteLength(s02) > 2) {
-    for (int ix = 2; s02[ix]!=0; ix++) {
+    for(int ix = 2; s02[ix]!=0; ix++) {
       if(s02[ix]=='n' && s02[ix-1]=='a' && s02[ix-2]=='n') { //check for nan
-        if (s02[0] == '(' && s02[ix+1] != 0) {
+        if(s02[0] == '(' && s02[ix+1] != 0) {
           strcpy(s02, "(NaN");
         }
         else if(s02[0] == ';' && s02[stringByteLength(s02)-1] == ')' && s02[ix+1] != 0 && s02[ix+2] != 0) {
@@ -891,80 +873,72 @@ char * smallE(char *output, const char * ss) {
 
 //**************************************************************************************************************
 
-#if !defined(TESTSUITE_BUILD)
-
   static int checkWidthWithPrefix(const char* itemName, const char* numStr, uint32_t max_width) {
     char test_buffer[128];
     snprintf(test_buffer, sizeof(test_buffer), "%s%s", itemName, numStr);
-    #if !defined(TESTSUITE_BUILD)
       //printf("ssss=%d\n",stringWidthC47(test_buffer, stdNoEnlarge, !nocompress, false, false));
       return stringWidthC47(test_buffer, stdNoEnlarge, !nocompress, false, false) < max_width;
-    #else //TESTSUITE_BUILD
-      return 0;
-    #endif //TESTSUITE_BUILD
   }
 
 
   static void cleanupTrailingZeros(char* str) {
     char* e_pos = strchr(str, 'E');
-    if (!e_pos) {
+    if(!e_pos) {
       e_pos = strchr(str, 'e');
     }
-    if (e_pos && *e_pos == 'e') {
+    if(e_pos && *e_pos == 'e') {
       *e_pos = 'E';
     }
-    if (e_pos) {
+    if(e_pos) {
       char* decimal_pos = strchr(str, '.');
-      if (decimal_pos && decimal_pos < e_pos) {
+      if(decimal_pos && decimal_pos < e_pos) {
         char* p = e_pos - 1;
-        while (p > decimal_pos && *p == '0') {
+        while(p > decimal_pos && *p == '0') {
           p--;
         }
-        if (p == decimal_pos) {
+        if(p == decimal_pos) {
           memmove(decimal_pos, e_pos, strlen(e_pos) + 1);
         } else {
           memmove(p + 1, e_pos, strlen(e_pos) + 1);
         }
       }
       e_pos = strchr(str, 'E');
-      if (e_pos) {
+      if(e_pos) {
         char* exp_start = e_pos + 1;
-        if (*exp_start == '+') {
+        if(*exp_start == '+') {
           exp_start++;
         }
-        if (*exp_start == '-') {
+        if(*exp_start == '-') {
           exp_start++;
         }
-        while (*exp_start == '0' && *(exp_start + 1) != '\0') {
+        while(*exp_start == '0' && *(exp_start + 1) != '\0') {
           memmove(exp_start, exp_start + 1, strlen(exp_start + 1) + 1);
         }
       }
     } else {
       char* decimal_pos = strchr(str, '.');
-      if (decimal_pos) {
+      if(decimal_pos) {
         int len = strlen(str);
         int i = len - 1;
-        while (i > decimal_pos - str && str[i] == '0') {
+        while(i > decimal_pos - str && str[i] == '0') {
           str[i] = '\0';
           i--;
         }
-        if (i == decimal_pos - str) {
+        if(i == decimal_pos - str) {
           str[i] = '\0';
         }
       }
     }
   }
-#endif //TESTSUITE_BUILD
 
 
 //success flag set if convertion was done and maxwidth is NOT overreached. Additionally ?? is output when no conversion is done.
 char* formatDoubleWidth(real34_t *real34, int digits, char* itemName, bool_t* success, int actual_max_width, char* buf, int digitswidthLimit) {
-  #if !defined(TESTSUITE_BUILD)
     uint8_t savedDisplayFormatDigits = displayFormatDigits;
     uint8_t saveddisplayFormat = displayFormat;
     bool_t  ovrENG = getSystemFlag(FLAG_ENGOVR);
     clearSystemFlag(FLAG_ENGOVR);
-    if (real34IsZero(real34)) {
+    if(real34IsZero(real34)) {
       strcpy(buf, "0");
       *success = 1;
       return buf;
@@ -976,12 +950,12 @@ char* formatDoubleWidth(real34_t *real34, int digits, char* itemName, bool_t* su
     real_t threshold9E99, threshold1E_99;
     stringToReal("9E99", &threshold9E99, &ctxtReal39);
     stringToReal("1E-99", &threshold1E_99, &ctxtReal39);
-    if (realCompareAbsGreaterThan(&real, &threshold9E99)) {
+    if(realCompareAbsGreaterThan(&real, &threshold9E99)) {
       strcpy(buf, isNegative ? STD_GAUSS_WHITE_L STD_GAUSS_WHITE_L STD_GAUSS_WHITE_L /* <<< */ : STD_GAUSS_WHITE_R STD_GAUSS_WHITE_R STD_GAUSS_WHITE_R /* >>> */);
       *success = 1;
       goto done;
     }
-    if (realCompareAbsLessThan(&real, &threshold1E_99)) {
+    if(realCompareAbsLessThan(&real, &threshold1E_99)) {
       strcpy(buf, isNegative ? STD_GAUSS_WHITE_L STD_SUB_0 : STD_GAUSS_WHITE_R STD_SUB_0);   //  "<0" : ">0");
       *success = 1;
       goto done;
@@ -994,7 +968,7 @@ char* formatDoubleWidth(real34_t *real34, int digits, char* itemName, bool_t* su
       displayFormat = DF_FIX;
       displayFormatDigits = 0;
     }
-    for (int ddd = 8; ddd >= 2; ddd--) {
+    for(int ddd = 8; ddd >= 2; ddd--) {
       updateDisplayValueX = true;
       displayValueX[0] = 0;
       real34ToDisplayString(real34, amNone, buf, &standardFont, digitswidthLimit == 0 ? 60 : digitswidthLimit, ddd, LIMITEXP, !FRONTSPACE, NOIRFRAC);
@@ -1002,7 +976,7 @@ char* formatDoubleWidth(real34_t *real34, int digits, char* itemName, bool_t* su
       strcpy(buf, displayValueX);
       cleanupTrailingZeros(buf);
 
-      if (checkWidthWithPrefix(itemName, buf, actual_max_width)) {
+      if(checkWidthWithPrefix(itemName, buf, actual_max_width)) {
          *success = false;
          goto done;
       }
@@ -1013,32 +987,30 @@ done:
     displayFormatDigits = savedDisplayFormatDigits;
     displayFormat = saveddisplayFormat;
     if(ovrENG) setSystemFlag(FLAG_ENGOVR); else clearSystemFlag(FLAG_ENGOVR);
-  #endif //TESTSUITE_BUILD
   return buf;
 }
 
 char* formatCore(double value, int digits, bool handle_zero, char* buf, int widthLimit) {
-    const char* sign = (value < 0.0) ? "-" : "";
-    if (value < 0.0) value = -value;
+  const char* sign = (value < 0.0) ? "-" : "";
+  if(value < 0.0) {
+    value = -value;
+  }
 
-    if (handle_zero && value == 0.0) {
-      sprintf(buf, "%s0.0", sign);
-    } else {
-      #if !defined(TESTSUITE_BUILD)
-        real34_t value34;
-        real_t valueR;
-        bool_t success;
-        char tmpBuf[128];
-        convertDoubleToReal(value, &valueR, &ctxtReal39);
-        realToReal34(&valueR, &value34);
-        strcpy(buf, sign);
-        strcat(buf, formatDoubleWidth(&value34, digits, "", &success, widthLimit == 0 ? 50 : widthLimit, tmpBuf, widthLimit == 0 ? 50 : widthLimit));
-      #else
-        buf[0] = '\0';
-      #endif //TESTSUITE_BUILD
-    }
-    radixProcess(buf, buf);
-    return  buf;//radixProcess(buf2, buf);
+  if(handle_zero && value == 0.0) {
+    sprintf(buf, "%s0.0", sign);
+  }
+  else {
+    real34_t value34;
+    real_t valueR;
+    bool_t success;
+    char tmpBuf[128];
+    convertDoubleToReal(value, &valueR, &ctxtReal39);
+    realToReal34(&valueR, &value34);
+    strcpy(buf, sign);
+    strcat(buf, formatDoubleWidth(&value34, digits, "", &success, widthLimit == 0 ? 50 : widthLimit, tmpBuf, widthLimit == 0 ? 50 : widthLimit));
+  }
+  radixProcess(buf, buf);
+  return  buf;//radixProcess(buf2, buf);
 }
 
 void grphNumFormatter(char* s02, const char* s01, double inreal, int8_t digits, const char* s05) {
@@ -1051,13 +1023,13 @@ void grphNumFormatter(char* s02, const char* s01, double inreal, int8_t digits, 
 //  void test_format_functions() {
 //      printf("Testing formatCore and grphNumFormatter with digits 2-8 horizontally\n");
 //      printf("Input Value\t\t");
-//      for (int d = 2; d <= 8; d++) {
+//      for(int d = 2; d <= 8; d++) {
 //          printf("formatCore(%d)\tgrphNumFormatter(%d)\t", d, d);
 //      }
 //      printf("\n");
 //
 //      printf("===========\t\t");
-//      for (int d = 2; d <= 8; d++) {
+//      for(int d = 2; d <= 8; d++) {
 //          printf("============\t================\t");
 //      }
 //      printf("\n");
@@ -1084,10 +1056,10 @@ void grphNumFormatter(char* s02, const char* s01, double inreal, int8_t digits, 
 //      int num_values = sizeof(test_values) / sizeof(test_values[0]);
 //      char result_buf[256];
 //
-//      for (int i = 0; i < num_values; i++) {
+//      for(int i = 0; i < num_values; i++) {
 //          printf("%.3e\t\t", test_values[i]);
 //
-//          for (int digits = 2; digits <= 8; digits++) {
+//          for(int digits = 2; digits <= 8; digits++) {
 //              formatCore(test_values[i], digits, false, result_buf, 256);
 //              printf("%s\t", result_buf);
 //              grphNumFormatter(result_buf, "[", test_values[i], digits, "]");
@@ -1095,7 +1067,7 @@ void grphNumFormatter(char* s02, const char* s01, double inreal, int8_t digits, 
 //          }
 //          printf("\n");
 //
-//          if (i % 15 == 14) printf("\n"); // Add spacing every 15 values
+//          if(i % 15 == 14) printf("\n"); // Add spacing every 15 values
 //      }
 //
 //      printf("\nTotal test cases: %d values × 7 digit settings × 2 functions = %d tests\n",
@@ -1110,7 +1082,6 @@ void grphNumFormatter(char* s02, const char* s01, double inreal, int8_t digits, 
 #define horOffset 1 //labels from the left
 
 
-#if !defined(TESTSUITE_BUILD)
   int32_t statMxN(void) {
     uint16_t rows = 0;
 
@@ -1168,8 +1139,6 @@ void plotPointGeneric(int16_t xn, int16_t yn, int16_t xo, int16_t yo, bool_t PLO
     plotline1(xo, yo, xn, yn);
   }
 }
-#endif // !TESTSUITE_BUILD
-
 
 
 
@@ -1181,7 +1150,6 @@ currentKeyCode = 255;
   #if defined(STATDEBUG) && defined(PC_BUILD)
     printf("#####>>> graphPlotstat: selection:%u:%s  lastplotmode:%u  lrSelection:%u lrChosen:%u\n",selection, getCurveFitModeName(selection), lastPlotMode, lrSelection, lrChosen);
   #endif // STATDEBUG && PC_BUILD
-  #if !defined(TESTSUITE_BUILD)
   uint16_t  cnt, ix, numberOfPlotPoints;
   int16_t  xo, xn, xN;
   int16_t  yo, yn, yN;
@@ -1449,12 +1417,10 @@ currentKeyCode = 255;
   #endif
 
 
- #endif // !TESTSUITE_BUILD)
 #endif //SAVE_SPACE_DM42_13GRF
 }
 
 
-#if !defined(TESTSUITE_BUILD)
   void demo_plot(void) {
     int8_t ix;
     time_t t;
@@ -1481,25 +1447,21 @@ currentKeyCode = 255;
       runFunction(ITM_SIGMAPLUS);
     }
   }
-#endif // !TESTSUITE_BUILD
 
 
 void graphDrawLRline(uint16_t selection) {
-  #if !defined(TESTSUITE_BUILD)
-    //demo_plot();
-    if(selection != 0) {
-      processCurvefitSelection(selection, &RR, &SMI, &aa0, &aa1, &aa2);
-      realMultiply(&RR,&RR,&RR,&ctxtReal39);
-      if(orOrtho(selection) == CF_ORTHOGONAL_FITTING) {
-        processCurvefitSA(&sa0, &sa1);
-      }
-      drawline(selection, &RR, &SMI, &aa0, &aa1, &aa2, &sa0, &sa1);
+  //demo_plot();
+  if(selection != 0) {
+    processCurvefitSelection(selection, &RR, &SMI, &aa0, &aa1, &aa2);
+    realMultiply(&RR,&RR,&RR,&ctxtReal39);
+    if(orOrtho(selection) == CF_ORTHOGONAL_FITTING) {
+      processCurvefitSA(&sa0, &sa1);
     }
-  #endif // !TESTSUITE_BUILD
+    drawline(selection, &RR, &SMI, &aa0, &aa1, &aa2, &sa0, &sa1);
+  }
 }
 
 
-#if !defined(TESTSUITE_BUILD)
  static void drawline(uint16_t selection, real_t *RR, real_t *SMI, real_t *aa0, real_t *aa1, real_t *aa2, real_t *sa0, real_t *sa1) {
 #if !defined(SAVE_SPACE_DM42_13GRF)
     int32_t n = 0;
@@ -1778,7 +1740,6 @@ void graphDrawLRline(uint16_t selection) {
   }
 #endif // !SAVE_SPACE_DM42_13GRF
   }
-#endif // !TESTSUITE_BUILD
 
 
 void fnPlotCloseSmi(uint16_t unusedButMandatoryParameter){
@@ -1795,7 +1756,6 @@ void fnPlotCloseSmi(uint16_t unusedButMandatoryParameter){
 //** plotSelection = 0 means that no curve fit is plotted
 //
 void fnPlotStat(uint16_t plotMode){
-#if !defined(TESTSUITE_BUILD)
 #if !defined(SAVE_SPACE_DM42_13GRF)
     //restoreStats();
   switch(plotMode) {
@@ -1865,7 +1825,6 @@ void fnPlotStat(uint16_t plotMode){
        (plotStatMx[0]=='H' && statMxN() >= 3) ) {
       clearSystemFlag(FLAG_SCALE);
 
-      #if !defined(TESTSUITE_BUILD)
       if(!(lastPlotMode == PLOT_NOTHING || lastPlotMode == PLOT_START)) {
         plotMode = lastPlotMode;
       }
@@ -1927,8 +1886,6 @@ void fnPlotStat(uint16_t plotMode){
       else {
         lastPlotMode = plotMode;
       }
-      #endif // !TESTSUITE_BUILD
-
   }
   else {
     calcMode = CM_NORMAL;
@@ -1939,7 +1896,6 @@ void fnPlotStat(uint16_t plotMode){
     #endif
   }
 #endif // SAVE_SPACE_DM42_13GRF
-#endif // !TESTSUITE_BUILD
 }
 
 

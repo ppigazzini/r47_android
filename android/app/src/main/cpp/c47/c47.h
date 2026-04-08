@@ -127,7 +127,7 @@
     #if defined(TESTSUITE_BUILD)
       #include "testSuite.h"
     #endif //TESTSUITE_BUILD
-  #endif // PC_BUILD || DMCP_BUILD || TESTSUITE_BUILD
+  #endif // !GENERATE_CATALOGS && !GENERATE_CONSTANTS && !GENERATE_TESTPGMS
 
   #if defined(GENERATE_CATALOGS) || defined(GENERATE_TESTPGMS)
     #include <gmp.h>
@@ -163,7 +163,7 @@
     #include "solver/solver.h"
     #include "sort.h"
     #include "stats.h"
-  #endif // GENERATE_CATALOGS
+  #endif // GENERATE_CATALOGS || GENERATE_TESTPGMS
 
   #if defined(GENERATE_CONSTANTS)
     #ifndef ANDROID_BUILD
@@ -211,40 +211,24 @@
     #include "items.h"
   #endif // GENERATE_TESTPGMS
 
-  // Variables for the simulator
-  #if !defined(GENERATE_CATALOGS) &&  !defined(GENERATE_TESTPGMS)
-    extern uint16_t lastI;
-    extern uint16_t lastJ;
-    extern int16_t lastFunc;
-    extern int16_t lastParam;
-    extern char    lastTemp[16];
-  #endif // !GENERATE_CATALOGS
+  extern uint16_t               lastI;
+  extern uint16_t               lastJ;
+  extern int16_t                lastFunc;
+  extern int16_t                lastParam;
+  extern char                   lastTemp[16];
 
-  #if defined(PC_BUILD) || defined(TESTSUITE_BUILD)
-    extern bool_t               debugMemAllocation;
+  #if defined(PC_BUILD)
     extern bool                 forceTamAlpha;
     extern uint32_t             deadKey;
     extern bool_t               testDeadKeys;
     extern bool_t               swapCtrlCode;
-  #endif // PC_BUILD || TESTSUITE_BUILD
-
-  #if defined(PC_BUILD)
     extern bool_t               calcLandscape;
     extern bool_t               calcAutoLandscapePortrait;
     extern GtkWidget           *screen;
     extern GtkWidget           *frmCalc;
     extern int16_t              screenStride;
-    extern int16_t              debugWindow;
     extern uint32_t            *screenData;
     extern bool_t               screenChange;
-    extern char                 debugString[10000];
-    #if (DEBUG_REGISTER_L == 1)
-      extern GtkWidget         *lblRegisterL1;
-      extern GtkWidget         *lblRegisterL2;
-    #endif // (DEBUG_REGISTER_L == 1)
-    #if (SHOW_MEMORY_STATUS == 1)
-      extern GtkWidget         *lblMemoryStatus;
-    #endif // (SHOW_MEMORY_STATUS == 1)
     extern calcKeyboard_t       calcKeyboard[43];
     extern int                  currentBezel; // 0=normal, 1=AIM, 2=TAM
   #endif //PC_BUILD
@@ -253,7 +237,7 @@
   extern uint8_t calcModel;
 
   extern uint8_t             *lcd_buffer;
-  extern const int           KEY_X[7];
+  extern const int            KEY_X[7];
 
   // Variables stored in FLASH
   extern const item_t                    indexOfItems[];

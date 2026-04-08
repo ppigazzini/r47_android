@@ -3,7 +3,6 @@
 
 #include "c47.h"
 
-#if !defined(TESTSUITE_BUILD)
     TO_QSPI const int16_t StoOperations[][2] = {
       {ITM_ADD,      ITM_STOADD},
       {ITM_SUB,      ITM_STOSUB},
@@ -944,7 +943,7 @@ printf("tam.value: %d\n", tam.value);
             #endif // (EXTRA_INFO_ON_CALC_ERROR == 1)
           }
         }
-        else if (calcMode != CM_PEM) {
+        else if(calcMode != CM_PEM) {
           reallyRunFunction(tamOperation(), value);
           leaveTamModeIfEnabled();
           return;
@@ -1286,4 +1285,3 @@ printf("tam.value: %d\n", tam.value);
     _tamProcessInput(item);
     _tamUpdateBuffer();
   }
-#endif // !TESTSUITE_BUILD
