@@ -48,22 +48,20 @@ Current version defaults all non-loaded settings from previous version files cor
 
 
 uint16_t flushBufferCnt = 0;
-#if !defined(TESTSUITE_BUILD)
-  #define START_REGISTER_VALUE 860  // 2025/09/06 [DL] reduced fromm 1000 to provide enougth room in tmpRegisterString for config data (840 bytes):
-                                    //                 tmpRegisterString is a part of the global tmpString which is 2560 bytes (aux_buf_ptr buffer provided by DMCP)
-                                    //                 config string length is 1680 bytes (840 x 2) so tmpRegisterString should start at max at 880 (2560 - 1680)
-                                    //                 THIS VALUE NEEDS TO BE RE-EVALUATED IF THE CONFIG DATA LENGTH IS INCREASED
-  static uint32_t loadedVersion = 0;
-  static char *tmpRegisterString = NULL;
+#define START_REGISTER_VALUE 860  // 2025/09/06 [DL] reduced fromm 1000 to provide enougth room in tmpRegisterString for config data (840 bytes):
+                                  //                 tmpRegisterString is a part of the global tmpString which is 2560 bytes (aux_buf_ptr buffer provided by DMCP)
+                                  //                 config string length is 1680 bytes (840 x 2) so tmpRegisterString should start at max at 880 (2560 - 1680)
+                                  //                 THIS VALUE NEEDS TO BE RE-EVALUATED IF THE CONFIG DATA LENGTH IS INCREASED
+static uint32_t loadedVersion = 0;
+static char *tmpRegisterString = NULL;
 
-  static void save(const void *buffer, uint32_t size) {
-    ioFileWrite(buffer, size);
-  }
+static void save(const void *buffer, uint32_t size) {
+  ioFileWrite(buffer, size);
+}
 
-  static uint32_t restore(void *buffer, uint32_t size) {
-    return ioFileRead(buffer, size);
-  }
-#endif // !TESTSUITE_BUILD
+static uint32_t restore(void *buffer, uint32_t size) {
+  return ioFileRead(buffer, size);
+}
 
 
 uint8_t convert001090400T001090500(uint8_t parameter, uint8_t offset) { //Example: read from file: RB_F14 (which was 0) and and report RBX_F14 (which is 221) to the program.
@@ -74,7 +72,6 @@ uint8_t convert001090400T001090500(uint8_t parameter, uint8_t offset) { //Exampl
   return output;
 }
 
-#if !defined(TESTSUITE_BUILD)
 // Forced base-10 conversion functions
 static int16_t toInt16(const char *str) {
   return (int16_t)strtol(str, NULL, 10);
@@ -185,7 +182,7 @@ static void _updateConstantsInEquations(void) {
     }
   }
 }
-#endif
+//#endif
 
 #if defined(PC_BUILD)
 static void convertOldMatrixHeaderToNewMatrixHeader(calcRegister_t regist) {
@@ -1272,10 +1269,10 @@ static void convertOldMatrixHeaderToNewMatrixHeader(calcRegister_t regist) {
     }
 
     // Ensure valid relations between FLAG_FRACT, FLAG_IRFRAC and FLAG_IRFRQ
-    if (getSystemFlag(FLAG_FRACT)) {
+    if(getSystemFlag(FLAG_FRACT)) {
       setSystemFlag(FLAG_FRACT);
     }
-    else if (getSystemFlag(FLAG_IRFRAC)) {
+    else if(getSystemFlag(FLAG_IRFRAC)) {
       setSystemFlag(FLAG_IRFRAC);
     }
 
@@ -1444,17 +1441,17 @@ static void convertOldMatrixHeaderToNewMatrixHeader(calcRegister_t regist) {
     if(backupVersion < 1009) {                           //register header is already loaded with 32 bits
       printf("Version number of configfile < 1009: chacking all registers for matrix conversion from old 32-bit header to new 32-bit header.");
       int qq = FIRST_GLOBAL_REGISTER;
-      while (qq <= LAST_GLOBAL_REGISTER) {
+      while(qq <= LAST_GLOBAL_REGISTER) {
         convertOldMatrixHeaderToNewMatrixHeader(qq);
         qq++;
       }
       qq = FIRST_NAMED_VARIABLE;
-      while (qq <= LAST_NAMED_VARIABLE) {
+      while(qq <= LAST_NAMED_VARIABLE) {
         convertOldMatrixHeaderToNewMatrixHeader(qq);
         qq++;
       }
       qq = FIRST_LOCAL_REGISTER;
-      while (qq <= LAST_LOCAL_REGISTER) {
+      while(qq <= LAST_LOCAL_REGISTER) {
         convertOldMatrixHeaderToNewMatrixHeader(qq);
         qq++;
       }
@@ -1488,10 +1485,6 @@ static void convertOldMatrixHeaderToNewMatrixHeader(calcRegister_t regist) {
     defineCurrentProgramFromCurrentStep();
 
     //defineCurrentLocalRegisters();
-
-    #if (DEBUG_REGISTER_L == 1)
-      refreshRegisterLine(REGISTER_X); // to show L register
-    #endif // (DEBUG_REGISTER_L == 1)
 
     //save and restore screenData is not mandatory
     //for(int y = 0; y < SCREEN_HEIGHT; ++y) {
@@ -1559,7 +1552,6 @@ char aimBuffer1[400];             //The concurrent use of the global aimBuffer
                                   //does not work. See tmpString.
                                   //Temporary solution is to use a local variable of sufficient length for the target.
 
-#if !defined(TESTSUITE_BUILD)
   static void UI64toString(uint64_t value, char * tmpRegisterString);
   static void registerToSaveString(calcRegister_t regist) {
     longInteger_t lgInt;
@@ -1673,7 +1665,6 @@ char aimBuffer1[400];             //The concurrent use of the global aimBuffer
       }
     }
   }
-#endif // !TESTSUITE_BUILD
 
 
 static void doSave(uint16_t saveType);
@@ -1695,7 +1686,6 @@ void fnSave(uint16_t saveMode) {
 }
 
 void doSave(uint16_t saveType) {
-#if !defined(TESTSUITE_BUILD)
   printStatus(0, errorMessages[SAVING_STATE_FILE],force);
   ioFilePath_t path;
   char tmpString[3000];           //The concurrent use of the global tmpString
@@ -2003,12 +1993,10 @@ void doSave(uint16_t saveType) {
 
   hourGlassIconEnabled = false;
   temporaryInformation = TI_SAVED;
-#endif // !TESTSUITE_BUILD
 }
 
 
 
-#if !defined(TESTSUITE_BUILD)
 void readLine(char *line) {
   if(!ioEof()) {
     restore(line, 1);
@@ -2077,7 +2065,6 @@ static void UI64toString(uint64_t value, char * tmpRegisterString) {
     sprintf(tmpRegisterString, "0x%" PRIx32, v0);
   }
 }
-#endif // !TESTSUITE_BUILD
 
 #define stringToIntFunc(name, type)               \
   type name(const char *str) {                    \
@@ -2106,7 +2093,6 @@ int64_t stringToInt64(const char *str) {
 }
 
 
-#if !defined(TESTSUITE_BUILD)
   static void restoreRegister(calcRegister_t regist, char *type, char *value) {
     uint32_t tag = amNone;
 
@@ -2193,7 +2179,6 @@ int64_t stringToInt64(const char *str) {
       stringToReal34(imaginaryPart, REGISTER_IMAG34_DATA(regist));
     }
 
-  #if !defined(TESTSUITE_BUILD)
     else if(strcmp(type, "Rema") == 0) {
       char *numOfCols;
       uint16_t rows, cols;
@@ -2220,7 +2205,6 @@ int64_t stringToInt64(const char *str) {
       REGISTER_MATRIX_HEADER(regist)->matrixRows = rows;
       REGISTER_MATRIX_HEADER(regist)->matrixColumns = cols;
     }
-  #endif // TESTSUITE_BUILD
 
     else if(strcmp(type, "Conf") == 0) {
       char *cfg;
@@ -2250,7 +2234,6 @@ int64_t stringToInt64(const char *str) {
 
 
   static void restoreMatrixData(calcRegister_t regist) {
-    #if !defined(TESTSUITE_BUILD)
     uint16_t rows, cols;
     uint32_t i;
 
@@ -2278,12 +2261,10 @@ int64_t stringToInt64(const char *str) {
         stringToReal34(imaginaryPart, VARIABLE_IMAG34_DATA(REGISTER_COMPLEX34_MATRIX_ELEMENTS(regist) + i));
       }
     }
-    #endif // !TESTSUITE_BUILD
   }
 
 
   static void skipMatrixData(char *type, char *value) {
-    #if !defined(TESTSUITE_BUILD)
     uint16_t rows, cols;
     uint32_t i;
     char *numOfCols;
@@ -2298,7 +2279,6 @@ int64_t stringToInt64(const char *str) {
         readLine(tmpString);
       }
     }
-    #endif // !TESTSUITE_BUILD
   }
 
 
@@ -2382,7 +2362,7 @@ int64_t stringToInt64(const char *str) {
           debugPrintf(2, "-", tmpString);
         #endif //LOADDEBUG
         str = tmpString;
-        for (i = 0; i < 7; i++) {
+        for(i = 0; i < 7; i++) {
           globalFlags[i] = toUint16(str);
           str = next_word(str);
         }
@@ -2545,10 +2525,10 @@ int64_t stringToInt64(const char *str) {
         }
 
         // Ensure valid relations between FLAG_FRACT, FLAG_IRFRAC and FLAG_IRFRQ
-        if (getSystemFlag(FLAG_FRACT)) {
+        if(getSystemFlag(FLAG_FRACT)) {
           setSystemFlag(FLAG_FRACT);
         }
-        else if (getSystemFlag(FLAG_IRFRAC)) {
+        else if(getSystemFlag(FLAG_IRFRAC)) {
           setSystemFlag(FLAG_IRFRAC);
         }
       }
@@ -2767,15 +2747,15 @@ int64_t stringToInt64(const char *str) {
       }
 
 
-      if (firstFreeProgramByte + freeProgramBytes != beginOfProgramMemory + TO_BYTES(numberOfBlocks) - 2) {
+      if(firstFreeProgramByte + freeProgramBytes != beginOfProgramMemory + TO_BYTES(numberOfBlocks) - 2) {
         uint32_t diff = TO_BYTES(RAM_SIZE_IN_BLOCKS_NEW_HW - RAM_SIZE_IN_BLOCKS_OLD_HW);
         #if defined(DMCP_BUILD) && defined(OLD_HW)
-          if ((firstFreeProgramByte + freeProgramBytes - diff == beginOfProgramMemory + TO_BYTES(numberOfBlocks) - 2)) {
+          if((firstFreeProgramByte + freeProgramBytes - diff == beginOfProgramMemory + TO_BYTES(numberOfBlocks) - 2)) {
             currentStep -= diff;
             firstFreeProgramByte -= diff;
           }
         #else
-          if ((firstFreeProgramByte + freeProgramBytes + diff == beginOfProgramMemory + TO_BYTES(numberOfBlocks) - 2)) {
+          if((firstFreeProgramByte + freeProgramBytes + diff == beginOfProgramMemory + TO_BYTES(numberOfBlocks) - 2)) {
             currentStep += diff;
             firstFreeProgramByte += diff;
           }
@@ -3156,13 +3136,11 @@ END_CONFIG:
     #endif // LOADDEBUG
     clearScreen(211); // implicit forceSBupdate();
   }
-#endif // !TESTSUITE_BUILD
 
 
 
 
 void doLoad(uint16_t loadMode, uint16_t s, uint16_t n, uint16_t d, uint16_t loadType) {
-  #if !defined(TESTSUITE_BUILD)
   savedCalcModel = 0;
   ioFilePath_t path;
   int ret;
@@ -3260,13 +3238,13 @@ void doLoad(uint16_t loadMode, uint16_t s, uint16_t n, uint16_t d, uint16_t load
     }
     break;
     case stateLoad: {
-      if (loadMode == LM_ALL) {
+      if(loadMode == LM_ALL) {
         enableLoad = true;
       }
     }
     break;
     case autoLoad: {
-      if (((loadMode == LM_ALL) && (loadedVersion >= VersionAllowed) && (loadedVersion <= configFileVersion)) ){
+      if(((loadMode == LM_ALL) && (loadedVersion >= VersionAllowed) && (loadedVersion <= configFileVersion)) ){
         enableLoad = true;
       }
     }
@@ -3324,9 +3302,7 @@ void doLoad(uint16_t loadMode, uint16_t s, uint16_t n, uint16_t d, uint16_t load
   //                      "CAVEAT: x->a in Flash will not be\n"
   //                      "replaced so it may cause crash\n");
   //  #endif // DMCP_BUILD
-  //  #if !defined(TESTSUITE_BUILD)
   //    show_warning(tmpString);
-  //  #endif // TESTSUITE_BUILD
   //
   //    int globalStep = 1;
   //    uint8_t *step = beginOfProgramMemory;
@@ -3350,7 +3326,6 @@ void doLoad(uint16_t loadMode, uint16_t s, uint16_t n, uint16_t d, uint16_t load
   #endif // DMCP_BUILD
 
 
-  #if !defined(TESTSUITE_BUILD)
     if(loadType == manualLoad && loadMode == LM_ALL) {
       temporaryInformation = TI_BACKUP_RESTORED;
       getDateString(lastStateFileOpened);
@@ -3388,8 +3363,6 @@ void doLoad(uint16_t loadMode, uint16_t s, uint16_t n, uint16_t d, uint16_t load
       temporaryInformation = TI_VARIABLES_RESTORED;
     }
     cachedDynamicMenu = 0;
-  #endif // !TESTSUITE_BUILD
-#endif // !TESTSUITE_BUILD
 }
 
 
@@ -3448,16 +3421,14 @@ void fnDeleteBackup(uint16_t confirmation) {
     #else // !DMCP_BUILD
       int result = remove("SAVFILES/C47.sav");
       if(result == -1) {
-        #if !defined(TESTSUITE_BUILD)
-          int e = errno;
-          if(e != ENOENT) {
-            displayCalcErrorMessage(ERROR_IO, ERR_REGISTER_LINE, REGISTER_X);
-            #if (EXTRA_INFO_ON_CALC_ERROR == 1)
-              sprintf(errorMessage, "removing the backup failed with error code %d", e);
-              moreInfoOnError("In function fnDeleteBackup:", errorMessage, NULL, NULL);
-            #endif // (EXTRA_INFO_ON_CALC_ERROR == 1)
-          }
-        #endif // !TESTSUITE_BUILD
+        int e = errno;
+        if(e != ENOENT) {
+          displayCalcErrorMessage(ERROR_IO, ERR_REGISTER_LINE, REGISTER_X);
+          #if (EXTRA_INFO_ON_CALC_ERROR == 1)
+            sprintf(errorMessage, "removing the backup failed with error code %d", e);
+            moreInfoOnError("In function fnDeleteBackup:", errorMessage, NULL, NULL);
+          #endif // (EXTRA_INFO_ON_CALC_ERROR == 1)
+        }
       }
     #endif // DMCP_BUILD
   }

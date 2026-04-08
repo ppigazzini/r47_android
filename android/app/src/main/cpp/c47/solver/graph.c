@@ -46,7 +46,6 @@ uint8_t DXR = 0, DYR = 0, DXI = 0, DYI = 0;
 
 
 
-#if !defined(TESTSUITE_BUILD)
   static void fnPlot(uint16_t unusedButMandatoryParameter) {
       lastPlotMode = PLOT_NOTHING;
       strcpy(plotStatMx, "DrwMX");
@@ -120,7 +119,7 @@ uint8_t DXR = 0, DYR = 0, DXI = 0, DYI = 0;
                                       printRegisterToConsole(REGISTER_Y," y=","");
                                     #endif // VERBOSE_SOLVER0
 
-                                    if (ENABLE_COMPLEXSOLVER_FILE_OUTPUT == 2) {
+                                    if(ENABLE_COMPLEXSOLVER_FILE_OUTPUT == 2) {
                                       copySourceRegisterToDestRegister(REGISTER_X,REGISTER_J);
                                       copySourceRegisterToDestRegister(REGISTER_Y,REGISTER_K);
                                       fnP_All_Regs(PRN_XYr);
@@ -161,7 +160,6 @@ uint8_t DXR = 0, DYR = 0, DXI = 0, DYI = 0;
       return 0;
     }
   }
-#endif // !TESTSUITE_BUILD
 
 
   void fnClDrawMx(uint8_t origin) {
@@ -176,7 +174,6 @@ uint8_t DXR = 0, DYR = 0, DXI = 0, DYI = 0;
   }
 
 
-#if !defined(TESTSUITE_BUILD)
   static void AddtoDrawMx() {
     real_t x, y;
     uint16_t rows = 0, cols;
@@ -227,7 +224,6 @@ uint8_t DXR = 0, DYR = 0, DXI = 0, DYI = 0;
       #endif // (EXTRA_INFO_ON_CALC_ERROR == 1)
     }
   }
-#endif // !TESTSUITE_BUILD
 
 
 
@@ -363,12 +359,10 @@ void commitHighResPointsInOrder(PlotPoint *buffer, int count) {
   #endif
   for(int i = 0; i < count; i++) {
     if(!buffer[i].stored) {
-      #if !defined(TESTSUITE_BUILD)
-        convertDoubleToReal34RegisterPush(buffer[i].x, REGISTER_X);
-        execute_rpn_function();
-        AddtoDrawMx();
-        buffer[i].stored = true;
-      #endif //TESTSUITE_BUILD
+      convertDoubleToReal34RegisterPush(buffer[i].x, REGISTER_X);
+      execute_rpn_function();
+      AddtoDrawMx();
+      buffer[i].stored = true;
     }
   }
 }
@@ -461,8 +455,6 @@ typedef struct {
 #define ASYMPTOTE_SAMPLE_POINTS 5   // Points to sample on each side
 
 bool_t detectAndCharacterizeAsymptote(double xLeft, double yLeft, double xRight, double yRight, double xGap, double gapWidth, AsymptoteInfo *asymptote) {
-  #if !defined(TESTSUITE_BUILD)
-
     #ifdef GRAPHDEBUG
       printf("Checking asymptote at x=%.6f, gap=%.6f\n", xGap, gapWidth);
       printf("  Left: x=%.6f, y=%.6f\n", xLeft, yLeft);
@@ -548,7 +540,6 @@ bool_t detectAndCharacterizeAsymptote(double xLeft, double yLeft, double xRight,
       printf("    Standard height: %.3f\n", asymptote->maxHeight);
     #endif
 
-  #endif //TESTSUITE_BUILD
   return true;
 }
 
@@ -581,38 +572,38 @@ TO_QSPI const PointOffset asymptote_offsets_negative[] = {
 
 
 void renderAsymptote(AsymptoteInfo *asymptote) {
-  #if !defined(TESTSUITE_BUILD)
-    double x_center = asymptote->x;
-    double offset = 1e-3;  // Small x offset
-    double asymptoteHeight = 10000.0;
+  double x_center = asymptote->x;
+  double offset = 1e-3;  // Small x offset
+  double asymptoteHeight = 10000.0;
 
-    #ifdef GRAPHDEBUG
-      printf("Rendering asymptote at x=%.6f with clean 3-point vertical sequence\n", x_center);
-    #endif
+  #ifdef GRAPHDEBUG
+    printf("Rendering asymptote at x=%.6f with clean 3-point vertical sequence\n", x_center);
+  #endif
 
-    const PointOffset* offsets = NULL;
+  const PointOffset* offsets = NULL;
 
-    if (asymptote->hasPositive && asymptote->hasNegative) {
-        offsets = asymptote_offsets_both;
-    } else if (asymptote->hasPositive) {
-        offsets = asymptote_offsets_positive;
-    } else if (asymptote->hasNegative) {
-        offsets = asymptote_offsets_negative;
+  if(asymptote->hasPositive && asymptote->hasNegative) {
+    offsets = asymptote_offsets_both;
+  }
+  else if(asymptote->hasPositive) {
+    offsets = asymptote_offsets_positive;
+  }
+  else if(asymptote->hasNegative) {
+    offsets = asymptote_offsets_negative;
+  }
+
+  if(offsets) {
+    for(int i = 0; i < 3; i++) {
+      double x = x_center + offsets[i].dx * offset;
+      double y = offsets[i].dy * ((offsets[i].dy == 0.0) ? 0.0 : asymptoteHeight);
+      convertDoubleToReal34Register(x, REGISTER_X);
+      convertDoubleToReal34Register(y, REGISTER_Y);
+      AddtoDrawMx();
     }
-
-    if (offsets) {
-        for (int i = 0; i < 3; i++) {
-            double x = x_center + offsets[i].dx * offset;
-            double y = offsets[i].dy * ((offsets[i].dy == 0.0) ? 0.0 : asymptoteHeight);
-            convertDoubleToReal34Register(x, REGISTER_X);
-            convertDoubleToReal34Register(y, REGISTER_Y);
-            AddtoDrawMx();
-        }
-    }
+  }
   #ifdef GRAPHDEBUG
     printf("Added 3 asymptote points in clean vertical sequence\n");
   #endif
-  #endif //TESTSUITE_BUILD
 }
 
 
@@ -665,7 +656,6 @@ bool_t detectTrueDiscontinuityWithAsymptote(double y0, double y1, double y2, dou
 // =============================================================================
 
 
-#if !defined(TESTSUITE_BUILD)
   static void graph_eqn(uint16_t mode) {
     currentKeyCode = 255;
     calcMode = CM_GRAPH;
@@ -1206,13 +1196,11 @@ bool_t detectTrueDiscontinuityWithAsymptote(double y0, double y1, double y2, dou
     #endif //LOW_GRAPH_ACC
 
   }
-#endif // !TESTSUITE_BUILD
 //******************************************************************************************************************************
 
 
 
 void graph_stat(uint16_t unusedButMandatoryParameter) {
-  #if !defined(TESTSUITE_BUILD)
     saveForUndo();
     strcpy(plotStatMx,"STATS");
 
@@ -1237,15 +1225,12 @@ void graph_stat(uint16_t unusedButMandatoryParameter) {
         moreInfoOnError("In function graph_stat:", errorMessage, NULL, NULL);
       #endif
     }
-  #endif // !TESTSUITE_BUILD
 }
 
 
 // COMPLEX SOLVER
 
 #if !defined(SAVE_SPACE_DM42_13GRF)
-  #if !defined(TESTSUITE_BUILD)
-
   // =============================================================================
   // SOLVER HELPERS
   // =============================================================================
@@ -1358,9 +1343,9 @@ static bool_t execute_rpn_function_reals(const cplx_t *from, cplx_t *to, real_t 
   execute_rpn_function();
   getRegisterAsComplex(REGISTER_Y, &to->Real, &to->Imag);
   complexMagnitude(&to->Real, &to->Imag, magnitude,  ctxtSolver2);
-  if (realCompareLessEqual(magnitude, &cpxSlvBestMagnitudeY)) {
+  if(realCompareLessEqual(magnitude, &cpxSlvBestMagnitudeY)) {
     copyComplex(from, &cpxSlvBestX);
-    if (realCompareLessThan(magnitude, &cpxSlvBestMagnitudeY)) {
+    if(realCompareLessThan(magnitude, &cpxSlvBestMagnitudeY)) {
       realCopy(magnitude, &cpxSlvBestMagnitudeY);
     }
     return true;
@@ -1371,7 +1356,7 @@ static bool_t execute_rpn_function_reals(const cplx_t *from, cplx_t *to, real_t 
 static inline void powCplxNat(const cplx_t *base,const uint8_t *exp, cplx_t *res) {
   cplx_t tmp;
   copyComplex(base, &tmp);
-  for (uint8_t i = 1; i<*exp; i++) {
+  for(uint8_t i = 1; i<*exp; i++) {
      mulComplexComplex(CPLX(tmp), &base->Real,  &base->Imag, CPLX(tmp), ctxtSolver2);
   }
   copyComplex(&tmp, res);
@@ -1536,12 +1521,12 @@ static inline void powCplxNat(const cplx_t *base,const uint8_t *exp, cplx_t *res
       }
 
       //If converging, increment convergence counter
-      if (realCompareLessThan(&magnitudeY, &oldMagnitudeY))// && realCompareLessThan(&temp0.Real, &temp0.Imag))
+      if(realCompareLessThan(&magnitudeY, &oldMagnitudeY))// && realCompareLessThan(&temp0.Real, &temp0.Imag))
       {
         convergent++;
       }
       else {
-        if (Y2IsCloseToZero) Y2IsZero = true; // if close to solution stop if converge strike is over
+        if(Y2IsCloseToZero) Y2IsZero = true; // if close to solution stop if converge strike is over
         else convergent = max(-3, convergent-2);
       }
       realCopy(&magnitudeY, &oldMagnitudeY);
@@ -1564,12 +1549,12 @@ static inline void powCplxNat(const cplx_t *base,const uint8_t *exp, cplx_t *res
                                           #endif // VERBOSE_SOLVER0
         }
 
-        if (((convergent <= -2 && kicker > yPower*3) || kicker > 8) && yPower < 5) {
+        if(((convergent <= -2 && kicker > yPower*3) || kicker > 8) && yPower < 5) {
           osc = 0;
           convergent = 0;
           oscillations = 0;
           kicker = 3;
-          if (yPower>1) {
+          if(yPower>1) {
             execute_rpn_function_reals(&X0, &Y0, &oldMagnitudeY);
             execute_rpn_function_reals(&X1, &Y1, &magnitudeY);
           }
@@ -1615,7 +1600,7 @@ static inline void powCplxNat(const cplx_t *base,const uint8_t *exp, cplx_t *res
 
       iterAfterBest = execute_rpn_function_reals(&X2, &Y2N, &magnitudeY) ? 0 : iterAfterBest + 1;
       powCplxNat(&Y2N, &yPower, &Y2);
-      if (realIsInfinite(&Y2.Real) || realIsInfinite(&Y2.Imag)) {
+      if(realIsInfinite(&Y2.Real) || realIsInfinite(&Y2.Imag)) {
         // Revert kick
                                         #if defined(PC_BUILD)
                                                 printf("----- Inf.Y iter:%u  revert kick", iterationCounter);
@@ -1742,7 +1727,7 @@ static inline void powCplxNat(const cplx_t *base,const uint8_t *exp, cplx_t *res
                                         #endif // VERBOSE_SOLVER1
         mulComplexComplex(CPLX(X2N), CPLX(Y1), CPLX(X2N), ctxtSolver2); // increment to x is: y1 . DX/DY
         // if converges slow without oscillating then accelerate.
-        if (convergent > 10) {
+        if(convergent > 10) {
           convertDoubleToReal(1.0 + convergent * 0.1, &f, ctxtSolver2); // factor ()
           mulComplexComplex(CPLX(X2N), &f, const_0, CPLX(X2N), ctxtSolver2); // increment to x is: y1 . DX/DY
         }
@@ -1929,14 +1914,12 @@ static inline void powCplxNat(const cplx_t *base,const uint8_t *exp, cplx_t *res
     complexSolver();
   }
 
-  #endif // !TESTSUITE_BUILD
 #endif //SAVE_SPACE_DM42_13GRF
 
 
 //-----------------------------------------------------//-----------------------------------------------------
 void fnEqSolvGraph (uint16_t func) {
   #if !defined(SAVE_SPACE_DM42_13GRF)
-    #if !defined(TESTSUITE_BUILD)
       hourGlassIconEnabled = true;
       showHideHourGlass();
       #if defined(DMCP_BUILD)
@@ -2086,6 +2069,5 @@ void fnEqSolvGraph (uint16_t func) {
         }
         default: ;
       }
-    #endif // !TESTSUITE_BUILD
   #endif // SAVE_SPACE_DM42_13GRF
 }

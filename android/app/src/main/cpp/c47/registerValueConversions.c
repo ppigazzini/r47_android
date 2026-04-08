@@ -453,7 +453,7 @@ void convertReal34RegisterToDateRegister(calcRegister_t source, calcRegister_t d
   uint16_t lastCenturyHighUsedtmp;
   if(handleYY) {
     //get the actual active YYYY value, excluding the tracking flag
-    lastCenturyHighUsedtmp = lastCenturyHighUsed & 0x3FFF;
+    lastCenturyHighUsedtmp = lastCenturyHighUsed & (YY_MASK_TRACKING - 1);
 
     // remember last used century if the century is not an abbreviation, i.e. if YYYY > 100, ignore neg value YYYY
     if(getSystemFlag(FLAG_YMD)) {
@@ -504,9 +504,9 @@ void convertReal34RegisterToDateRegister(calcRegister_t source, calcRegister_t d
     // thresholdYYHigh = 1950 :     Automatic, 2024 ==> 2000-2099. 29 ==> 2029, 59 ==> 2059
     //                              1950-2049. 29 ==> 2029, 59 ==> 1959
     //                              if yy > 49, then yy += 1900 else yy += 2000
-    int16_t thresholdYYHigh = max(0, (int16_t)(lastCenturyHighUsed & 0x3FFF) - 99);
+    int16_t thresholdYYHigh = max(0, (int16_t)(lastCenturyHighUsed & (YY_MASK_TRACKING - 1)) - 99);
     if(getSystemFlag(FLAG_YMD)) {
-      if(!(lastCenturyHighUsed & 0x8000) && real34CompareLessThan(&part1,const34_100)) {
+      if(!(lastCenturyHighUsed & YY_MASK_OFF) && real34CompareLessThan(&part1,const34_100)) {
         int16_t yy = (int16_t)(real34ToInt32(&part1));
         if(yy >= (thresholdYYHigh) % 100) {
           yy += (thresholdYYHigh - thresholdYYHigh % 100);
@@ -518,7 +518,7 @@ void convertReal34RegisterToDateRegister(calcRegister_t source, calcRegister_t d
       }
     }
     //FLAG_MDY //FLAG_DMY
-    else if(!(lastCenturyHighUsed & 0x8000) && real34CompareLessThan(&part3,const34_100)) {
+    else if(!(lastCenturyHighUsed & YY_MASK_OFF) && real34CompareLessThan(&part3,const34_100)) {
       int16_t yy = (int16_t)(real34ToInt32(&part3));
       if(yy >= (thresholdYYHigh) % 100) {
         yy += (thresholdYYHigh - thresholdYYHigh % 100);
@@ -544,8 +544,8 @@ void convertReal34RegisterToDateRegister(calcRegister_t source, calcRegister_t d
 
 
   //update stored YYYY and add the control bits again
-  if(handleYY && !(lastCenturyHighUsed & 0x8000) && followYY()) {
-    lastCenturyHighUsed = (lastCenturyHighUsed & ~0x3FFF) | (lastCenturyHighUsedtmp & 0x3FFF);
+  if(handleYY && !(lastCenturyHighUsed & YY_MASK_OFF) && (lastCenturyHighUsed & YY_MASK_TRACKING)) {
+    lastCenturyHighUsed = (lastCenturyHighUsed & ~(YY_MASK_TRACKING - 1)) | (lastCenturyHighUsedtmp & (YY_MASK_TRACKING - 1));
   }
 
   reallocateRegister(destination, dtDate, REAL34_SIZE_IN_BLOCKS, amNone);
@@ -649,16 +649,16 @@ void sci_fmt(char *buf, int n, double x) {
  *   [-]d.dddddddddddddddde±dd\0 (up to 25–30 bytes depending on exponent digits)
  */
     int exp = 0, i = 0;
-    if (x < 0) {
+    if(x < 0) {
         buf[i++] = '-';
         x = -x;
     }
 
-    while (x && x < 1.0) x *= 10.0, exp--;
-    while (x >= 10.0) x /= 10.0, exp++;
+    while(x && x < 1.0) x *= 10.0, exp--;
+    while(x >= 10.0) x /= 10.0, exp++;
 
     unsigned long long m = (unsigned long long)(x * 1e15 + 0.5);
-    if (m >= 10000000000000000ULL) {
+    if(m >= 10000000000000000ULL) {
         m /= 10;
         exp++;
     }
@@ -674,7 +674,7 @@ void sci_fmt(char *buf, int n, double x) {
         1000ULL,            100ULL,             10ULL
     };
 
-    for (int j = 1; j < 15 && i < n - 6; j++) {
+    for(int j = 1; j < 15 && i < n - 6; j++) {
         buf[i++] = '0' + (m / divs[j]) % 10;
     }
 
@@ -684,7 +684,6 @@ void sci_fmt(char *buf, int n, double x) {
 
 
 
-#if !defined(TESTSUITE_BUILD)
   void convertDoubleToString(double x, int16_t n, char *buff) { //Reformatting real strings that are formatted according to different locale settings
     uint16_t i = 2;
     uint16_t j = 2;
@@ -774,9 +773,6 @@ void sci_fmt(char *buf, int n, double x) {
 
 
 
-#endif // !TESTSUITE_BUILD
-
-
 
 double convertRegisterToDouble(calcRegister_t regist) {
   real_t regReal, regImag;
@@ -794,7 +790,7 @@ static float fnRealToFloat(const real_t *r){
   int s = 0;
   int j, n, e;
 
-  static const float exps[] = {
+  TO_QSPI static const float exps[] = {
     1.e-45, 1.e-44, 1.e-43, 1.e-42, 1.e-41, 1.e-40, 1.e-39, 1.e-38,
     1.e-37, 1.e-36, 1.e-35, 1.e-34, 1.e-33, 1.e-32, 1.e-31, 1.e-30,
     1.e-29, 1.e-28, 1.e-27, 1.e-26, 1.e-25, 1.e-24, 1.e-23, 1.e-22,
@@ -854,11 +850,11 @@ void realToFloat(const real_t *vv, float *v) {
 
 static double fnRealToDouble(const real_t *r) {
     char buffer[100];
-        if (realIsSpecial(r)) {
-        if (realIsNaN(r)) return 0.0 / 0.0;
+        if(realIsSpecial(r)) {
+        if(realIsNaN(r)) return 0.0 / 0.0;
         return realIsPositive(r) ? 1.0 / 0.0 : -1.0 / 0.0;
     }
-    if (realIsZero(r)) {
+    if(realIsZero(r)) {
         return realIsPositive(r) ? 0.0 : -0.0;
     }
     decNumberToString((decNumber*)r, buffer);
@@ -973,7 +969,7 @@ bool_t getRegisterAsComplexOrAnyRealQuiet(calcRegister_t reg, real_t *r, real_t 
 bool_t getRegisterAsComplexOrAnyReal(calcRegister_t reg, real_t *r, real_t *i, bool_t *cmplx) {
   const bool_t ret = getRegisterAsComplexOrAnyRealQuiet(reg, r, i, cmplx);
 
-  if (!ret)
+  if(!ret)
     badTypeError(reg);
   return ret;
 }
@@ -981,7 +977,7 @@ bool_t getRegisterAsComplexOrAnyReal(calcRegister_t reg, real_t *r, real_t *i, b
 bool_t getRegisterAsComplexOrRealQuiet(calcRegister_t reg, real_t *r, real_t *i, bool_t *cmplx) {
   const uint32_t t = getRegisterDataType(reg);
 
-  if (t == dtTime || t == dtDate)
+  if(t == dtTime || t == dtDate)
     return false;
   return getRegisterAsComplexOrAnyRealQuiet(reg, r, i, cmplx);
 }
@@ -989,7 +985,7 @@ bool_t getRegisterAsComplexOrRealQuiet(calcRegister_t reg, real_t *r, real_t *i,
 bool_t getRegisterAsComplexOrReal(calcRegister_t reg, real_t *r, real_t *i, bool_t *cmplx) {
   const bool_t ret = getRegisterAsComplexOrRealQuiet(reg, r, i, cmplx);
 
-  if (!ret)
+  if(!ret)
     badTypeError(reg);
   return ret;
 }
@@ -1026,7 +1022,7 @@ bool_t getRegisterAsAnyRealQuiet(calcRegister_t reg, real_t *val) {
 bool_t getRegisterAsRealQuiet(calcRegister_t reg, real_t *val) {
   uint32_t t = getRegisterDataType(reg);
 
-  if (t == dtDate || t ==dtTime)
+  if(t == dtDate || t ==dtTime)
     return false;
   return getRegisterAsAnyRealQuiet(reg, val);
 }
@@ -1143,21 +1139,21 @@ bool_t getRegisterAsRawShortInt(calcRegister_t reg, uint64_t *val, uint32_t *bas
   uint64_t v;
   uint32_t b;
 
-  if (getRegisterDataType(reg) == dtShortInteger) {
+  if(getRegisterDataType(reg) == dtShortInteger) {
     v = *REGISTER_SHORT_INTEGER_DATA(reg);
     b = getRegisterShortIntegerBase(reg);
     goto finish;
   }
-  if (!getRegisterAsShortInt(reg, &sign, &v, &overflow, &fractional))
+  if(!getRegisterAsShortInt(reg, &sign, &v, &overflow, &fractional))
     return false;
-  if (overflow || fractional) {
+  if(overflow || fractional) {
     badDomainError(reg);
     return false;
   }
   v = (uint64_t)WP34S_build_value(v, sign);
   b = lastIntegerBase != 0 ? lastIntegerBase : 10;
 finish:
-  if (base != NULL)
+  if(base != NULL)
     *base = b;
   *val = v;
   return true;
@@ -1180,9 +1176,9 @@ int getRegisterAsLongIntQuiet(calcRegister_t reg, longInteger_t val, bool_t *fra
     case dtComplex34:
     case dtReal34:
       if(getRegisterAsReal(reg, &rval)) {
-        if (realIsSpecial(&rval))
+        if(realIsSpecial(&rval))
           return ERROR_ARG_EXCEEDS_FUNCTION_DOMAIN;
-        if (!realIsAnInteger(&rval)) {
+        if(!realIsAnInteger(&rval)) {
           realToIntegralValue(&rval, &rval, DEC_ROUND_DOWN, &ctxtReal39);
           frac = true;
         }
@@ -1194,7 +1190,7 @@ int getRegisterAsLongIntQuiet(calcRegister_t reg, longInteger_t val, bool_t *fra
     default:
       return ERROR_INVALID_DATA_TYPE_FOR_OP;
   }
-  if (fractional != NULL)
+  if(fractional != NULL)
     *fractional = frac;
   return ERROR_NONE;
 }

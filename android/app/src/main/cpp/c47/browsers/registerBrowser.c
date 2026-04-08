@@ -9,7 +9,6 @@
 
 
 
-#if !defined(TESTSUITE_BUILD)
 #if !defined(SAVE_SPACE_DM42_8)
   static void _showRegisterInRbr(calcRegister_t regist, int16_t registerNameWidth) {
     switch(getRegisterDataType(regist)) {
@@ -186,7 +185,7 @@
     if(rbrMode == RBR_GLOBAL) { // Global registers
       for(int16_t row=0; row<10; row++) {
         calcRegister_t regist = modulo(currentRegisterBrowserScreen + row, LAST_GLOBAL_REGISTER_SCREEN + RBR_INCDEC1);
-        if (regist <= LAST_SPARE_REGISTER){
+        if(regist <= LAST_SPARE_REGISTER){
           registerName(tmpString, regist);
 
           // register name or number
@@ -274,4 +273,3 @@
     }
   #endif // !SAVE_SPACE_DM42_8
 }
-#endif // !TESTSUITE_BUILD

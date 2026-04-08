@@ -7,7 +7,6 @@
 
 #include "c47.h"
 
-#if !defined(TESTSUITE_BUILD)
   /* Returns the character code from the first glyph of a string.
    *
    * \param[in]     ch     String whose first glyph is to extract
@@ -27,7 +26,6 @@
     }
     return charCode;
   }
-#endif //TESTSUITE_BUILD
 
 
 void convertDigits(char * refstr, char * outstr) {
@@ -76,51 +74,47 @@ typedef struct {
 } replaceTable_t;
 
 
-  TO_QSPI const replaceTable_t replacementTable[] = {
-    //        Nr    InStr          OutStr
-              {0,   STD_SUP_MINUS, STD_HP_MINUS},
-              {0,   STD_MINUS    , STD_HP_MINUS},
-              {0,   STD_SUP_PLUS , STD_HP_PLUS},
-              {0,   STD_PLUS     , STD_HP_PLUS},
-              {0,   STD_EulerE   , STD_e},
-              {0,   STD_op_i     , STD_i},
-              {0,   STD_op_j     , STD_j},
-              {0,   STD_WDOT     , STD_HP_PERIOD},
-              {0,   STD_CROSS    , STD_SPACE_PUNCTUATION},
-              {0,   STD_DOT      , STD_SPACE_PUNCTUATION},
-              {0,   STD_SUB_10   , STD_SPACE_4_PER_EM},
-              {0,   STD_0        , STD_HP_0},
-              {0,   STD_SUP_0    , STD_HP_0}
-            };
+TO_QSPI const replaceTable_t replacementTable[] = {
+  //        Nr    InStr          OutStr
+            {0,   STD_SUP_MINUS, STD_HP_MINUS},
+            {0,   STD_MINUS    , STD_HP_MINUS},
+            {0,   STD_SUP_PLUS , STD_HP_PLUS},
+            {0,   STD_PLUS     , STD_HP_PLUS},
+            {0,   STD_EulerE   , STD_e},
+            {0,   STD_op_i     , STD_i},
+            {0,   STD_op_j     , STD_j},
+            {0,   STD_WDOT     , STD_HP_PERIOD},
+            {0,   STD_CROSS    , STD_SPACE_PUNCTUATION},
+            {0,   STD_DOT      , STD_SPACE_PUNCTUATION},
+            {0,   STD_SUB_10   , STD_SPACE_4_PER_EM},
+            {0,   STD_0        , STD_HP_0},
+            {0,   STD_SUP_0    , STD_HP_0}
+          };
 
-  #if !defined(TESTSUITE_BUILD)
-  bool_t replace(uint16_t *charCode) {
-    uint_fast16_t n = nbrOfElements(replacementTable);
-    for(uint_fast16_t i=0; i<n; i++) {
-      if(*charCode == charCodeFromString(replacementTable[i].inStr, 0)) {
-        *charCode = charCodeFromString(replacementTable[i].outStr, 0);
-        return true;
-      }
+bool_t replace(uint16_t *charCode) {
+  uint_fast16_t n = nbrOfElements(replacementTable);
+  for(uint_fast16_t i=0; i<n; i++) {
+    if(*charCode == charCodeFromString(replacementTable[i].inStr, 0)) {
+      *charCode = charCodeFromString(replacementTable[i].outStr, 0);
+      return true;
     }
-    return false;
   }
-  #endif //TESTSUITE_BUILD
+  return false;
+}
 
 
-  #if !defined(GENERATE_CATALOGS)
+#if !defined(GENERATE_CATALOGS)
   void charCodeHPReplacement(uint16_t *charCode) {
-    #if !defined(TESTSUITE_BUILD)
-      if(replace(charCode)) {
-      }
-      else if(*charCode >= charCodeFromString(STD_1, 0) &&  *charCode <= charCodeFromString(STD_9, 0)) {
-        *charCode = *charCode - charCodeFromString(STD_1, 0) + charCodeFromString(STD_HP_1, 0);
-      }
-      else if(*charCode >= charCodeFromString(STD_SUP_1, 0) &&  *charCode <= charCodeFromString(STD_SUP_9, 0)) {
-        *charCode = *charCode - charCodeFromString(STD_SUP_1, 0) + charCodeFromString(STD_HP_1, 0);
-      }
-    #endif //TESTSUITE_BUILD
+    if(replace(charCode)) {
+    }
+    else if(*charCode >= charCodeFromString(STD_1, 0) &&  *charCode <= charCodeFromString(STD_9, 0)) {
+      *charCode = *charCode - charCodeFromString(STD_1, 0) + charCodeFromString(STD_HP_1, 0);
+    }
+    else if(*charCode >= charCodeFromString(STD_SUP_1, 0) &&  *charCode <= charCodeFromString(STD_SUP_9, 0)) {
+      *charCode = *charCode - charCodeFromString(STD_SUP_1, 0) + charCodeFromString(STD_HP_1, 0);
+    }
   }
-  #endif //GENERATE_CATALOGS
+#endif //GENERATE_CATALOGS
 
 
 
@@ -230,18 +224,14 @@ static void _calculateStringWidth(const char *str, const font_t *font, bool_t wi
 
 /*
     font = font1;                             //JM auto font change for enlarged alpha fonts vv
-    #if !defined(TESTSUITE_BUILD)
       if(combinationFonts == 2) {
         if(maxiC == 1 && font == &numericFont) {
-    #endif // !TESTSUITE_BUILD
-    glyphId = findGlyph(font, charCode);
-    if(glyphId < 0) {                         //JM if there is not a large glyph, width of the small letter
-      font = &standardFont;
-    }
-    #if !defined(TESTSUITE_BUILD)
+          glyphId = findGlyph(font, charCode);
+          if(glyphId < 0) {                   //JM if there is not a large glyph, width of the small letter
+            font = &standardFont;
+          }
         }
       }                                       //JM ^^
-    #endif // !TESTSUITE_BUILD
 */
     if(charCode != 1u) {                          //If the special ASCII 01, then skip the width and font not found portions
       glyphId = findGlyph(font, charCode);
@@ -411,7 +401,7 @@ int16_t stringPrevNumberGlyph(const char *str, int16_t pos) {
     if(('0' <= str[pos2] && str[pos2] <= '9') || str[pos] == '.' || str[pos] == ',') {
       return pos2;
     }
-  } while (pos2 != 0);
+  } while(pos2 != 0);
   return 0;
 }
 
@@ -589,20 +579,20 @@ uint32_t utf8ToCodePoint(const uint8_t *utf8, uint32_t *codePoint) { // C47 supp
 void debug_utf8_string(const char *label, const uint8_t *str, size_t max_len) {
     printf("%s:", label);
     printf("  Hex:   ");
-    for (size_t i = 0; i < max_len; i++) {
+    for(size_t i = 0; i < max_len; i++) {
         printf("%02X ", str[i]);
     }
     printf("; ");
 
     printf("  Dec:   ");
-    for (size_t i = 0; i < max_len; i++) {
+    for(size_t i = 0; i < max_len; i++) {
         printf("%3d ", str[i]);
     }
     printf("; ");
 
     printf("  Char:  ");
-    for (size_t i = 0; i < max_len; i++) {
-        if (str[i] >= 32 && str[i] < 127) {
+    for(size_t i = 0; i < max_len; i++) {
+        if(str[i] >= 32 && str[i] < 127) {
             printf(" %c  ", str[i]);
         } else {
             printf("    ");
@@ -644,14 +634,14 @@ void stringToUtf8(const char *str, uint8_t *utf8) {
 //    //uint8_t *original_utf8 = utf8;
 //    //const char *original_str = str;
 //
-//    while (*str) {
-//        if ((uint8_t)*str & 0x80) {
+//    while(*str) {
+//        if((uint8_t)*str & 0x80) {
 //            uint16_t high = ((uint16_t)(uint8_t)(*str) & 0x7F);
 //            uint16_t low  = (uint8_t)str[1];
 //            uint16_t codepoint = (high << 8) | low;
-//            if (codepoint <= 0x7F) {
+//            if(codepoint <= 0x7F) {
 //                *utf8++ = (uint8_t)codepoint;
-//            } else if (codepoint <= 0x7FF) {
+//            } else if(codepoint <= 0x7FF) {
 //                // FIX: use (cp >> 6) & 0x1F to avoid stray upper bits
 //                *utf8++ = 0xC0 | ((codepoint >> 6) & 0x1F);
 //                *utf8++ = 0x80 | (codepoint & 0x3F);
@@ -671,13 +661,13 @@ void stringToUtf8(const char *str, uint8_t *utf8) {
 //
 //    //printf("Original input: ");
 //    //size_t input_len = str - original_str + 1;
-//    //for (size_t i = 0; i < input_len; i++) {
+//    //for(size_t i = 0; i < input_len; i++) {
 //    //    printf("%02X ", (unsigned char)original_str[i]);
 //    //}
 //    //printf("\n");
 //    //printf("UTF-8 output:   ");
 //    //size_t output_len = utf8 - original_utf8 + 1;
-//    //for (size_t i = 0; i < output_len; i++) {
+//    //for(size_t i = 0; i < output_len; i++) {
 //    //    printf("%02X ", original_utf8[i]);
 //    //}
 //    //printf("\n");
@@ -1116,7 +1106,7 @@ void stringToFileNameChars(const char *str, char *ascii) {
 
 
 
-void *xcopy(void *dest, const void *source, int n) {
+void *xcopy(void *dest, const void *source, uint32_t n) {
   char       *pDest   = (char *)dest;
   const char *pSource = (char *)source;
 
