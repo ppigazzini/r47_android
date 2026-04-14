@@ -75,6 +75,7 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 ### 3.1. Encoding Artifact Prevention
 
 Double-encoding occurs if symbols are converted to UTF-8 before the core `stringToUtf8` function.
+
 - **Rule**: `ascii_clean` in `android_helpers.c` MUST NOT convert core symbols to UTF-8 prematurely.
 - Every register string returned to JNI MUST pass through `stringToUtf8` exactly once at the end of the helper chain.
 
@@ -90,6 +91,7 @@ Double-encoding occurs if symbols are converted to UTF-8 before the core `string
 ### 4.1. Work Directory & Organized Storage
 
 To maintain parity with the hardware and simulator structures, users can select a "Work Directory" in preferences.
+
 - **Subfolder Structure**: The app resolves standard subfolders: `STATE`, `PROGRAMS`, `SAVFILES`, and `SCREENS`.
 - **Context-Aware SAF Pickers**: The `requestFile` bridge uses category IDs to open pickers directly in relevant subfolders.
 
@@ -127,11 +129,22 @@ The `quitApp()` function respects the `force_close_on_exit` preference, allowing
 
 ---
 
+## 8. Robust Synchronization Strategy
+
+To maintain custom work while pulling latest upstream changes, the `sync_public.sh` script MUST follow these rules:
+
+1. **Backup All Custom Assets**: The `android/` directory is the primary asset requiring persistence.
+2. **Upstream Reset**: The script pulls the math core from the authoritative source and populates the workspace.
+3. **Local Patch Restoration**: Immediately after the upstream pull, the script re-applies the Android Port modifications. This ensures that the optimized code takes precedence over the generic core.
+
+---
+
 ## 9. Audio & Beeper Implementation
 
 ### 9.1. Timing Accuracy & Note Separation
 
 To ensure beeper tones remain distinct and melodies are paced correctly:
+
 - **Core Thread Cushion**: Use a scheduling cushion in the `_Buzz` JNI call for the Android OS.
 - **Silence Tail**: Append silence to each tone buffer in the Kotlin audio thread.
 
