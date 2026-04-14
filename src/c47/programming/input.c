@@ -83,12 +83,14 @@ void monitorDmcpFlags(const char *sss) {
 */
 
 
-#if defined (DMCP_BUILD)
+#if defined(DMCP_BUILD)
 // sleepTime = 0 : do not time out, sleep only. Until a key is pressed.
 // sleepTime = 1 : return without sleep, without timer, with no delay.
 // sleepTime > 1 : means number of ms sleeping. Or until a key is pressed.
 static void goToSleepForMs(uint32_t sleepTime) {
-  if(sleepTime == 1) return;
+  if(sleepTime == 1) {
+    return;
+  }
   if(sleepTime > 1) {
     sys_timer_start(TIMER_IDX_REFRESH_SLEEP, sleepTime);
   }
@@ -144,7 +146,20 @@ void fnPause(uint16_t dur) {
       leaveTamModeIfEnabled();
     }
 
-    #if defined(DMCP_BUILD)
+    #if defined(ANDROID_BUILD)
+      // Android: 100ms loop for progress display (10x per second refresh)
+      for(int32_t i = 0; i < duration && (programRunStop == PGM_PAUSED || programRunStop == PGM_KEY_PRESSED_WHILE_PAUSED); ++i) {
+        // Force refresh to show intermediate measurements (e.g. in VolTest)
+        screenUpdatingMode &= ~SCRUPD_MANUAL_STATUSBAR;
+        refreshScreen(12);
+        lcd_refresh();
+        
+        // Fully unlock mutex for 100ms to allow UI thread to render the buffer
+        yieldToAndroidWithMs(100);
+        
+        if (programRunStop != PGM_PAUSED && programRunStop != PGM_KEY_PRESSED_WHILE_PAUSED) break;
+      }
+    #elif defined(DMCP_BUILD)
       if(previousProgramRunStop != PGM_RUNNING && dur != 99) {
         screenUpdatingMode &= ~SCRUPD_MANUAL_STATUSBAR;
         refreshScreen(12);
@@ -172,17 +187,27 @@ void fnPause(uint16_t dur) {
             resetKeytimers();
             CLR_ST(STAT_KEYUP_WAIT);
             wait_for_key_release(0);
-            { uint8_t outKey; while(!emptyKeyBuffer()) outKeyBuffer(&outKey); }
+
+            uint8_t outKey;
+            while(!emptyKeyBuffer()) {
+              outKeyBuffer(&outKey);
+            }
+
             key_pop();
             continue;
           }
-          if(pauseKeyExit(key, &previousProgramRunStop)) break;
+          if(pauseKeyExit(key, &previousProgramRunStop)) {
+            break;
+          }
         }
         if(dur == 99) {
-          if(sys_current_ms() >= targetMs && !runningOnSimOrUSB) break;
+          if(sys_current_ms() >= targetMs && !runningOnSimOrUSB) {
+            break;
+          }
           dmcpResetAutoOff();
           goToSleepForMs(0);
-        } else {
+        }
+        else {
           dmcpResetAutoOff();            // Prevent auto off occurring within the delay, which causes an unrecoverable sleep and impossibility to switch calculator back on
           fnTimerStart(TO_KB_ACTV, TO_KB_ACTV, programRunStop == PGM_RUNNING ? PROGRAM_KB_ACTV : TO_KB_ACTV_MEDIUM); //prevent dying out of the activity timer
           sys_delay(100);
@@ -202,7 +227,8 @@ void fnPause(uint16_t dur) {
       }
       if(duration == 0) {
         g_main_context_iteration(g_main_context_default(), FALSE);
-      } else {
+      }
+      else {
         gTime = 0;
         gRemoveTimer = false;
 
