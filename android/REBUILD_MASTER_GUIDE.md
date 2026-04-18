@@ -164,7 +164,7 @@ To ensure stable state switching, switches occur in a single background thread u
 
 ## 12. Android Compatibility
 
-The native shared library MUST be linked with `-Wl,-z,max-page-size=16384` to support modern Android kernels.
+The native shared library MUST be built with the NDK's supported flexible-page-size path. In this repo that means passing `-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON` to the Android CMake build so the NDK toolchain applies the correct 16 KB linker settings for modern Android kernels.
 
 ---
 

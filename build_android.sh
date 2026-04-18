@@ -174,8 +174,11 @@ if [ -d "$GMP_SRC_DIR" ]; then
     cp "$GMP_SRC_DIR/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
     # Patch mini-gmp.c to include gmp.h instead of mini-gmp.h
     sed -i 's|#include "mini-gmp.h"|#include "gmp.h"|g' "$CPP_DIR/gmp/mini-gmp.c"
+elif [ -f "$CPP_DIR/gmp/mini-gmp.c" ] && [ -f "$CPP_DIR/gmp/gmp.h" ]; then
+    echo "mini-gmp subproject not present. Using tracked Android fallback in $CPP_DIR/gmp"
 else
-    echo "ERROR: Could not locate mini-gmp at $GMP_SRC_DIR. Build will likely fail."
+    echo "ERROR: Could not locate mini-gmp at $GMP_SRC_DIR and no tracked Android fallback exists in $CPP_DIR/gmp"
+    exit 1
 fi
 
 # Create local.properties

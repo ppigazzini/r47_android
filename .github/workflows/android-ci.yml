@@ -280,10 +280,14 @@ jobs:
             } >> "$release_dir/elf-load-segments.txt"
           done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
 
-          if grep -Eq 'align 2\*\*(1[0-3]|[0-9])' "$release_dir/elf-load-segments.txt"; then
+          below_16k_report="$release_dir/elf-load-segments-below-16k.txt"
+          if grep -En 'align 2\*\*(1[0-3]|[0-9])' "$release_dir/elf-load-segments.txt" > "$below_16k_report"; then
+            cat "$below_16k_report" >&2
             echo "Detected a native library LOAD segment aligned below 16 KB." >&2
             exit 1
           fi
+
+          rm -f "$below_16k_report"
 
           sha256sum "$release_dir/R47calculator-debug.apk" > "$release_dir/SHA256SUMS.txt"
 
