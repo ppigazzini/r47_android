@@ -112,15 +112,52 @@ jobs:
           chmod +x build_android.sh
           chmod +x android/gradlew
 
-      - name: Hydrate root native core tree
+      - name: Sync authoritative upstream core
+        id: upstream
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ ! -f src/c47/assign.c ]]; then
-            echo "Hydrating src/c47 from staged Android core copy."
-            cp -a --update=none android/app/src/main/cpp/c47/. src/c47/
+          upstream_url="https://gitlab.com/rpncalculators/c43.git"
+          upstream_dir="${RUNNER_TEMP}/c43-upstream"
+
+          rm -rf "$upstream_dir"
+          git clone "$upstream_url" "$upstream_dir"
+
+          upstream_commit=$(git -C "$upstream_dir" rev-parse HEAD)
+          echo "upstream_url=$upstream_url" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
+
+          # Make the authoritative upstream visible to repo-local tooling.
+          if git remote | grep -qx upstream; then
+            git remote set-url upstream "$upstream_url"
+          else
+            git remote add upstream "$upstream_url"
           fi
+          git fetch upstream master
+
+          # Overlay the full upstream tree, then restore the tracked Android-port shell.
+          tar -C "$upstream_dir" --exclude=.git -cf - . | tar -C "$PWD" -xf -
+
+          git checkout -- \
+            .gitignore \
+            README.md \
+            Makefile \
+            build_android.sh \
+            sync_public.sh \
+            dist.sh \
+            meson.build \
+            meson_options.txt \
+            android/
+
+          while IFS= read -r meson_file; do
+            git checkout -- "$meson_file"
+          done < <(git ls-files | grep -E '(^|/)meson\.build$')
+
+          git checkout -- \
+            src/c47/programming/input.c \
+            src/c47/programming/lblGtoXeq.c \
+            src/c47/screen.c
 
       - name: Run simulator tests
         shell: bash
@@ -181,6 +218,8 @@ jobs:
           sha=${GITHUB_SHA}
           run_id=${GITHUB_RUN_ID}
           run_attempt=${GITHUB_RUN_ATTEMPT}
+          upstream_url=${{ steps.upstream.outputs.upstream_url }}
+          upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
           compile_sdk=${{ steps.versions.outputs.compile_sdk }}
           cmake_version=${{ steps.versions.outputs.cmake_version }}
           ndk_version=${{ steps.versions.outputs.ndk_version }}
@@ -221,9 +260,15 @@ jobs:
         run: |
           set -euo pipefail
 
+          upstream_commit=$(sed -n 's/^upstream_commit=//p' release-assets/BUILD-METADATA.txt)
+          upstream_url=$(sed -n 's/^upstream_url=//p' release-assets/BUILD-METADATA.txt)
+
           cat > RELEASE_NOTES.md <<EOF
           This prerelease contains the unsigned debug APK built by ./build_android.sh
           from commit ${GITHUB_SHA}.
+
+          The calculator core was synchronized from ${upstream_url} at commit
+          ${upstream_commit} before the simulator and Android build steps ran.
 
           Included assets:
           - R47calculator-debug.apk
