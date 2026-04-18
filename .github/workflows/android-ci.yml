@@ -78,6 +78,7 @@ jobs:
             libgmp-dev \
             libgtk-3-dev \
             libpulse-dev \
+            python3-openpyxl \
             unzip
 
       - name: Set up Java 17
@@ -111,6 +112,46 @@ jobs:
           set -euo pipefail
           chmod +x build_android.sh
           chmod +x android/gradlew
+
+      - name: Provide xlsxio_xlsx2csv compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > "${RUNNER_TEMP}/xlsxio_xlsx2csv" <<'EOF'
+          #!/usr/bin/env python3
+          import csv
+          import sys
+
+          from openpyxl import load_workbook
+
+
+          def main() -> int:
+            args = sys.argv[1:]
+            if len(args) != 2 or args[0] != '-b':
+              print('Usage: xlsxio_xlsx2csv -b <xlsx-file>', file=sys.stderr)
+              return 2
+
+            workbook_path = args[1]
+            workbook = load_workbook(workbook_path, read_only=True, data_only=True)
+            try:
+              for sheet in workbook.worksheets:
+                csv_path = f'{workbook_path}.{sheet.title}.csv'
+                with open(csv_path, 'w', newline='', encoding='utf-8') as handle:
+                  writer = csv.writer(handle, lineterminator='\n')
+                  for row in sheet.iter_rows(values_only=True):
+                    writer.writerow(['' if cell is None else cell for cell in row])
+            finally:
+              workbook.close()
+
+            return 0
+
+
+          if __name__ == '__main__':
+            raise SystemExit(main())
+          EOF
+
+          sudo install -m 0755 "${RUNNER_TEMP}/xlsxio_xlsx2csv" /usr/local/bin/xlsxio_xlsx2csv
 
       - name: Sync authoritative upstream core
         id: upstream
