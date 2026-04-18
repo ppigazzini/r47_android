@@ -99,11 +99,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
-          cache-dependency-path: |
-            android/**/*.gradle
-            android/**/*.gradle.kts
-            android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -126,7 +126,7 @@ jobs:
           chmod +x build_android.sh
           chmod +x android/gradlew
 
-      - name: Install upstream xlsxio toolchain
+      - name: Resolve upstream xlsxio source
         id: xlsxio
         shell: bash
         run: |
@@ -134,6 +134,7 @@ jobs:
 
           xlsxio_url="https://github.com/brechtsanders/xlsxio.git"
           xlsxio_dir="${RUNNER_TEMP}/xlsxio"
+          xlsxio_prefix="$HOME/.cache/r47/xlsxio"
 
           rm -rf "$xlsxio_dir"
           git clone --depth 1 "$xlsxio_url" "$xlsxio_dir"
@@ -141,16 +142,43 @@ jobs:
           xlsxio_commit=$(git -C "$xlsxio_dir" rev-parse HEAD)
           echo "xlsxio_url=$xlsxio_url" >> "$GITHUB_OUTPUT"
           echo "xlsxio_commit=$xlsxio_commit" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_dir=$xlsxio_dir" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$xlsxio_prefix/$xlsxio_commit" >> "$GITHUB_OUTPUT"
 
-          cmake -S "$xlsxio_dir" -B "$xlsxio_dir/build" \
+      - name: Restore xlsxio toolchain cache
+        id: xlsxio-cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+          key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
+
+      - name: Install upstream xlsxio toolchain
+        if: steps.xlsxio-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${{ steps.xlsxio.outputs.xlsxio_prefix }}"
+
+          cmake -S "${{ steps.xlsxio.outputs.xlsxio_dir }}" -B "${{ steps.xlsxio.outputs.xlsxio_dir }}/build" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_STATIC=ON \
+            -DBUILD_SHARED=OFF \
             -DBUILD_DOCUMENTATION=FALSE \
             -DBUILD_EXAMPLES=FALSE \
+            -DBUILD_TOOLS=ON \
             -DWITH_LIBZIP=OFF
-          cmake --build "$xlsxio_dir/build" --parallel "${{ steps.jobs.outputs.jobs }}"
-          sudo cmake --install "$xlsxio_dir/build" --prefix /usr/local
-          sudo ldconfig
 
+          cmake --build "${{ steps.xlsxio.outputs.xlsxio_dir }}/build" --parallel "${{ steps.jobs.outputs.jobs }}"
+          cmake --install "${{ steps.xlsxio.outputs.xlsxio_dir }}/build" --prefix "${{ steps.xlsxio.outputs.xlsxio_prefix }}"
+
+      - name: Expose xlsxio toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
+          export PATH="${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin:$PATH"
           xlsxio_xlsx2csv -h > /dev/null
 
       - name: Sync authoritative upstream core
