@@ -61,30 +61,6 @@ export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
 CPP_DIR="$ANDROID_PROJECT_DIR/app/src/main/cpp"
 
-BUILD_VARIANTS=("$@")
-if [ ${#BUILD_VARIANTS[@]} -eq 0 ]; then
-    BUILD_VARIANTS=(debug)
-fi
-
-GRADLE_TASKS=()
-EXPECTED_APKS=()
-for variant in "${BUILD_VARIANTS[@]}"; do
-    case "$variant" in
-        debug)
-            GRADLE_TASKS+=(assembleDebug)
-            EXPECTED_APKS+=("app/build/outputs/apk/debug/R47calculator-debug.apk")
-            ;;
-        release)
-            GRADLE_TASKS+=(assembleRelease)
-            EXPECTED_APKS+=("app/build/outputs/apk/release/R47calculator-release-unsigned.apk")
-            ;;
-        *)
-            echo "ERROR: Unsupported Android build variant '$variant'. Supported variants: debug, release"
-            exit 1
-            ;;
-    esac
-done
-
 echo "======================================================="
 echo "R47 Android Builder"
 echo "SDK: $ANDROID_SDK_ROOT"
@@ -198,11 +174,8 @@ if [ -d "$GMP_SRC_DIR" ]; then
     cp "$GMP_SRC_DIR/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
     # Patch mini-gmp.c to include gmp.h instead of mini-gmp.h
     sed -i 's|#include "mini-gmp.h"|#include "gmp.h"|g' "$CPP_DIR/gmp/mini-gmp.c"
-elif [ -f "$CPP_DIR/gmp/mini-gmp.c" ] && [ -f "$CPP_DIR/gmp/gmp.h" ]; then
-    echo "mini-gmp subproject not present. Using tracked Android fallback in $CPP_DIR/gmp"
 else
-    echo "ERROR: Could not locate mini-gmp at $GMP_SRC_DIR and no tracked Android fallback exists in $CPP_DIR/gmp"
-    exit 1
+    echo "ERROR: Could not locate mini-gmp at $GMP_SRC_DIR. Build will likely fail."
 fi
 
 # Create local.properties
@@ -212,7 +185,7 @@ echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ANDROID_PROJECT_DIR/local.properties"
 cd "$ANDROID_PROJECT_DIR"
 
 # --- 4. Build APK ---
-echo "--- Building APK Variants: ${BUILD_VARIANTS[*]} ---"
+echo "--- Building APK ---"
 GRADLE_CMD="./gradlew"
 
 if [ ! -f "$GRADLE_CMD" ]; then
@@ -221,19 +194,18 @@ fi
 chmod +x "$GRADLE_CMD"
 
 # Pass detected NDK/SDK versions as Project Properties to override build.gradle defaults
-GRADLE_PROPS=("-Pr47.ndkVersion=$IF_NDK_VERSION")
-if [ -n "$R47_COMPILE_SDK" ]; then GRADLE_PROPS+=("-Pr47.compileSdk=$R47_COMPILE_SDK"); fi
+GRADLE_PROPS="-Pr47.ndkVersion=$IF_NDK_VERSION"
+if [ -n "$R47_COMPILE_SDK" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.compileSdk=$R47_COMPILE_SDK"; fi
 
 # Clean cxx to ensure fresh cmake run
 rm -rf app/.cxx
 $GRADLE_CMD clean
-$GRADLE_CMD "${GRADLE_TASKS[@]}" "${GRADLE_PROPS[@]}"
+$GRADLE_CMD assembleDebug $GRADLE_PROPS
 
-for apk_path in "${EXPECTED_APKS[@]}"; do
-    if [ -f "$apk_path" ]; then
-        echo "SUCCESS: APK created at: $ANDROID_PROJECT_DIR/$apk_path"
-    else
-        echo "ERROR: APK build failed. Missing: $ANDROID_PROJECT_DIR/$apk_path"
-        exit 1
-    fi
-done
+APK_PATH="app/build/outputs/apk/debug/R47calculator-debug.apk"
+if [ -f "$APK_PATH" ]; then
+    echo "SUCCESS: APK created at: $ANDROID_PROJECT_DIR/$APK_PATH"
+else
+    echo "ERROR: APK build failed."
+    exit 1
+fi

@@ -20,7 +20,6 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
                 cppFlags ""
             }
         }
@@ -68,11 +67,7 @@ android {
 
     applicationVariants.all { variant ->
         variant.outputs.all {
-            // Keep artifact names truthful until a real release signing config exists.
-            def outputName = variant.name == 'release' ?
-                'R47calculator-release-unsigned.apk' :
-                "R47calculator-${variant.name}.apk"
-            outputFileName = outputName
+            outputFileName = "R47calculator-${variant.name}.apk"
         }
     }
 }
