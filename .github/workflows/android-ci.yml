@@ -399,6 +399,8 @@ jobs:
           artifact_dir="$PWD/ci-artifacts"
           unpack_dir="$artifact_dir/apk-unpacked"
           release_dir="$artifact_dir/release"
+          short_sha="${GITHUB_SHA::8}"
+          apk_name="R47calculator-debug-${short_sha}.apk"
 
           mkdir -p "$unpack_dir" "$release_dir"
           printf '%s\n' arm64-v8a x86_64 > "$artifact_dir/expected-abis.txt"
@@ -409,7 +411,7 @@ jobs:
           elf_report="$release_dir/elf-load-segments.txt"
           below_16k_report="$release_dir/elf-load-segments-below-16k.txt"
 
-          cp "$apk" "$release_dir/R47calculator-debug.apk"
+          cp "$apk" "$release_dir/$apk_name"
           unzip -q "$apk" -d "$unpack_dir"
 
           find "$unpack_dir/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tee "$release_dir/abis.txt"
@@ -456,7 +458,7 @@ jobs:
           fi
 
           rm -f "$below_16k_report"
-          sha256sum "$release_dir/R47calculator-debug.apk" > "$release_dir/SHA256SUMS.txt"
+          sha256sum "$release_dir/$apk_name" > "$release_dir/SHA256SUMS.txt"
 
           cat > "$release_dir/BUILD-METADATA.txt" <<EOF
           ref=${GITHUB_REF}
@@ -471,6 +473,7 @@ jobs:
           cmake_version=${{ steps.versions.outputs.cmake_version }}
           ndk_version=${{ steps.versions.outputs.ndk_version }}
           android_variant=debug
+          debug_apk_name=${apk_name}
           debug_apk_signed=debug
           EOF
 
@@ -515,10 +518,11 @@ jobs:
           upstream_url=$(sed -n 's/^upstream_url=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_commit=$(sed -n 's/^xlsxio_commit=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-assets/BUILD-METADATA.txt)
+          debug_apk_name=$(sed -n 's/^debug_apk_name=//p' release-assets/BUILD-METADATA.txt)
 
           cat > RELEASE_NOTES.md <<EOF
-          This prerelease contains the debug-signed debug APK built by
-          ./build_android.sh from commit ${GITHUB_SHA}.
+          This prerelease contains the debug-signed debug APK ${debug_apk_name}
+          built by ./build_android.sh from commit ${GITHUB_SHA}.
 
           The calculator core was synchronized from ${upstream_url} at commit
           ${upstream_commit} before the simulator and Android build steps ran.
@@ -528,7 +532,7 @@ jobs:
           contract.
 
           Included assets:
-          - R47calculator-debug.apk
+          - ${debug_apk_name}
           - SHA256SUMS.txt
           - abis.txt
           - zipalign.txt
