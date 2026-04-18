@@ -73,12 +73,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             build-essential \
+            cmake \
+            libexpat1-dev \
             meson \
             ninja-build \
             libgmp-dev \
             libgtk-3-dev \
+            libminizip-dev \
             libpulse-dev \
-            python3-openpyxl \
+            pkg-config \
+            zip \
             unzip
 
       - name: Set up Java 17
@@ -113,45 +117,32 @@ jobs:
           chmod +x build_android.sh
           chmod +x android/gradlew
 
-      - name: Provide xlsxio_xlsx2csv compatibility
+      - name: Install upstream xlsxio toolchain
+        id: xlsxio
         shell: bash
         run: |
           set -euo pipefail
 
-          cat > "${RUNNER_TEMP}/xlsxio_xlsx2csv" <<'EOF'
-          #!/usr/bin/env python3
-          import csv
-          import sys
+          xlsxio_url="https://github.com/brechtsanders/xlsxio.git"
+          xlsxio_dir="${RUNNER_TEMP}/xlsxio"
 
-          from openpyxl import load_workbook
+          rm -rf "$xlsxio_dir"
+          git clone --depth 1 "$xlsxio_url" "$xlsxio_dir"
 
+          xlsxio_commit=$(git -C "$xlsxio_dir" rev-parse HEAD)
+          echo "xlsxio_url=$xlsxio_url" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$xlsxio_commit" >> "$GITHUB_OUTPUT"
 
-          def main() -> int:
-            args = sys.argv[1:]
-            if len(args) != 2 or args[0] != '-b':
-              print('Usage: xlsxio_xlsx2csv -b <xlsx-file>', file=sys.stderr)
-              return 2
+          cmake -S "$xlsxio_dir" -B "$xlsxio_dir/build" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_DOCUMENTATION=FALSE \
+            -DBUILD_EXAMPLES=FALSE \
+            -DWITH_LIBZIP=OFF
+          cmake --build "$xlsxio_dir/build" --parallel
+          sudo cmake --install "$xlsxio_dir/build" --prefix /usr/local
+          sudo ldconfig
 
-            workbook_path = args[1]
-            workbook = load_workbook(workbook_path, read_only=True, data_only=True)
-            try:
-              for sheet in workbook.worksheets:
-                csv_path = f'{workbook_path}.{sheet.title}.csv'
-                with open(csv_path, 'w', newline='', encoding='utf-8') as handle:
-                  writer = csv.writer(handle, lineterminator='\n')
-                  for row in sheet.iter_rows(values_only=True):
-                    writer.writerow(['' if cell is None else cell for cell in row])
-            finally:
-              workbook.close()
-
-            return 0
-
-
-          if __name__ == '__main__':
-            raise SystemExit(main())
-          EOF
-
-          sudo install -m 0755 "${RUNNER_TEMP}/xlsxio_xlsx2csv" /usr/local/bin/xlsxio_xlsx2csv
+          xlsxio_xlsx2csv -h > /dev/null
 
       - name: Sync authoritative upstream core
         id: upstream
@@ -261,6 +252,8 @@ jobs:
           run_attempt=${GITHUB_RUN_ATTEMPT}
           upstream_url=${{ steps.upstream.outputs.upstream_url }}
           upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
+          xlsxio_url=${{ steps.xlsxio.outputs.xlsxio_url }}
+          xlsxio_commit=${{ steps.xlsxio.outputs.xlsxio_commit }}
           compile_sdk=${{ steps.versions.outputs.compile_sdk }}
           cmake_version=${{ steps.versions.outputs.cmake_version }}
           ndk_version=${{ steps.versions.outputs.ndk_version }}
@@ -303,6 +296,8 @@ jobs:
 
           upstream_commit=$(sed -n 's/^upstream_commit=//p' release-assets/BUILD-METADATA.txt)
           upstream_url=$(sed -n 's/^upstream_url=//p' release-assets/BUILD-METADATA.txt)
+          xlsxio_commit=$(sed -n 's/^xlsxio_commit=//p' release-assets/BUILD-METADATA.txt)
+          xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-assets/BUILD-METADATA.txt)
 
           cat > RELEASE_NOTES.md <<EOF
           This prerelease contains the unsigned debug APK built by ./build_android.sh
@@ -310,6 +305,10 @@ jobs:
 
           The calculator core was synchronized from ${upstream_url} at commit
           ${upstream_commit} before the simulator and Android build steps ran.
+
+          The Linux host toolchain built xlsxio_xlsx2csv from ${xlsxio_url} at
+          commit ${xlsxio_commit} to satisfy the upstream font-generation
+          contract.
 
           Included assets:
           - R47calculator-debug.apk
