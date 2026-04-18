@@ -71,5 +71,5 @@ target_link_libraries(c47-android
     ${m-lib}
 )
 
-# 16 KB page-size support is configured via the NDK toolchain argument in
-# android/app/build.gradle.
+# 16KB page alignment
+target_link_options(c47-android PRIVATE "-Wl,-z,max-page-size=16384")

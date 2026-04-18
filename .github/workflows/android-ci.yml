@@ -157,8 +157,6 @@ jobs:
 
       - name: Run simulator tests
         shell: bash
-        env:
-          NINJA_JOBS: ${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
           make test
@@ -384,7 +382,6 @@ jobs:
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
-          NINJA_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
           GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
