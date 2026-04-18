@@ -281,7 +281,30 @@ jobs:
           done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
 
           below_16k_report="$release_dir/elf-load-segments-below-16k.txt"
-          if grep -En 'align 2\*\*(1[0-3]|[0-9])' "$release_dir/elf-load-segments.txt" > "$below_16k_report"; then
+          awk '
+            /^== / {
+              current = $0
+              next
+            }
+
+            /align 2\*\*[0-9]+/ {
+              if (match($0, /align 2\*\*[0-9]+/)) {
+                exponent_text = $0
+                sub(/.*align 2\*\*/, "", exponent_text)
+                sub(/[^0-9].*$/, "", exponent_text)
+                exponent = exponent_text + 0
+                if (exponent < 14) {
+                  if (current != "" && current != last_header) {
+                    print current
+                    last_header = current
+                  }
+                  print $0
+                }
+              }
+            }
+          ' "$release_dir/elf-load-segments.txt" > "$below_16k_report"
+
+          if [[ -s "$below_16k_report" ]]; then
             cat "$below_16k_report" >&2
             echo "Detected a native library LOAD segment aligned below 16 KB." >&2
             exit 1
