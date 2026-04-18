@@ -1,0 +1,253 @@
+name: Android CI
+
+on:
+  push:
+    branches:
+      - github_ci
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-android:
+    name: Build, test, and package Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      artifact_name: ${{ steps.meta.outputs.artifact_name }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      release_title: ${{ steps.meta.outputs.release_title }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Read Android tool versions
+        id: versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ndk_version=$(sed -n "s/.*ndkVersion project.findProperty('r47.ndkVersion') ?: \"\\([^\"]*\\)\".*/\\1/p" android/app/build.gradle)
+          cmake_version=$(sed -n "s/.*version project.findProperty('r47.cmakeVersion') ?: \"\\([^\"]*\\)\".*/\\1/p" android/app/build.gradle)
+          compile_sdk=$(sed -n "s/.*compileSdk .*?: \\([0-9][0-9]*\\).*/\\1/p" android/app/build.gradle)
+
+          if [[ -z "$ndk_version" || -z "$cmake_version" || -z "$compile_sdk" ]]; then
+            echo "Failed to extract Android tool versions from android/app/build.gradle" >&2
+            exit 1
+          fi
+
+          echo "ndk_version=$ndk_version" >> "$GITHUB_OUTPUT"
+          echo "cmake_version=$cmake_version" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk=$compile_sdk" >> "$GITHUB_OUTPUT"
+
+      - name: Set build metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          short_sha="${GITHUB_SHA::8}"
+          artifact_name="r47-android-${short_sha}"
+
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            timestamp=$(date -u +'%Y%m%dT%H%M%SZ')
+            echo "release_tag=main-snapshot-${timestamp}-${short_sha}" >> "$GITHUB_OUTPUT"
+            echo "release_title=R47 Android main snapshot ${timestamp} ${short_sha}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            meson \
+            ninja-build \
+            libgmp-dev \
+            libgtk-3-dev \
+            libpulse-dev \
+            unzip
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle
+            android/**/*.gradle.kts
+            android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdkmanager \
+            "platforms;android-${{ steps.versions.outputs.compile_sdk }}" \
+            "build-tools;35.0.0" \
+            "cmake;${{ steps.versions.outputs.cmake_version }}" \
+            "ndk;${{ steps.versions.outputs.ndk_version }}"
+
+      - name: Make scripts executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x build_android.sh
+          chmod +x android/gradlew
+
+      - name: Run simulator tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          make test
+
+      - name: Build Android debug APK
+        shell: bash
+        env:
+          R47_NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+        run: |
+          set -euo pipefail
+          ./build_android.sh
+
+      - name: Collect packaging evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          apk="android/app/build/outputs/apk/debug/R47calculator-debug.apk"
+          artifact_dir="$PWD/ci-artifacts"
+          unpack_dir="$artifact_dir/apk-unpacked"
+          release_dir="$artifact_dir/release"
+
+          mkdir -p "$unpack_dir" "$release_dir"
+          cp "$apk" "$release_dir/R47calculator-debug.apk"
+
+          unzip -q "$apk" -d "$unpack_dir"
+
+          find "$unpack_dir/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tee "$release_dir/abis.txt"
+          printf '%s\n' arm64-v8a x86_64 > "$artifact_dir/expected-abis.txt"
+          diff -u "$artifact_dir/expected-abis.txt" "$release_dir/abis.txt"
+
+          zipalign_bin=$(find "${ANDROID_SDK_ROOT:?}/build-tools" -type f -name zipalign | sort -V | tail -n 1)
+          "$zipalign_bin" -c -P 16 -v 4 "$apk" | tee "$release_dir/zipalign.txt"
+
+          llvm_objdump="${ANDROID_SDK_ROOT}/ndk/${{ steps.versions.outputs.ndk_version }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump"
+          : > "$release_dir/elf-load-segments.txt"
+
+          while IFS= read -r -d '' so_file; do
+            {
+              echo "== ${so_file#$unpack_dir/} =="
+              "$llvm_objdump" -p "$so_file" | grep 'LOAD'
+              echo
+            } >> "$release_dir/elf-load-segments.txt"
+          done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
+
+          if grep -Eq 'align 2\*\*(1[0-3]|[0-9])' "$release_dir/elf-load-segments.txt"; then
+            echo "Detected a native library LOAD segment aligned below 16 KB." >&2
+            exit 1
+          fi
+
+          sha256sum "$release_dir/R47calculator-debug.apk" > "$release_dir/SHA256SUMS.txt"
+
+          cat > "$release_dir/BUILD-METADATA.txt" <<EOF
+          ref=${GITHUB_REF}
+          sha=${GITHUB_SHA}
+          run_id=${GITHUB_RUN_ID}
+          run_attempt=${GITHUB_RUN_ATTEMPT}
+          compile_sdk=${{ steps.versions.outputs.compile_sdk }}
+          cmake_version=${{ steps.versions.outputs.cmake_version }}
+          ndk_version=${{ steps.versions.outputs.ndk_version }}
+          EOF
+
+      - name: Upload Android build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: ci-artifacts/release/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish-main-snapshot:
+    name: Publish main snapshot prerelease
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-test-android
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download Android build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build-test-android.outputs.artifact_name }}
+          path: release-assets
+
+      - name: Check GitHub CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh --version
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > RELEASE_NOTES.md <<EOF
+          This prerelease contains the unsigned debug APK built by ./build_android.sh
+          from commit ${GITHUB_SHA}.
+
+          Included assets:
+          - R47calculator-debug.apk
+          - SHA256SUMS.txt
+          - abis.txt
+          - zipalign.txt
+          - elf-load-segments.txt
+          - BUILD-METADATA.txt
+
+          Notes:
+          - This is a main-branch snapshot prerelease, not a signed store release.
+          - The workflow ran the root simulator test suite with make test.
+          - The workflow verified packaged ABIs and ran the Android 16 KB zip
+            alignment check described in the Android docs.
+
+          Workflow run:
+          https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+
+      - name: Create and publish prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.build-test-android.outputs.release_tag }}
+          RELEASE_TITLE: ${{ needs.build-test-android.outputs.release_title }}
+        run: |
+          set -euo pipefail
+
+          gh release create "$RELEASE_TAG" release-assets/* \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TITLE" \
+            --notes-file RELEASE_NOTES.md \
+            --latest=false \
+            --prerelease \
+            --draft
+
+          gh release edit "$RELEASE_TAG" --draft=false
