@@ -112,6 +112,16 @@ jobs:
           chmod +x build_android.sh
           chmod +x android/gradlew
 
+      - name: Hydrate root native core tree
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f src/c47/assign.c ]]; then
+            echo "Hydrating src/c47 from staged Android core copy."
+            cp -a --update=none android/app/src/main/cpp/c47/. src/c47/
+          fi
+
       - name: Run simulator tests
         shell: bash
         run: |
