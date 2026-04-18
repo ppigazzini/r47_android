@@ -55,7 +55,7 @@ jobs:
           set -euo pipefail
 
           short_sha="${GITHUB_SHA::8}"
-          artifact_name="r47-android-${short_sha}"
+          artifact_name="r47-android-apks-${short_sha}"
 
           echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
 
@@ -236,7 +236,7 @@ jobs:
           set -euo pipefail
           make test
 
-      - name: Build Android debug APK
+      - name: Build Android debug and release APKs
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
@@ -245,74 +245,92 @@ jobs:
           GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
-          ./build_android.sh
+          ./build_android.sh debug release
 
       - name: Collect packaging evidence
         shell: bash
         run: |
           set -euo pipefail
 
-          apk="android/app/build/outputs/apk/debug/R47calculator-debug.apk"
           artifact_dir="$PWD/ci-artifacts"
-          unpack_dir="$artifact_dir/apk-unpacked"
+          unpack_root="$artifact_dir/apk-unpacked"
           release_dir="$artifact_dir/release"
 
-          mkdir -p "$unpack_dir" "$release_dir"
-          cp "$apk" "$release_dir/R47calculator-debug.apk"
-
-          unzip -q "$apk" -d "$unpack_dir"
-
-          find "$unpack_dir/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tee "$release_dir/abis.txt"
+          mkdir -p "$unpack_root" "$release_dir"
           printf '%s\n' arm64-v8a x86_64 > "$artifact_dir/expected-abis.txt"
-          diff -u "$artifact_dir/expected-abis.txt" "$release_dir/abis.txt"
 
           zipalign_bin=$(find "${ANDROID_SDK_ROOT:?}/build-tools" -type f -name zipalign | sort -V | tail -n 1)
-          "$zipalign_bin" -c -P 16 -v 4 "$apk" | tee "$release_dir/zipalign.txt"
-
           llvm_objdump="${ANDROID_SDK_ROOT}/ndk/${{ steps.versions.outputs.ndk_version }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump"
-          : > "$release_dir/elf-load-segments.txt"
 
-          while IFS= read -r -d '' so_file; do
-            {
-              echo "== ${so_file#$unpack_dir/} =="
-              "$llvm_objdump" -p "$so_file" | grep 'LOAD'
-              echo
-            } >> "$release_dir/elf-load-segments.txt"
-          done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
+          for apk_variant in debug release-unsigned; do
+            case "$apk_variant" in
+              debug)
+                apk="android/app/build/outputs/apk/debug/R47calculator-debug.apk"
+                apk_name="R47calculator-debug.apk"
+                ;;
+              release-unsigned)
+                apk="android/app/build/outputs/apk/release/R47calculator-release-unsigned.apk"
+                apk_name="R47calculator-release-unsigned.apk"
+                ;;
+            esac
 
-          below_16k_report="$release_dir/elf-load-segments-below-16k.txt"
-          awk '
-            /^== / {
-              current = $0
-              next
-            }
+            variant_unpack_dir="$unpack_root/$apk_variant"
+            elf_report="$release_dir/elf-load-segments-$apk_variant.txt"
+            below_16k_report="$release_dir/elf-load-segments-$apk_variant-below-16k.txt"
 
-            /align 2\*\*[0-9]+/ {
-              if (match($0, /align 2\*\*[0-9]+/)) {
-                exponent_text = $0
-                sub(/.*align 2\*\*/, "", exponent_text)
-                sub(/[^0-9].*$/, "", exponent_text)
-                exponent = exponent_text + 0
-                if (exponent < 14) {
-                  if (current != "" && current != last_header) {
-                    print current
-                    last_header = current
+            rm -rf "$variant_unpack_dir"
+            mkdir -p "$variant_unpack_dir"
+
+            cp "$apk" "$release_dir/$apk_name"
+            unzip -q "$apk" -d "$variant_unpack_dir"
+
+            find "$variant_unpack_dir/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tee "$release_dir/abis-$apk_variant.txt"
+            diff -u "$artifact_dir/expected-abis.txt" "$release_dir/abis-$apk_variant.txt"
+
+            "$zipalign_bin" -c -P 16 -v 4 "$apk" | tee "$release_dir/zipalign-$apk_variant.txt"
+
+            : > "$elf_report"
+            while IFS= read -r -d '' so_file; do
+              {
+                echo "== ${so_file#$variant_unpack_dir/} =="
+                "$llvm_objdump" -p "$so_file" | grep 'LOAD'
+                echo
+              } >> "$elf_report"
+            done < <(find "$variant_unpack_dir/lib" -type f -name '*.so' -print0)
+
+            awk '
+              /^== / {
+                current = $0
+                next
+              }
+
+              /align 2\*\*[0-9]+/ {
+                if (match($0, /align 2\*\*[0-9]+/)) {
+                  exponent_text = $0
+                  sub(/.*align 2\*\*/, "", exponent_text)
+                  sub(/[^0-9].*$/, "", exponent_text)
+                  exponent = exponent_text + 0
+                  if (exponent < 14) {
+                    if (current != "" && current != last_header) {
+                      print current
+                      last_header = current
+                    }
+                    print $0
                   }
-                  print $0
                 }
               }
-            }
-          ' "$release_dir/elf-load-segments.txt" > "$below_16k_report"
+            ' "$elf_report" > "$below_16k_report"
 
-          if [[ -s "$below_16k_report" ]]; then
-            cat "$below_16k_report" >&2
-            echo "Detected a native library LOAD segment aligned below 16 KB." >&2
-            exit 1
-          fi
+            if [[ -s "$below_16k_report" ]]; then
+              cat "$below_16k_report" >&2
+              echo "Detected a native library LOAD segment aligned below 16 KB in $apk_name." >&2
+              exit 1
+            fi
 
-          rm -f "$below_16k_report"
+            rm -f "$below_16k_report"
+          done
 
-          sha256sum "$release_dir/R47calculator-debug.apk" > "$release_dir/SHA256SUMS.txt"
+          sha256sum "$release_dir"/R47calculator-*.apk > "$release_dir/SHA256SUMS.txt"
 
           cat > "$release_dir/BUILD-METADATA.txt" <<EOF
           ref=${GITHUB_REF}
@@ -326,6 +344,9 @@ jobs:
           compile_sdk=${{ steps.versions.outputs.compile_sdk }}
           cmake_version=${{ steps.versions.outputs.cmake_version }}
           ndk_version=${{ steps.versions.outputs.ndk_version }}
+          android_variants=debug,release-unsigned
+          debug_apk_signed=debug
+          release_apk_signed=false
           EOF
 
       - name: Upload Android build artifact
@@ -369,8 +390,8 @@ jobs:
           xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-assets/BUILD-METADATA.txt)
 
           cat > RELEASE_NOTES.md <<EOF
-          This prerelease contains the unsigned debug APK built by ./build_android.sh
-          from commit ${GITHUB_SHA}.
+          This prerelease contains the debug-signed debug APK and the unsigned
+          release APK built by ./build_android.sh from commit ${GITHUB_SHA}.
 
           The calculator core was synchronized from ${upstream_url} at commit
           ${upstream_commit} before the simulator and Android build steps ran.
@@ -381,17 +402,23 @@ jobs:
 
           Included assets:
           - R47calculator-debug.apk
+          - R47calculator-release-unsigned.apk
           - SHA256SUMS.txt
-          - abis.txt
-          - zipalign.txt
-          - elf-load-segments.txt
+          - abis-debug.txt
+          - abis-release-unsigned.txt
+          - zipalign-debug.txt
+          - zipalign-release-unsigned.txt
+          - elf-load-segments-debug.txt
+          - elf-load-segments-release-unsigned.txt
           - BUILD-METADATA.txt
 
           Notes:
           - This is a main-branch snapshot prerelease, not a signed store release.
+          - The debug APK is signed with the default debug signing config.
+          - The release APK is intentionally unsigned until a dedicated release signing config exists.
           - The workflow ran the root simulator test suite with make test.
           - The workflow verified packaged ABIs and ran the Android 16 KB zip
-            alignment check described in the Android docs.
+            alignment check described in the Android docs for both APK variants.
 
           Workflow run:
           https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}

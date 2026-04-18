@@ -68,7 +68,11 @@ android {
 
     applicationVariants.all { variant ->
         variant.outputs.all {
-            outputFileName = "R47calculator-${variant.name}.apk"
+            // Keep artifact names truthful until a real release signing config exists.
+            def outputName = variant.name == 'release' ?
+                'R47calculator-release-unsigned.apk' :
+                "R47calculator-${variant.name}.apk"
+            outputFileName = outputName
         }
     }
 }
