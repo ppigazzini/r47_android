@@ -402,13 +402,16 @@ jobs:
           mkdir -p "$unpack_dir" "$release_dir"
           printf '%s\n' arm64-v8a x86_64 > "$artifact_dir/expected-abis.txt"
 
-          apk="android/app/build/outputs/apk/debug/R47calculator-debug.apk"
+          original_apk="android/app/build/outputs/apk/debug/R47calculator-debug.apk"
+          apk_dir=$(dirname "$original_apk")
+          apk="$apk_dir/$apk_name"
           zipalign_bin=$(find "${ANDROID_SDK_ROOT:?}/build-tools" -type f -name zipalign | sort -V | tail -n 1)
           llvm_objdump="${ANDROID_SDK_ROOT}/ndk/${{ steps.versions.outputs.ndk_version }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump"
           elf_report="$release_dir/elf-load-segments.txt"
           below_16k_report="$release_dir/elf-load-segments-below-16k.txt"
 
-          cp "$apk" "$release_dir/$apk_name"
+          mv "$original_apk" "$apk"
+          cp "$apk" "$release_dir/"
           unzip -q "$apk" -d "$unpack_dir"
 
           find "$unpack_dir/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tee "$release_dir/abis.txt"
