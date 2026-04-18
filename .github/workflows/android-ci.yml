@@ -65,6 +65,15 @@ jobs:
             echo "release_title=R47 Android main snapshot ${timestamp} ${short_sha}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Detect runner build concurrency
+        id: jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          jobs=$(nproc)
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
       - name: Install Linux build dependencies
         shell: bash
         run: |
@@ -138,7 +147,7 @@ jobs:
             -DBUILD_DOCUMENTATION=FALSE \
             -DBUILD_EXAMPLES=FALSE \
             -DWITH_LIBZIP=OFF
-          cmake --build "$xlsxio_dir/build" --parallel
+          cmake --build "$xlsxio_dir/build" --parallel "${{ steps.jobs.outputs.jobs }}"
           sudo cmake --install "$xlsxio_dir/build" --prefix /usr/local
           sudo ldconfig
 
@@ -193,6 +202,8 @@ jobs:
 
       - name: Run simulator tests
         shell: bash
+        env:
+          NINJA_JOBS: ${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
           make test
@@ -201,6 +212,9 @@ jobs:
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+          NINJA_JOBS: ${{ steps.jobs.outputs.jobs }}
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
+          GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
           ./build_android.sh
