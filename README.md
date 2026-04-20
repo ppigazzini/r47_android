@@ -20,7 +20,8 @@ sudo apt-get install git build-essential meson ninja-build libgmp-dev libgtk-3-d
 
 ### 2. Android Development
 - **Java**: OpenJDK 17 or higher.
-- **Android SDK & NDK**: Version 26.1.10909125 or newer recommended.
+- **Android SDK & NDK**: The checked-in app defaults target compile SDK 35,
+  target SDK 35, NDK `29.0.14206865`, and CMake `3.22.1`.
 
 ### 3. Firmware Cross-Compilation (Optional)
 ```bash
@@ -49,7 +50,10 @@ Ensure `ANDROID_SDK_ROOT` is set in your environment.
 ```bash
 ./build_android.sh
 ```
-The resulting APK will be located in `android/app/build/outputs/apk/debug/`.
+`build_android.sh` runs `make sim`, stages the required native sources and
+generated files into `android/app/src/main/cpp`, and then builds the debug APK.
+The resulting debug APK is
+`android/app/build/outputs/apk/debug/R47calculator-debug.apk`.
 
 ### 🛠️ Advanced Build Configuration
 If you have different versions of the Android SDK, NDK, or CMake installed (common on Windows), you can override the defaults. Depending on your operating system and terminal, some methods may be more reliable than others.
@@ -60,7 +64,7 @@ Create or edit `android/gradle.properties`. This method works on all systems (Li
 r47.compileSdk=35
 r47.targetSdk=35
 r47.ndkVersion=29.0.14206865
-r47.cmakeVersion=3.28.1
+r47.cmakeVersion=3.22.1
 ```
 Note: You can also target **API 36 (Android 16 preview)** by setting `r47.compileSdk=36` and `r47.targetSdk=36` if you have the preview SDK installed.
 
