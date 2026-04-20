@@ -71,5 +71,5 @@ target_link_libraries(c47-android
     ${m-lib}
 )
 
-# 16KB page alignment
-target_link_options(c47-android PRIVATE "-Wl,-z,max-page-size=16384")
+# The Android module enables 16 KB support through the NDK toolchain argument
+# in app/build.gradle rather than a project-local raw linker flag.

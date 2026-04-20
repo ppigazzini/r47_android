@@ -15,13 +15,30 @@ if [ -n "$JAVA_HOME" ] && [ ! -d "$JAVA_HOME" ]; then
 fi
 
 if [ -z "$JAVA_HOME" ]; then
-    for jvm in /usr/lib/jvm/java-17-openjdk-amd64 /usr/lib/jvm/java-21-openjdk-amd64 /usr/lib/jvm/default-java; do
-        if [ -d "$jvm" ]; then
+    JAVA_BIN=$(command -v java 2>/dev/null || true)
+    if [ -n "$JAVA_BIN" ]; then
+        JAVA_HOME_CANDIDATE=$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")
+        if [ -d "$JAVA_HOME_CANDIDATE" ]; then
+            export JAVA_HOME="$JAVA_HOME_CANDIDATE"
+            echo "Detected JAVA_HOME from PATH: $JAVA_HOME"
+        fi
+    fi
+fi
+
+if [ -z "$JAVA_HOME" ] && [ -d /usr/lib/jvm ]; then
+    for jvm in /usr/lib/jvm/default-java /usr/lib/jvm/*; do
+        if [ -d "$jvm" ] && [ -x "$jvm/bin/java" ]; then
             export JAVA_HOME="$jvm"
-            echo "Detected JAVA_HOME: $JAVA_HOME"
+            echo "Detected JAVA_HOME from /usr/lib/jvm: $JAVA_HOME"
             break
         fi
     done
+fi
+
+if [ -n "$JAVA_HOME" ]; then
+    export PATH="$JAVA_HOME/bin:$PATH"
+else
+    echo "WARNING: No local Java installation detected. Gradle build requires JDK 17+."
 fi
 
 PROJECT_ROOT="$(pwd)"
@@ -167,15 +184,29 @@ cp -v res/fonts/*.ttf "$ASSETS_FONTS_DIR/"
 # Copy GMP (mini-gmp)
 echo "--- Setting up GMP ---"
 mkdir -p "$CPP_DIR/gmp"
-GMP_SRC_DIR="$PROJECT_ROOT/subprojects/gmp-6.2.1/mini-gmp"
-if [ -d "$GMP_SRC_DIR" ]; then
-    echo "Found mini-gmp at $GMP_SRC_DIR"
-    cp "$GMP_SRC_DIR/mini-gmp.c" "$CPP_DIR/gmp/"
-    cp "$GMP_SRC_DIR/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
+GMP_SOURCE_DIR=""
+for candidate in \
+    "$PROJECT_ROOT/subprojects/gmp-6.2.1/mini-gmp" \
+    "$PROJECT_ROOT/android/app/src/main/cpp/gmp"
+do
+    if [ -f "$candidate/mini-gmp.c" ] && [ -f "$candidate/mini-gmp.h" -o -f "$candidate/gmp.h" ]; then
+        GMP_SOURCE_DIR="$candidate"
+        break
+    fi
+done
+
+if [ -n "$GMP_SOURCE_DIR" ]; then
+    echo "Using mini-gmp sources from $GMP_SOURCE_DIR"
+    cp "$GMP_SOURCE_DIR/mini-gmp.c" "$CPP_DIR/gmp/"
+    if [ -f "$GMP_SOURCE_DIR/mini-gmp.h" ]; then
+        cp "$GMP_SOURCE_DIR/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
+    else
+        cp "$GMP_SOURCE_DIR/gmp.h" "$CPP_DIR/gmp/gmp.h"
+    fi
     # Patch mini-gmp.c to include gmp.h instead of mini-gmp.h
     sed -i 's|#include "mini-gmp.h"|#include "gmp.h"|g' "$CPP_DIR/gmp/mini-gmp.c"
 else
-    echo "ERROR: Could not locate mini-gmp at $GMP_SRC_DIR. Build will likely fail."
+    echo "ERROR: Could not locate mini-gmp sources in the canonical subproject or the checked-in Android staging tree. Build will likely fail."
 fi
 
 # Create local.properties

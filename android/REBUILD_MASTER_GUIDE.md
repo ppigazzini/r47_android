@@ -1,12 +1,12 @@
 # R47 Android Port: Master Design & Rebuild Guide
 
 **Version:** 3.13 (Automatic Git-Based Versioning)
-**Status:** Stable Production Candidate
-**Target Platform:** Android (API Level 24+), Optimized for Pixel 10 (16KB Page Size)
+**Status:** Maintainer reference for the current debug-build Android shell
+**Target Platform:** Android (API Level 24+), current checked-in defaults target API 35 and 64-bit ABIs
 
 ---
 
-**Goal:** This document captures the technical architecture and specifications of the R47 Android port. It serves as both the technical architectural reference and the restoration manual for the project.
+**Goal:** This document captures the current technical architecture and rebuild contract of the R47 Android port. It serves as the technical reference for the checked-in Android shell and the maintainer rebuild guide for the current debug-build pipeline.
 
 ---
 
@@ -94,6 +94,7 @@ To maintain parity with the hardware and simulator structures, users can select 
 
 - **Subfolder Structure**: The app resolves standard subfolders: `STATE`, `PROGRAMS`, `SAVFILES`, and `SCREENS`.
 - **Context-Aware SAF Pickers**: The `requestFile` bridge uses category IDs to open pickers directly in relevant subfolders.
+- **Native Base Path**: `nativePreInit()` passes `filesDir.absolutePath` into `set_android_base_path()`. The native HAL must use that runtime path instead of assuming a package-specific internal directory.
 
 ### 4.2. High-Latency Mitigation (Buffering)
 
@@ -164,7 +165,11 @@ To ensure stable state switching, switches occur in a single background thread u
 
 ## 12. Android Compatibility
 
-The native shared library MUST be linked with `-Wl,-z,max-page-size=16384` to support modern Android kernels.
+The native shared library MUST follow the supported Android NDK flexible-page-size
+contract. In this repo, `android/app/build.gradle` passes
+`-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON` into CMake, and CI verifies both APK
+zip alignment and ELF `LOAD` segment alignment. Do not rely on a project-local
+hardcoded `-Wl,-z,max-page-size=16384` flag as the only contract.
 
 ---
 

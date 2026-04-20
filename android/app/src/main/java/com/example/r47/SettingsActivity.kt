@@ -8,7 +8,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.PreferenceManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class SettingsActivity : AppCompatActivity() {
@@ -34,22 +33,15 @@ class SettingsActivity : AppCompatActivity() {
 
 class SettingsFragment : PreferenceFragmentCompat() {
 
-    private fun formatUriPath(uriPath: String?): String {
-        if (uriPath == null) return "Select a folder"
-        // Replace /tree/primary: or /tree/1234-ABCD: with /
-        return uriPath.replaceFirst("^/tree/.*?:".toRegex(), "/")
-    }
-
     private val treeLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             requireContext().contentResolver.takePersistableUriPermission(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
-            val prefs = requireContext().getSharedPreferences("R47Prefs", Context.MODE_PRIVATE)
-            prefs.edit().putString("work_directory_uri", uri.toString()).apply()
+            WorkDirectory.writeTreeUriString(requireContext(), uri)
             
-            val displayPath = formatUriPath(uri.path)
+            val displayPath = WorkDirectory.formatDisplayPath(uri.path)
             findPreference<Preference>("work_directory")?.summary = displayPath
             
             MaterialAlertDialogBuilder(requireContext())
@@ -97,7 +89,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.sharedPreferencesName = "R47Prefs"
+        preferenceManager.sharedPreferencesName = WorkDirectory.PREFS_NAME
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
         // Automatic trigger if coming from validation Snackbar
@@ -105,12 +97,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
             treeLauncher.launch(null)
         }
 
-        val prefs = requireContext().getSharedPreferences("R47Prefs", Context.MODE_PRIVATE)
-        val currentUriStr = prefs.getString("work_directory_uri", null)
+        val currentUriStr = WorkDirectory.readTreeUriString(requireContext())
         if (currentUriStr != null) {
             try {
                 val uri = Uri.parse(currentUriStr)
-                findPreference<Preference>("work_directory")?.summary = formatUriPath(uri.path)
+                findPreference<Preference>("work_directory")?.summary = WorkDirectory.formatDisplayPath(uri.path)
             } catch (e: Exception) {
                 findPreference<Preference>("work_directory")?.summary = "Select a folder"
             }
@@ -127,8 +118,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 .setMessage("Wipe all internal data and restart app?\n\nNote: This will NOT delete any files in your selected Work Directory (STATE, PROGRAMS, etc.).")
                 .setPositiveButton("Reset") { _, _ ->
                     // 1. Clear SharedPreferences in memory first
-                    requireContext().getSharedPreferences("R47Prefs", Context.MODE_PRIVATE).edit().clear().commit()
-                    requireContext().getSharedPreferences("R47Slots", Context.MODE_PRIVATE).edit().clear().commit()
+                    requireContext().getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+                    requireContext().getSharedPreferences(SlotStore.SLOT_PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
                     
                     // 2. Delete all files in the app's internal data directory (except lib)
                     val dataDir = requireContext().filesDir.parentFile
