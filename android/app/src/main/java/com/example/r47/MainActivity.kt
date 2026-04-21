@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private var currentSlotId = 0
     private var pendingSlotId: Int? = null 
 
-    private var currentSkin = "r47_texture"
+    private var currentSkin = "r47_background_v2"
     private var lcdMode = "vintage"
     private var scalingMode = "full_width"
 
@@ -179,13 +179,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 syncAudioSettings()
             }
             "current_skin" -> {
-                currentSkin = prefs.getString(key, "r47_texture") ?: "r47_texture"
+                currentSkin = prefs.getString(key, "r47_background_v2") ?: "r47_background_v2"
                 replicaOverlay.setSkin(currentSkin)
                 setupInteractiveZones()
             }
             "dynamic_shift_labels" -> {
                 isDynamicShiftEnabled = prefs.getBoolean(key, false)
-                if (currentSkin == "r47_background_v2") {
+                if (ReplicaKeypadLayout.usesDynamicKeypad(currentSkin)) {
                     updateDynamicKeys()
                 }
             }
@@ -262,12 +262,16 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         return super.onKeyUp(keyCode, event)
     }
 
-    internal fun currentKeyboardStateSnapshot(): KeyboardStateSnapshot {
-        return KeyboardStateSnapshot.fromNative(getKeyboardStateNative())
+    internal fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
+        val resolvedMeta = meta ?: getKeypadMetaNative()
+        return KeypadSnapshot.fromNative(
+            resolvedMeta,
+            getKeypadLabelsNative(isDynamicShiftEnabled),
+        )
     }
 
-    private fun updateDynamicKeys(snapshot: KeyboardStateSnapshot? = null) {
-        val resolvedSnapshot = snapshot ?: currentKeyboardStateSnapshot()
+    private fun updateDynamicKeys(snapshot: KeypadSnapshot? = null) {
+        val resolvedSnapshot = snapshot ?: currentKeypadSnapshot()
         ReplicaKeypadLayout.updateDynamicKeys(this, replicaOverlay, currentSkin, resolvedSnapshot)
     }
 
@@ -320,7 +324,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         isHighFidelityHapticEnabled = prefs.getBoolean("haptic_hifi_enabled", true)
         hapticIntensity = prefs.getInt("haptic_intensity", 180)
         beeperVolume = prefs.getInt("beeper_volume", 20)
-        currentSkin = prefs.getString("current_skin", "r47_texture") ?: "r47_texture"
+        currentSkin = prefs.getString("current_skin", "r47_background_v2") ?: "r47_background_v2"
         lcdMode = prefs.getString("lcd_mode", "vintage") ?: "vintage"
         scalingMode = prefs.getString("scaling_mode", "full_width") ?: "full_width"
         isBeeperEnabled = prefs.getBoolean("beeper_enabled", true)
@@ -343,7 +347,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             saveStateNative = ::saveStateNative,
             forceRefreshNative = ::forceRefreshNative,
             getDisplayPixels = ::getDisplayPixels,
-            getKeyboardStateNative = ::getKeyboardStateNative,
+            getKeypadMetaNative = ::getKeypadMetaNative,
+            getKeypadSnapshot = ::currentKeypadSnapshot,
             onLcdPixels = { pixels -> replicaOverlay.updateLcd(pixels) },
             onDynamicRefresh = ::updateDynamicKeys,
         )
@@ -353,7 +358,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             replicaOverlay.setShowTouchZones(showTouchZones)
             replicaOverlay.setScalingMode(scalingMode)
             applyLcdMode(lcdMode)
-            if (currentSkin == "r47_background_v2") {
+            if (ReplicaKeypadLayout.usesDynamicKeypad(currentSkin)) {
                 updateDynamicKeys()
             }
         }
@@ -504,10 +509,14 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun getDisplayPixels(pixels: IntArray)
     private external fun setLcdColors(text: Int, bg: Int)
     
-    // New dynamic label and state APIs
-    external fun getButtonLabelNative(keyCode: Int, type: Int, isDynamic: Boolean): String
-    external fun getSoftkeyLabelNative(fnKeyIndex: Int): String
-    external fun getKeyboardStateNative(): IntArray // returns [shiftF, shiftG, calcMode, userMode, alphaFlag]
+    // Legacy keypad getters kept for bridge compatibility.
+    private external fun getButtonLabelNative(keyCode: Int, type: Int, isDynamic: Boolean): String
+    private external fun getSoftkeyLabelNative(fnKeyIndex: Int): String
+    private external fun getKeyboardStateNative(): IntArray // returns [shiftF, shiftG, calcMode, userMode, alphaFlag]
+
+    // Snapshot keypad APIs used by the default Android-native keypad.
+    private external fun getKeypadMetaNative(): IntArray
+    private external fun getKeypadLabelsNative(isDynamic: Boolean): Array<String>
 
     @Keep fun onFileSelected(fd: Int) { onFileSelectedNative(fd) }
     @Keep fun onFileCancelled() { onFileCancelledNative() }

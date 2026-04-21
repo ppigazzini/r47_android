@@ -8,6 +8,8 @@ import android.widget.Button
 internal object ReplicaKeypadLayout {
     private const val DYNAMIC_SKIN = "r47_background_v2"
 
+    fun usesDynamicKeypad(currentSkin: String): Boolean = currentSkin == DYNAMIC_SKIN
+
     fun rebuild(
         activity: MainActivity,
         overlay: ReplicaOverlay,
@@ -17,7 +19,7 @@ internal object ReplicaKeypadLayout {
     ) {
         overlay.removeAllViews()
 
-        if (currentSkin == DYNAMIC_SKIN) {
+        if (usesDynamicKeypad(currentSkin)) {
             addDynamicKeypad(activity, overlay, performHapticClick, dispatchKey)
         } else {
             addClassicKeypad(activity, overlay, performHapticClick, dispatchKey)
@@ -28,16 +30,16 @@ internal object ReplicaKeypadLayout {
         activity: MainActivity,
         overlay: ReplicaOverlay,
         currentSkin: String,
-        snapshot: KeyboardStateSnapshot,
+        snapshot: KeypadSnapshot,
     ) {
-        if (currentSkin != DYNAMIC_SKIN) {
+        if (!usesDynamicKeypad(currentSkin)) {
             return
         }
 
         for (index in 0 until overlay.childCount) {
             val child = overlay.getChildAt(index)
             if (child is CalculatorKeyView) {
-                child.updateLabels(activity, snapshot)
+                child.updateLabels(snapshot, activity.isDynamicShiftEnabled)
             }
         }
     }
@@ -155,7 +157,7 @@ internal object ReplicaKeypadLayout {
         } catch (_: Exception) {
             null
         }
-        val snapshot = activity.currentKeyboardStateSnapshot()
+        val snapshot = activity.currentKeypadSnapshot()
 
         val xLeft = 32f
         val yStart = 336f
@@ -204,7 +206,7 @@ internal object ReplicaKeypadLayout {
 
                 val keyView = CalculatorKeyView(activity)
                 keyView.setKey(code, isFunctionKey, font)
-                keyView.updateLabels(activity, snapshot)
+                keyView.updateLabels(snapshot, activity.isDynamicShiftEnabled)
                 keyView.setOnTouchListener(
                     createTouchListener(
                         code = code,
@@ -238,6 +240,11 @@ internal object ReplicaKeypadLayout {
         dispatchKey: (Int) -> Unit,
     ): View.OnTouchListener {
         return View.OnTouchListener { view, event ->
+            if (!view.isEnabled) {
+                view.isPressed = false
+                return@OnTouchListener true
+            }
+
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     view.isPressed = true

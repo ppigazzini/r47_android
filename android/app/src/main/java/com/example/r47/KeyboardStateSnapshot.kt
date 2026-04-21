@@ -29,5 +29,9 @@ internal data class KeyboardStateSnapshot(
                 alphaOn = state[4] != 0,
             )
         }
+
+        fun fromMeta(meta: IntArray?): KeyboardStateSnapshot {
+            return fromNative(meta)
+        }
     }
 }
