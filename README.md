@@ -50,8 +50,11 @@ Ensure `ANDROID_SDK_ROOT` is set in your environment.
 ```bash
 ./build_android.sh
 ```
-`build_android.sh` runs `make sim`, stages the required native sources and
-generated files into `android/app/src/main/cpp`, and then builds the debug APK.
+`build_android.sh` runs `make sim`, then delegates native staging to
+`android/stage_native_sources.sh`. That step copies the synced `src/c47` tree,
+`dep/decNumberICU`, generated files, and mini-gmp inputs into
+`android/app/src/main/cpp` before Gradle builds the debug APK. The staged tree
+is an Android build input, not the preferred source of truth.
 The resulting debug APK is
 `android/app/build/outputs/apk/debug/R47calculator-debug.apk`.
 
