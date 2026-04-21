@@ -16,9 +16,10 @@ internal class NativeCoreRuntime(
     private val saveStateNative: () -> Unit,
     private val forceRefreshNative: () -> Unit,
     private val getDisplayPixels: (IntArray) -> Unit,
-    private val getKeyboardStateNative: () -> IntArray,
+    private val getKeypadMetaNative: () -> IntArray,
+    private val getKeypadSnapshot: (IntArray) -> KeypadSnapshot,
     private val onLcdPixels: (IntArray) -> Unit,
-    private val onDynamicRefresh: (KeyboardStateSnapshot) -> Unit,
+    private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
 ) {
     companion object {
         private const val TAG = "R47CoreRuntime"
@@ -39,7 +40,7 @@ internal class NativeCoreRuntime(
 
     private val lcdPixels = IntArray(400 * 240)
     private var lastLabelRefresh = 0L
-    private var lastKeyboardState = KeyboardStateSnapshot.EMPTY
+    private var lastKeypadMeta = IntArray(0)
     private var frameLoopActive = false
 
     private val frameCallback = object : Choreographer.FrameCallback {
@@ -54,14 +55,13 @@ internal class NativeCoreRuntime(
                     onLcdPixels(lcdPixels)
                 }
 
-                val currentState = KeyboardStateSnapshot.fromNative(getKeyboardStateNative())
+                val currentMeta = getKeypadMetaNative()
                 val now = System.currentTimeMillis()
                 val shouldRefreshLabels = now - lastLabelRefresh > 500
-                if (shouldRefreshLabels || currentState != lastKeyboardState) {
-                    lastKeyboardState = currentState
-                    onDynamicRefresh(currentState)
-                }
-                if (shouldRefreshLabels) {
+                val keypadStateChanged = !lastKeypadMeta.contentEquals(currentMeta)
+                if (shouldRefreshLabels || keypadStateChanged) {
+                    lastKeypadMeta = currentMeta.copyOf()
+                    onDynamicRefresh(getKeypadSnapshot(currentMeta))
                     lastLabelRefresh = now
                 }
             }

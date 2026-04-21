@@ -291,34 +291,33 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
     }
 
-    internal fun updateLabels(main: MainActivity, snapshot: KeyboardStateSnapshot) {
+    private fun applyEnabledState(enabled: Boolean) {
+        isEnabled = enabled
+        alpha = if (enabled || isFnKey) 1f else 0.45f
+        buttonView.alpha = if (enabled) 1f else 0.45f
+        primaryLabel.alpha = if (enabled) 1f else 0.6f
+        fLabel.alpha = if (enabled) 1f else 0.6f
+        gLabel.alpha = if (enabled) 1f else 0.6f
+        letterLabel.alpha = if (enabled) 1f else 0.6f
+    }
+
+    internal fun updateLabels(snapshot: KeypadSnapshot, dynamicShiftEnabled: Boolean) {
+        val keyState = snapshot.keyStateFor(keyCode)
+        applyEnabledState(keyState.isEnabled)
+
         if (isFnKey) {
-            primaryLabel.text = main.getSoftkeyLabelNative(keyCode - 37)
+            contentDescription = keyState.primaryLabel
         } else {
             val alphaOn = snapshot.alphaOn
 
-            val allowDynamicScaling = main.isDynamicShiftEnabled || alphaOn
+            val allowDynamicScaling = dynamicShiftEnabled || alphaOn
             updateFontSize(snapshot.shiftF, snapshot.shiftG || alphaOn, allowDynamicScaling)
             updateLayoutPositioning(alphaOn)
 
-            primaryLabel.text = main.getButtonLabelNative(keyCode, 0, main.isDynamicShiftEnabled)
-
-            if (keyCode == 11) {
-                fLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 1, main.isDynamicShiftEnabled) else "HOME"
-                gLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 2, main.isDynamicShiftEnabled) else ""
-            } else if (keyCode == 12) {
-                fLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 1, main.isDynamicShiftEnabled) else "CUST"
-                gLabel.text = if (alphaOn) main.getButtonLabelNative(keyCode, 2, main.isDynamicShiftEnabled) else ""
-            } else {
-                fLabel.text = main.getButtonLabelNative(keyCode, 1, main.isDynamicShiftEnabled)
-                gLabel.text = main.getButtonLabelNative(keyCode, 2, main.isDynamicShiftEnabled)
-            }
-            
-            if (keyCode == 37) { 
-                letterLabel.text = "_"
-            } else {
-                letterLabel.text = main.getButtonLabelNative(keyCode, 3, main.isDynamicShiftEnabled)
-            }
+            primaryLabel.text = keyState.primaryLabel
+            fLabel.text = keyState.fLabel
+            gLabel.text = keyState.gLabel
+            letterLabel.text = keyState.letterLabel
         }
     }
     

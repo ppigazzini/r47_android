@@ -1,9 +1,10 @@
 # R47 Android Port: RPN Calculator
 
-This repository provides a photographic Android port of the [SwissMicros C43/C47 project](https://gitlab.com/rpncalculators/c43.git). It runs the high-performance mathematical core of the C43 via a native JNI wrapper.
+This repository provides an Android port of the [SwissMicros C43/C47 project](https://gitlab.com/rpncalculators/c43.git). It runs the high-performance mathematical core of the C43 via a native JNI wrapper and now defaults to an Android-native keypad while keeping an optional classic photographic skin.
 
 ## 🎯 Features
-- **Photographic Replica**: High-fidelity UI matching the physical hardware from SwissMicros (R47).
+- **Native Keypad Default**: The default UI renders the keypad from one native snapshot instead of relying on per-label JNI polling or invisible image hit zones.
+- **Optional Classic Skin**: A high-fidelity photographic replica remains available as an alternate theme.
 - **Native Performance**: Math engine runs in C via JNI for 100% parity with the hardware.
 - **Modern Android Support**: Optimized for high-refresh screens and 16KB page sizes (Android 15+).
 - **SAF Integration**: Full support for Android's Storage Access Framework for programs and state files.
