@@ -28,6 +28,7 @@ internal object ReplicaKeypadLayout {
         activity: MainActivity,
         overlay: ReplicaOverlay,
         currentSkin: String,
+        snapshot: KeyboardStateSnapshot,
     ) {
         if (currentSkin != DYNAMIC_SKIN) {
             return
@@ -36,7 +37,7 @@ internal object ReplicaKeypadLayout {
         for (index in 0 until overlay.childCount) {
             val child = overlay.getChildAt(index)
             if (child is CalculatorKeyView) {
-                child.updateLabels(activity)
+                child.updateLabels(activity, snapshot)
             }
         }
     }
@@ -154,6 +155,7 @@ internal object ReplicaKeypadLayout {
         } catch (_: Exception) {
             null
         }
+        val snapshot = activity.currentKeyboardStateSnapshot()
 
         val xLeft = 32f
         val yStart = 336f
@@ -202,7 +204,7 @@ internal object ReplicaKeypadLayout {
 
                 val keyView = CalculatorKeyView(activity)
                 keyView.setKey(code, isFunctionKey, font)
-                keyView.updateLabels(activity)
+                keyView.updateLabels(activity, snapshot)
                 keyView.setOnTouchListener(
                     createTouchListener(
                         code = code,

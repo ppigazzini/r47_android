@@ -291,22 +291,15 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
     }
 
-    fun updateLabels(main: MainActivity) {
+    internal fun updateLabels(main: MainActivity, snapshot: KeyboardStateSnapshot) {
         if (isFnKey) {
             primaryLabel.text = main.getSoftkeyLabelNative(keyCode - 37)
         } else {
-            val state = main.getKeyboardStateNative()
-            var alphaOn = false
-            if (state != null && state.size >= 5) {
-                val fOn = state[0] != 0
-                val gOn = state[1] != 0
-                alphaOn = state[4] != 0
-                
-                // Allow scaling if either the toggle is ON, or we are in Alpha Mode (which is always dynamic)
-                val allowDynamicScaling = main.isDynamicShiftEnabled || alphaOn
-                updateFontSize(fOn, gOn || alphaOn, allowDynamicScaling)
-                updateLayoutPositioning(alphaOn)
-            }
+            val alphaOn = snapshot.alphaOn
+
+            val allowDynamicScaling = main.isDynamicShiftEnabled || alphaOn
+            updateFontSize(snapshot.shiftF, snapshot.shiftG || alphaOn, allowDynamicScaling)
+            updateLayoutPositioning(alphaOn)
 
             primaryLabel.text = main.getButtonLabelNative(keyCode, 0, main.isDynamicShiftEnabled)
 

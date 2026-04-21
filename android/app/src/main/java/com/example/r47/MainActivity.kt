@@ -262,8 +262,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         return super.onKeyUp(keyCode, event)
     }
 
-    private fun updateDynamicKeys() {
-        ReplicaKeypadLayout.updateDynamicKeys(this, replicaOverlay, currentSkin)
+    internal fun currentKeyboardStateSnapshot(): KeyboardStateSnapshot {
+        return KeyboardStateSnapshot.fromNative(getKeyboardStateNative())
+    }
+
+    private fun updateDynamicKeys(snapshot: KeyboardStateSnapshot? = null) {
+        val resolvedSnapshot = snapshot ?: currentKeyboardStateSnapshot()
+        ReplicaKeypadLayout.updateDynamicKeys(this, replicaOverlay, currentSkin, resolvedSnapshot)
     }
 
     private fun offerCoreTask(task: Runnable) {
