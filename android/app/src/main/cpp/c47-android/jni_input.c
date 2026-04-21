@@ -11,7 +11,8 @@ extern void btnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 static char currentPressedKeyStr[4] = {0};
 static int currentPressedKeyCode = 0;
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimFuncNative(
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_sendSimFuncNative(
     JNIEnv *env, jobject thiz, jint funcId) {
   (void)env;
   (void)thiz;
@@ -21,7 +22,8 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimFuncNative(
   pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimMenuNative(
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_sendSimMenuNative(
     JNIEnv *env, jobject thiz, jint menuId) {
   (void)env;
   (void)thiz;
@@ -32,7 +34,8 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimMenuNative(
   pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimKeyNative(
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease) {
   (void)thiz;
@@ -67,9 +70,8 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimKeyNative(
   (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(JNIEnv *env,
-                                                                 jobject thiz,
-                                                                 jint keyCode) {
+JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
+  JNIEnv *env, jobject thiz, jint keyCode) {
   (void)env;
   (void)thiz;
   if (!ram) {

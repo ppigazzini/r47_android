@@ -1,12 +1,32 @@
 # R47 Android Port: Master Design & Rebuild Guide
 
-**Version:** 3.13 (Automatic Git-Based Versioning)
+**Version:** 3.14 (Property-Backed Package And Version Contract)
 **Status:** Maintainer reference for the current debug-build Android shell
-**Target Platform:** Android (API Level 24+), current checked-in defaults target API 35 and 64-bit ABIs
+**Target Platform:** Android (API Level 24+), current checked-in defaults target API 35 and arm64-v8a
 
 ---
 
 **Goal:** This document captures the current technical architecture and rebuild contract of the R47 Android port. It serves as the technical reference for the checked-in Android shell and the maintainer rebuild guide for the current debug-build pipeline. Public checkouts contain the Android shell and tracked local overrides; `sync_public.sh` hydrates the authoritative core from upstream before rebuilds.
+
+---
+
+## 0. Package Identity And Version Contract
+
+- The stable checked-in Android package identity MUST be
+  `com.example.r47`.
+- Debug snapshots MUST install as `com.example.r47.debug` through the
+  app-module `applicationIdSuffix ".debug"`.
+- The checked-in debug APK currently packages `arm64-v8a` only.
+- Release version inputs MUST come from the Gradle properties
+  `r47.versionCode` and `r47.versionName`.
+- The checked-in defaults are `r47.versionCode=1` and `r47.versionName=0.1.0`.
+- Debug builds append `-snapshot.<core>` to `versionName`, where `<core>` comes
+  from `r47.coreVersion`.
+- `build_android.sh` always passes `-Pr47.coreVersion=<sha>` and may also pass
+  `-Pr47.versionCode=<n>` and `-Pr47.versionName=<name>` from the environment
+  variables `R47_VERSION_CODE` and `R47_VERSION_NAME`.
+- The debug APK output name remains `R47calculator-debug.apk`. That file name is
+  a build artifact name, not the app identity.
 
 ---
 
@@ -178,6 +198,11 @@ contract. In this repo, `android/app/build.gradle` passes
 `-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON` into CMake, and CI verifies both APK
 zip alignment and ELF `LOAD` segment alignment. Do not rely on a project-local
 hardcoded `-Wl,-z,max-page-size=16384` flag as the only contract.
+
+With AGP 8.7.3 and NDK 29, the repo intentionally uses the preferred
+uncompressed-native-library path and no longer carries
+`useLegacyPackaging true`. Treat the current CI zip and ELF alignment checks as
+the artifact-level evidence that justifies that simpler packaging contract.
 
 ---
 

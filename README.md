@@ -22,6 +22,11 @@ sudo apt-get install git build-essential meson ninja-build libgmp-dev libgtk-3-d
 - **Java**: OpenJDK 17 or higher.
 - **Android SDK & NDK**: The checked-in app defaults target compile SDK 35,
   target SDK 35, NDK `29.0.14206865`, and CMake `3.22.1`.
+- **Package Identity**: The checked-in base app identity is
+    `com.example.r47`. Debug builds install as
+    `com.example.r47.debug` so the snapshot lane stays separate from a
+    future store release.
+- **APK ABI**: The checked-in debug APK currently packages `arm64-v8a` only.
 
 ### 3. Firmware Cross-Compilation (Optional)
 ```bash
@@ -55,6 +60,9 @@ Ensure `ANDROID_SDK_ROOT` is set in your environment.
 `dep/decNumberICU`, generated files, and mini-gmp inputs into
 `android/app/src/main/cpp` before Gradle builds the debug APK. The staged tree
 is an Android build input, not the preferred source of truth.
+The checked-in release version inputs default to `r47.versionCode=1` and
+`r47.versionName=0.1.0`. Debug builds append the synchronized core revision as a
+`-snapshot.<core>` suffix automatically.
 The resulting debug APK is
 `android/app/build/outputs/apk/debug/R47calculator-debug.apk`.
 
@@ -68,13 +76,17 @@ r47.compileSdk=35
 r47.targetSdk=35
 r47.ndkVersion=29.0.14206865
 r47.cmakeVersion=3.22.1
+r47.versionCode=1
+r47.versionName=0.1.0
 ```
 Note: You can also target **API 36 (Android 16 preview)** by setting `r47.compileSdk=36` and `r47.targetSdk=36` if you have the preview SDK installed.
 
 #### Option 2: Environment Variables (Linux / macOS / WSL)
-You can pass the NDK version as an environment variable before running the build script:
+You can pass the NDK version and optional release-version overrides as environment variables before running the build script:
 ```bash
 export R47_NDK_VERSION="29.0.14206865"
+export R47_VERSION_CODE="1"
+export R47_VERSION_NAME="0.1.0"
 ./build_android.sh
 ```
 
@@ -82,17 +94,20 @@ export R47_NDK_VERSION="29.0.14206865"
 If you are running from a native Windows terminal without WSL or Git Bash:
 **PowerShell:**
 ```powershell
-$env:R47_NDK_VERSION="29.0.14206865"; ./build_android.sh
+$env:R47_NDK_VERSION="29.0.14206865"; $env:R47_VERSION_CODE="1"; $env:R47_VERSION_NAME="0.1.0"; ./build_android.sh
 ```
 **CMD:**
 ```cmd
-set R47_NDK_VERSION=29.0.14206865 && ./build_android.sh
+set R47_NDK_VERSION=29.0.14206865 && set R47_VERSION_CODE=1 && set R47_VERSION_NAME=0.1.0 && ./build_android.sh
 ```
 
-#### Option 4: Manual local.properties (Alternative for Windows)
-Some Windows users have reported success by manually appending the version to `local.properties`:
+#### Option 4: Append To gradle.properties (Alternative For Windows)
+If setting environment variables is inconvenient, append the same project
+properties directly to `android/gradle.properties`:
 ```cmd
-echo ndkVersion=29.0.14206865 >> android/local.properties
+echo r47.ndkVersion=29.0.14206865>> android/gradle.properties
+echo r47.versionCode=1>> android/gradle.properties
+echo r47.versionName=0.1.0>> android/gradle.properties
 ```
 
 ## 📜 Acknowledgments

@@ -6,15 +6,18 @@ plugins {
 android {
     namespace 'com.example.r47'
     compileSdk project.findProperty('r47.compileSdk')?.toInteger() ?: 35
-    def coreVersion = project.findProperty('r47.coreVersion') ?: "unknown"
+    def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
+    def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z._-]/, "_")
+    def releaseVersionCode = Integer.parseInt((project.findProperty('r47.versionCode') ?: "1").toString())
+    def releaseVersionName = (project.findProperty('r47.versionName') ?: "0.1.0").toString()
 
     defaultConfig {
         applicationId "com.example.r47"
         minSdk project.findProperty('r47.minSdk')?.toInteger() ?: 24
         targetSdk project.findProperty('r47.targetSdk')?.toInteger() ?: 35
-        versionCode 1
-        versionName "1.0"
-        resValue "string", "about_version_summary", "R47 Android Port (${coreVersion})"
+        versionCode releaseVersionCode
+        versionName releaseVersionName
+        resValue "string", "about_version_summary", "R47 Android ${releaseVersionName} (Core: ${coreVersion})"
         
         // Use property override if provided, otherwise default to a verified version
         // To use system default, user can pass -Pr47.ndkVersion=
@@ -27,7 +30,7 @@ android {
             }
         }
         ndk {
-            abiFilters 'arm64-v8a', 'x86_64'
+            abiFilters 'arm64-v8a'
         }
     }
 
@@ -35,6 +38,9 @@ android {
         debug {
             debuggable true
             jniDebuggable true
+            // Keep the debug snapshot lane separate from a future store release.
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-snapshot.${normalizedCoreVersion}"
         }
         release {
             minifyEnabled false
@@ -60,12 +66,6 @@ android {
     
     kotlinOptions {
         jvmTarget = '17'
-    }
-
-    packagingOptions {
-        jniLibs {
-            useLegacyPackaging true
-        }
     }
 
     applicationVariants.all { variant ->
