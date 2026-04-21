@@ -443,7 +443,7 @@ jobs:
           apk_name="R47calculator-debug.apk"
 
           mkdir -p "$unpack_dir" "$release_dir"
-          printf '%s\n' arm64-v8a x86_64 > "$artifact_dir/expected-abis.txt"
+          printf '%s\n' arm64-v8a > "$artifact_dir/expected-abis.txt"
 
           original_apk="android/app/build/outputs/apk/debug/R47calculator-debug.apk"
           apk="$original_apk"

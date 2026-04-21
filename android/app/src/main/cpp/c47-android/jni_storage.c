@@ -52,7 +52,8 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   return fd;
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_onFileSelectedNative(
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_onFileSelectedNative(
     JNIEnv *env, jobject thiz, jint fd) {
   (void)env;
   (void)thiz;
@@ -64,7 +65,8 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_onFileSelectedNative(
   pthread_mutex_unlock(&fileMutex);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_onFileCancelledNative(
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_onFileCancelledNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;

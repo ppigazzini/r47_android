@@ -141,6 +141,8 @@ chmod +x "$GRADLE_CMD"
 GRADLE_PROPS="-Pr47.ndkVersion=$IF_NDK_VERSION"
 GRADLE_PROPS="$GRADLE_PROPS -Pr47.coreVersion=$COMMIT_HASH"
 if [ -n "$R47_COMPILE_SDK" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.compileSdk=$R47_COMPILE_SDK"; fi
+if [ -n "$R47_VERSION_CODE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionCode=$R47_VERSION_CODE"; fi
+if [ -n "$R47_VERSION_NAME" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionName=$R47_VERSION_NAME"; fi
 
 # Clean cxx to ensure fresh cmake run
 rm -rf app/.cxx

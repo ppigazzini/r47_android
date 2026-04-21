@@ -13,7 +13,7 @@ extern void execTimerApp(uint16_t timerType);
 
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
-                                                          jobject thiz) {
+                                                                 jobject thiz) {
   LOGI("updateNativeActivityRef called");
 
   if (g_mainActivityObj) {
@@ -98,8 +98,8 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
   pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(JNIEnv *env,
-                                                              jobject thiz) {
+JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(
+  JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;
   uint32_t now = sys_current_ms();
@@ -121,7 +121,8 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env, jobject thiz) {
+Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env,
+                                                         jobject thiz) {
   (void)env;
   (void)thiz;
   LOGI("saveStateNative triggered");
@@ -155,7 +156,8 @@ Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env, jobject thiz) {
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env, jobject thiz) {
+Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env,
+                                                         jobject thiz) {
   (void)env;
   (void)thiz;
   LOGI("loadStateNative triggered");
@@ -192,7 +194,8 @@ Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env, jobject thiz) {
   pthread_mutex_unlock(&screenMutex);
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_forceRefreshNative(
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_forceRefreshNative(
     JNIEnv *env, jobject thiz) {
   (void)env;
   (void)thiz;

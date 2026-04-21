@@ -46,10 +46,8 @@ extern void lcd_clear_buf(void);
 extern void lcd_refresh(void);
 extern void refreshScreen(uint16_t reason);
 
-extern void JNICALL Java_com_example_r47_MainActivity_setLcdColors(JNIEnv *env,
-                                                                   jobject thiz,
-                                                                   jint text,
-                                                                   jint bg);
+extern void JNICALL Java_com_example_r47_MainActivity_setLcdColors(
+    JNIEnv *env, jobject thiz, jint text, jint bg);
 
 void onUIActivity(void);
 gint64 g_get_monotonic_time(void);
@@ -62,52 +60,65 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType);
 void triggerQuit(void);
 int register_main_activity_natives(JNIEnv *env);
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_updateNativeActivityRef(
-    JNIEnv *env, jobject thiz);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
+                                                                 jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(
     JNIEnv *env, jobject thiz, jstring path_obj);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(
     JNIEnv *env, jobject thiz, jstring pathObj, jint slotId);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(JNIEnv *env,
-                                                              jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(JNIEnv *env,
-                                                                 jobject thiz,
-                                                                 jint keyCode);
+JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(
+    JNIEnv *env, jobject thiz);
+JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
+    JNIEnv *env, jobject thiz, jint keyCode);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimMenuNative(
-    JNIEnv *env, jobject thiz, jint menuId);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimFuncNative(
-    JNIEnv *env, jobject thiz, jint funcId);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_saveStateNative(
-    JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_loadStateNative(
-    JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_forceRefreshNative(
-    JNIEnv *env, jobject thiz);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_sendSimMenuNative(JNIEnv *env,
+                                                           jobject thiz,
+                                                           jint menuId);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_sendSimFuncNative(JNIEnv *env,
+                                                           jobject thiz,
+                                                           jint funcId);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_saveStateNative(JNIEnv *env,
+                                                         jobject thiz);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env,
+                                                         jobject thiz);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_forceRefreshNative(JNIEnv *env,
+                                                            jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_setSlotNative(
     JNIEnv *env, jobject thiz, jint slot);
-JNIEXPORT jstring JNICALL Java_com_example_r47_MainActivity_getXRegisterNative(
-    JNIEnv *env, jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_getDisplayPixels(
-    JNIEnv *env, jobject thiz, jintArray pixels);
+JNIEXPORT jstring JNICALL
+Java_com_example_r47_MainActivity_getXRegisterNative(JNIEnv *env,
+                                                            jobject thiz);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_getDisplayPixels(JNIEnv *env,
+                                                          jobject thiz,
+                                                          jintArray pixels);
 JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
-                                                       jobject thiz,
-                                                       jint keyCode,
-                                                       jint type,
-                                                       jboolean isDynamic);
+                                                              jobject thiz,
+                                                              jint keyCode,
+                                                              jint type,
+                                                              jboolean isDynamic);
 JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getSoftkeyLabelNative(JNIEnv *env,
-                                                        jobject thiz,
-                                                        jint fnKeyIndex);
+                                                               jobject thiz,
+                                                               jint fnKeyIndex);
 JNIEXPORT jintArray JNICALL
 Java_com_example_r47_MainActivity_getKeyboardStateNative(JNIEnv *env,
-                                                         jobject thiz);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_onFileSelectedNative(
-    JNIEnv *env, jobject thiz, jint fd);
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_onFileCancelledNative(
-    JNIEnv *env, jobject thiz);
+                                                                jobject thiz);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_onFileSelectedNative(JNIEnv *env,
+                                                              jobject thiz,
+                                                              jint fd);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_onFileCancelledNative(JNIEnv *env,
+                                                               jobject thiz);
 
 #endif

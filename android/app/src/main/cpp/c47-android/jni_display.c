@@ -30,7 +30,8 @@ static void fillKeyboardState(jint *fill) {
   fill[4] = (jint)getSystemFlag(0x800e);
 }
 
-JNIEXPORT jstring JNICALL Java_com_example_r47_MainActivity_getXRegisterNative(
+JNIEXPORT jstring JNICALL
+Java_com_example_r47_MainActivity_getXRegisterNative(
     JNIEnv *env, jobject thiz) {
   (void)thiz;
   if (!ram || isCoreBlockingForIo) {
@@ -47,10 +48,10 @@ JNIEXPORT jstring JNICALL Java_com_example_r47_MainActivity_getXRegisterNative(
 
 JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
-                                                       jobject thiz,
-                                                       jint keyCode,
-                                                       jint type,
-                                                       jboolean isDynamic) {
+                                                              jobject thiz,
+                                                              jint keyCode,
+                                                              jint type,
+                                                              jboolean isDynamic) {
   (void)thiz;
   if (!ram) {
     return (*env)->NewStringUTF(env, "");
@@ -145,8 +146,8 @@ Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
 
 JNIEXPORT jstring JNICALL
 Java_com_example_r47_MainActivity_getSoftkeyLabelNative(JNIEnv *env,
-                                                        jobject thiz,
-                                                        jint fnKeyIndex) {
+                                                               jobject thiz,
+                                                               jint fnKeyIndex) {
   (void)thiz;
   if (!ram || fnKeyIndex < 1 || fnKeyIndex > 6) {
     return (*env)->NewStringUTF(env, "");
@@ -178,7 +179,7 @@ Java_com_example_r47_MainActivity_getSoftkeyLabelNative(JNIEnv *env,
 
 JNIEXPORT jintArray JNICALL
 Java_com_example_r47_MainActivity_getKeyboardStateNative(JNIEnv *env,
-                                                         jobject thiz) {
+                                                                jobject thiz) {
   (void)thiz;
   if (!ram) {
     return NULL;
@@ -198,7 +199,8 @@ Java_com_example_r47_MainActivity_getKeyboardStateNative(JNIEnv *env,
   return result;
 }
 
-JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_getDisplayPixels(
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_getDisplayPixels(
     JNIEnv *env, jobject thiz, jintArray pixels) {
   (void)thiz;
   if (!screenData) {
