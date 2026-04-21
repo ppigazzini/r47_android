@@ -89,14 +89,6 @@ echo "======================================================="
 # Public repo uses 'upstream', Private repo uses 'origin'.
 COMMIT_HASH=$(git rev-parse --short upstream/master 2>/dev/null || git rev-parse --short origin/master 2>/dev/null || echo "unknown")
 echo "--- SwissMicros Core Version: $COMMIT_HASH ---"
-PREFS_FILE="$ANDROID_PROJECT_DIR/app/src/main/res/xml/root_preferences.xml"
-if [ -f "$PREFS_FILE" ]; then
-    # Update the summary for the about_version preference
-    # We look for the block containing about_version and update the next app:summary line
-    sed -i "/app:key=\"about_version\"/,/app:summary/ s/app:summary=\".*\"/app:summary=\"R47 Android Port ($COMMIT_HASH)\"/" "$PREFS_FILE"
-else
-    echo "WARNING: Could not find $PREFS_FILE to update version."
-fi
 
 # --- 3. Generate Assets (make sim) ---
 echo "--- Generating Core Assets (running make sim) ---"
@@ -114,62 +106,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# --- 3. Copy Source Code & Assets ---
-echo "--- Copying Source Code ---"
-mkdir -p "$CPP_DIR"
-
-# Copy C47 Core
-rm -rf "$CPP_DIR/c47"
-mkdir -p "$CPP_DIR/c47"
-cp -r src/c47/* "$CPP_DIR/c47/"
-
-# PATCH Headers for Android Compatibility
-echo "--- Patching headers for Android ---"
-
-# 1. Disable GTK/Cairo blocks in all files
-echo "--- Disabling GTK/Cairo blocks ---"
-find "$CPP_DIR/c47" -type f \( -name "*.h" -o -name "*.c" \) -exec sed -i 's|#include <gtk/gtk.h>|#ifndef ANDROID_BUILD\n#include <gtk/gtk.h>\n#endif|g' {} + 
-find "$CPP_DIR/c47" -type f \( -name "*.h" -o -name "*.c" \) -exec sed -i 's|#include <gdk/gdk.h>|#ifndef ANDROID_BUILD\n#include <gdk/gdk.h>\n#endif|g' {} + 
-find "$CPP_DIR/c47" -type f \( -name "*.h" -o -name "*.c" \) -exec sed -i 's|#include <cairo.h>|#ifndef ANDROID_BUILD\n#include <cairo.h>\n#endif|g' {} + 
-
-# 2. Resolve signature conflicts in headers
-echo "--- Resolving signature conflicts in headers ---"
-# Headers are now standardized in src/c47/*.h, no sed needed.
-
-# 3. Resolve signature conflicts in implementations (timer.c, screen.c)
-echo "--- Resolving signature conflicts in implementations ---"
-# Handled by standardization in src/c47/*.c
-
-# 4. Fix function call signatures
-echo "--- Fixing function call signatures ---"
-# Standardized to refreshLcd(NULL) / refreshTimer(NULL) in source, no sed needed.
-
-# 5. Disable problematic GTK code in softmenus.c
-sed -i 's|gtk_widget_queue_draw(screen);|// stub|g' "$CPP_DIR/c47/softmenus.c"
-sed -i 's|while(gtk_events_pending())|if(0)|g' "$CPP_DIR/c47/softmenus.c"
-
-# Copy decNumberICU
-rm -rf "$CPP_DIR/decNumberICU"
-cp -r dep/decNumberICU "$CPP_DIR/"
-
-# Copy Generated Files
-GENERATED_DEST="$CPP_DIR/generated"
-mkdir -p "$GENERATED_DEST"
-cp -v build.sim/src/generateCatalogs/softmenuCatalogs.h "$GENERATED_DEST/"
-cp -v build.sim/src/generateConstants/constantPointers.h "$GENERATED_DEST/"
-cp -v build.sim/src/generateConstants/constantPointers.c "$GENERATED_DEST/"
-cp -v build.sim/src/ttf2RasterFonts/rasterFontsData.c    "$GENERATED_DEST/"
-cp -v build.sim/src/c47/vcs.h     "$GENERATED_DEST/"
-cp -v build.sim/src/c47/version.h "$GENERATED_DEST/"
-
-# R47 Port: Overwrite vcs.h with the actual Core Hash to maintain SwissMicros identity
-echo "--- Injecting Core Hash into vcs.h ---"
-cat <<EOF > "$GENERATED_DEST/vcs.h"
-#if !defined(VCS_H)
-  #define VCS_H
-  #define VCS_COMMIT_ID  "$COMMIT_HASH-mod"
-#endif
-EOF
+# --- 4. Stage Native Source Code ---
+if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_PROJECT_DIR/stage_native_sources.sh"; then
+    echo "ERROR: Android native staging failed."
+    exit 1
+fi
 
 # Copy Assets (Textures and Fonts)
 echo "--- Copying Assets ---"
@@ -180,34 +121,6 @@ mkdir -p "$DRAWABLE_DIR"
 ASSETS_FONTS_DIR="$ANDROID_PROJECT_DIR/app/src/main/assets/fonts"
 mkdir -p "$ASSETS_FONTS_DIR"
 cp -v res/fonts/*.ttf "$ASSETS_FONTS_DIR/"
-
-# Copy GMP (mini-gmp)
-echo "--- Setting up GMP ---"
-mkdir -p "$CPP_DIR/gmp"
-GMP_SOURCE_DIR=""
-for candidate in \
-    "$PROJECT_ROOT/subprojects/gmp-6.2.1/mini-gmp" \
-    "$PROJECT_ROOT/android/app/src/main/cpp/gmp"
-do
-    if [ -f "$candidate/mini-gmp.c" ] && [ -f "$candidate/mini-gmp.h" -o -f "$candidate/gmp.h" ]; then
-        GMP_SOURCE_DIR="$candidate"
-        break
-    fi
-done
-
-if [ -n "$GMP_SOURCE_DIR" ]; then
-    echo "Using mini-gmp sources from $GMP_SOURCE_DIR"
-    cp "$GMP_SOURCE_DIR/mini-gmp.c" "$CPP_DIR/gmp/"
-    if [ -f "$GMP_SOURCE_DIR/mini-gmp.h" ]; then
-        cp "$GMP_SOURCE_DIR/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
-    else
-        cp "$GMP_SOURCE_DIR/gmp.h" "$CPP_DIR/gmp/gmp.h"
-    fi
-    # Patch mini-gmp.c to include gmp.h instead of mini-gmp.h
-    sed -i 's|#include "mini-gmp.h"|#include "gmp.h"|g' "$CPP_DIR/gmp/mini-gmp.c"
-else
-    echo "ERROR: Could not locate mini-gmp sources in the canonical subproject or the checked-in Android staging tree. Build will likely fail."
-fi
 
 # Create local.properties
 echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ANDROID_PROJECT_DIR/local.properties"
@@ -226,6 +139,7 @@ chmod +x "$GRADLE_CMD"
 
 # Pass detected NDK/SDK versions as Project Properties to override build.gradle defaults
 GRADLE_PROPS="-Pr47.ndkVersion=$IF_NDK_VERSION"
+GRADLE_PROPS="$GRADLE_PROPS -Pr47.coreVersion=$COMMIT_HASH"
 if [ -n "$R47_COMPILE_SDK" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.compileSdk=$R47_COMPILE_SDK"; fi
 
 # Clean cxx to ensure fresh cmake run

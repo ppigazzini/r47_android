@@ -6,6 +6,7 @@ plugins {
 android {
     namespace 'com.example.r47'
     compileSdk project.findProperty('r47.compileSdk')?.toInteger() ?: 35
+    def coreVersion = project.findProperty('r47.coreVersion') ?: "unknown"
 
     defaultConfig {
         applicationId "com.example.r47"
@@ -13,6 +14,7 @@ android {
         targetSdk project.findProperty('r47.targetSdk')?.toInteger() ?: 35
         versionCode 1
         versionName "1.0"
+        resValue "string", "about_version_summary", "R47 Android Port (${coreVersion})"
         
         // Use property override if provided, otherwise default to a verified version
         // To use system default, user can pass -Pr47.ndkVersion=

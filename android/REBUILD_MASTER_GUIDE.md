@@ -6,7 +6,7 @@
 
 ---
 
-**Goal:** This document captures the current technical architecture and rebuild contract of the R47 Android port. It serves as the technical reference for the checked-in Android shell and the maintainer rebuild guide for the current debug-build pipeline.
+**Goal:** This document captures the current technical architecture and rebuild contract of the R47 Android port. It serves as the technical reference for the checked-in Android shell and the maintainer rebuild guide for the current debug-build pipeline. Public checkouts contain the Android shell and tracked local overrides; `sync_public.sh` hydrates the authoritative core from upstream before rebuilds.
 
 ---
 
@@ -18,12 +18,12 @@ The application employs a dual-thread model to decouple the computationally inte
 
 - **UI Thread (Main)**:
   - Manages the `ReplicaOverlay` and standard Android View hierarchy.
-  - Drives the `Choreographer` frame callback (60fps) for display updates.
+  - Owns the currently visible activity instance and Android OS integration while `NativeCoreRuntime` owns the shared display refresh callback.
   - Handles asynchronous OS events (SAF pickers, Permissions, Insets).
 
 - **Core Thread (Background)**:
-  - **PERSISTENCE**: The engine loop and `isAppRunningShared` flag MUST reside in a static context (`companion object`). This allows the engine to survive Activity recreations during PiP transitions.
-  - **Unified Input Queue**: ALL user inputs (touch zones, physical keyboard, PiP events) MUST be routed through the `coreTasks: LinkedBlockingQueue<Runnable>` queue.
+  - **PERSISTENCE**: The engine loop, `isAppRunningShared`, and the shared task queue MUST reside in `NativeCoreRuntime` static state. This allows the engine to survive Activity recreations during PiP transitions.
+  - **Unified Input Queue**: ALL user inputs (touch zones, physical keyboard, PiP events) MUST be routed through the `NativeCoreRuntime` `coreTasks: LinkedBlockingQueue<Runnable>` queue.
   - **Synchronous Save on Pause**: To prevent state loss during force-close, `onPause()` executes `saveStateNative()` synchronously by queuing it to the core thread and waiting via a `CountDownLatch`.
   - **Non-Blocking Program Loops**: To keep the app responsive during long programs, the main execution loop MUST call `yieldToAndroid()`.
   - Runs the native C core loop (`tick`) at a target interval of 10ms.
@@ -137,6 +137,14 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
 1. **Backup All Custom Assets**: The `android/` directory is the primary asset requiring persistence.
 2. **Upstream Reset**: The script pulls the math core from the authoritative source and populates the workspace.
 3. **Local Patch Restoration**: Immediately after the upstream pull, the script re-applies the Android Port modifications. This ensures that the optimized code takes precedence over the generic core.
+
+### 8.1. Android Native Staging
+
+- `build_android.sh` remains the top-level Android debug-build entry point.
+- After `make sim`, it MUST delegate native staging to `android/stage_native_sources.sh`.
+- That staging step copies the synced `src/c47` tree, `dep/decNumberICU`, generated files, and mini-gmp inputs into `android/app/src/main/cpp`.
+- Android compatibility for upstream GTK, GDK, and Cairo includes MUST live in tracked Android stub headers under `android/app/src/main/cpp/c47-android/stubs` plus `android_mocks.h`. Do not reintroduce post-copy `sed` rewrites of staged sources.
+- The About-version preference summary MUST come from the Gradle property `r47.coreVersion`, not from build-time edits of tracked XML resources.
 
 ---
 
