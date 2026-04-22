@@ -34,6 +34,48 @@ internal data class KeypadKeySnapshot(
     }
 }
 
+internal object KeypadSceneContract {
+    const val LABEL_PRIMARY = 0
+    const val LABEL_F = 1
+    const val LABEL_G = 2
+    const val LABEL_LETTER = 3
+
+    const val STYLE_DEFAULT = 0
+    const val STYLE_SOFTKEY = 1
+    const val STYLE_SHIFT_F = 2
+    const val STYLE_SHIFT_G = 3
+    const val STYLE_SHIFT_FG = 4
+    const val STYLE_NUMERIC = 5
+    const val STYLE_ALPHA = 6
+
+    const val TEXT_ROLE_NONE = 0
+    const val TEXT_ROLE_PRIMARY = 1
+    const val TEXT_ROLE_F = 2
+    const val TEXT_ROLE_G = 3
+    const val TEXT_ROLE_LETTER = 4
+    const val TEXT_ROLE_F_UNDERLINE = 5
+    const val TEXT_ROLE_G_UNDERLINE = 6
+    const val TEXT_ROLE_LONGPRESS = 7
+    const val TEXT_ROLE_SOFTKEY = 8
+
+    const val LAYOUT_CLASS_DEFAULT = 0
+    const val LAYOUT_CLASS_PACKED = 1
+    const val LAYOUT_CLASS_OFFSET = 2
+    const val LAYOUT_CLASS_EDGE = 3
+    const val LAYOUT_CLASS_ALPHA = 4
+    const val LAYOUT_CLASS_TAM = 5
+    const val LAYOUT_CLASS_STATIC_SINGLE = 6
+    const val LAYOUT_CLASS_SOFTKEY = 7
+
+    fun labelRole(labelRoles: Int, slot: Int): Int {
+        return (labelRoles shr (slot * 4)) and 0xF
+    }
+}
+
+internal fun KeypadKeySnapshot.labelRole(slot: Int): Int {
+    return KeypadSceneContract.labelRole(labelRoles, slot)
+}
+
 internal data class KeypadSnapshot(
     val keyboardState: KeyboardStateSnapshot,
     val sceneContractVersion: Int,

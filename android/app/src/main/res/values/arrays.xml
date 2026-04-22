@@ -1,13 +1,4 @@
 <resources>
-    <string-array name="skin_entries">
-        <item>Native Keypad (Default)</item>
-        <item>Classic Photographic</item>
-    </string-array>
-    <string-array name="skin_values">
-        <item>r47_background_v2</item>
-        <item>r47_texture</item>
-    </string-array>
-
     <string-array name="lcd_entries">
         <item>Vintage Green</item>
         <item>High Contrast</item>

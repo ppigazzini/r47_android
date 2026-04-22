@@ -3,6 +3,7 @@ package com.example.r47
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -13,14 +14,17 @@ class ReplicaOverlay @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : ViewGroup(context, attrs, defStyleAttr) {
 
-    private val baseWidth = 537f
-    private val baseHeight = 1005f
-    private val r47BaseWidth = 526f
-    private val r47BaseHeight = 980f
+    private val shellWidth = 526f
+    private val shellHeight = 980f
+    private val bezelHeight = 72f
+    private val lcdLeft = 43f
+    private val lcdTop = 60f
+    private val lcdWidth = 440f
+    private val lcdHeight = 264f
+    private val shellCorner = 32f
+    private val lcdCorner = 14f
     
     private var isPiPMode = false
-    private var isDynamic = false
-    private var currentSkin: Bitmap? = null
     private var scalingMode = "full_width"
     private var showTouchZones = false
 
@@ -30,6 +34,27 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val lcdDestRect = RectF()
     private val dirtyRect = Rect()
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val shellRect = RectF()
+    private val bezelRect = RectF()
+    private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#1C2026")
+    }
+    private val bezelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#262C34")
+    }
+    private val shellStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#3A424D")
+        style = Paint.Style.STROKE
+        strokeWidth = dp(1.5f)
+    }
+    private val lcdFramePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#0E1318")
+    }
+    private val lcdFrameStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#46515C")
+        style = Paint.Style.STROKE
+        strokeWidth = dp(1.25f)
+    }
     private val zonePaint = Paint().apply {
         color = Color.RED
         style = Paint.Style.STROKE
@@ -55,6 +80,14 @@ class ReplicaOverlay @JvmOverloads constructor(
         })
     }
 
+    private fun dp(value: Float): Float {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            value,
+            resources.displayMetrics,
+        )
+    }
+
     fun setPiPMode(enabled: Boolean) {
         isPiPMode = enabled
         requestLayout()
@@ -72,16 +105,9 @@ class ReplicaOverlay @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setSkin(skinName: String) {
-        try {
-            isDynamic = (skinName == "r47_background_v2")
-            val resId = context.resources.getIdentifier(skinName, "drawable", context.packageName)
-            currentSkin = BitmapFactory.decodeResource(resources, resId)
-            requestLayout()
-            invalidate()
-        } catch (e: Exception) {
-            Log.e("ReplicaOverlay", "Failed to load skin $skinName", e)
-        }
+    fun setNativeChrome() {
+        requestLayout()
+        invalidate()
     }
 
     fun updateLcd(pixels: IntArray) {
@@ -111,37 +137,26 @@ class ReplicaOverlay @JvmOverloads constructor(
         // Calculate screen-space dirty rect
         val w = width.toFloat()
         val scale = getScale(w)
-        val curBaseWidth = if (isDynamic) r47BaseWidth else baseWidth
-        val curBaseHeight = if (isDynamic) r47BaseHeight else baseHeight
-        val offsetX = (w - curBaseWidth * scale) / 2f
-        val offsetY = (height - curBaseHeight * scale) / 2f
-
-        // LCD offsets - Differentiated per skin
-        // Dynamic: 10% larger and centered (440x264)
-        // Classic: Reverted to original dimensions (486x266.7) and original offsets (25.5, 67.5)
-        val lcdLX: Float = if (isDynamic) 43f else 25.5f
-        val lcdLY: Float = if (isDynamic) 60f else 67.5f
-        val lcdLW: Float = if (isDynamic) 440f else 486f
-        val lcdLH: Float = if (isDynamic) 264f else 266.7f
+        val offsetX = (w - shellWidth * scale) / 2f
+        val offsetY = (height - shellHeight * scale) / 2f
 
         // Convert LCD coordinates to Screen coordinates
-        val left = offsetX + (lcdLX + (minX.toFloat() / 400f) * lcdLW) * scale
-        val top = offsetY + (lcdLY + (minY.toFloat() / 240f) * lcdLH) * scale
-        val right = offsetX + (lcdLX + ((maxX.toFloat() + 1f) / 400f) * lcdLW) * scale
-        val bottom = offsetY + (lcdLY + ((maxY.toFloat() + 1f) / 240f) * lcdLH) * scale
+        val left = offsetX + (lcdLeft + (minX.toFloat() / 400f) * lcdWidth) * scale
+        val top = offsetY + (lcdTop + (minY.toFloat() / 240f) * lcdHeight) * scale
+        val right = offsetX + (lcdLeft + ((maxX.toFloat() + 1f) / 400f) * lcdWidth) * scale
+        val bottom = offsetY + (lcdTop + ((maxY.toFloat() + 1f) / 240f) * lcdHeight) * scale
 
         dirtyRect.set(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
         postInvalidateOnAnimation(dirtyRect.left, dirtyRect.top, dirtyRect.right, dirtyRect.bottom)
     }
 
     private fun getScale(w: Float): Float {
-        val curBaseWidth = if (isDynamic) r47BaseWidth else baseWidth
         return if (scalingMode == "physical") {
             val metrics = resources.displayMetrics
             val dpi = metrics.xdpi
-            (2.83f * dpi) / curBaseWidth 
+            (2.83f * dpi) / shellWidth
         } else {
-            w / curBaseWidth
+            w / shellWidth
         }
     }
 
@@ -150,13 +165,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         gestureDetector.onTouchEvent(ev)
         
         val scale = getScale(width.toFloat())
-        val curBaseHeight = if (isDynamic) r47BaseHeight else baseHeight
-        val offsetY = (height - curBaseHeight * scale) / 2f
+        val offsetY = (height - shellHeight * scale) / 2f
         val lY = (ev.y - offsetY) / scale
         
         // Intercept touches in the settings area (top bezel)
-        val bezelH = if (isDynamic) 72f else 67.5f
-        if (lY < bezelH && lY > 0) {
+        if (lY < bezelHeight && lY > 0) {
             return true
         }
         
@@ -177,13 +190,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
         
         val scale = getScale(width.toFloat())
-        val curBaseHeight = if (isDynamic) r47BaseHeight else baseHeight
-        val offsetY = (height - curBaseHeight * scale) / 2f
+        val offsetY = (height - shellHeight * scale) / 2f
         val lY = (event.y - offsetY) / scale
         
         // If we intercepted this (or no one else took it), and it's in the bezel area
-        val bezelH = if (isDynamic) 72f else 67.5f
-        if (lY < bezelH && lY > 0) {
+        if (lY < bezelHeight && lY > 0) {
             if (event.action == MotionEvent.ACTION_UP) {
                 Log.i("ReplicaOverlay", "Settings area tap received")
                 onSettingsTapListener?.invoke()
@@ -229,10 +240,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         val w = (r - l).toFloat()
         val h = (b - t).toFloat()
         val scale = getScale(w)
-        val curBaseWidth = if (isDynamic) r47BaseWidth else baseWidth
-        val curBaseHeight = if (isDynamic) r47BaseHeight else baseHeight
-        val offsetX = (w - curBaseWidth * scale) / 2f
-        val offsetY = (h - curBaseHeight * scale) / 2f
+        val offsetX = (w - shellWidth * scale) / 2f
+        val offsetY = (h - shellHeight * scale) / 2f
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
@@ -254,28 +263,23 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
 
         val scale = getScale(w)
-        val curBaseWidth = if (isDynamic) r47BaseWidth else baseWidth
-        val curBaseHeight = if (isDynamic) r47BaseHeight else baseHeight
-        val offsetX = (w - curBaseWidth * scale) / 2f
-        val offsetY = (h - curBaseHeight * scale) / 2f
+        val offsetX = (w - shellWidth * scale) / 2f
+        val offsetY = (h - shellHeight * scale) / 2f
 
-        currentSkin?.let {
-            val src = Rect(0, 0, it.width, it.height)
-            val dst = RectF(offsetX, offsetY, offsetX + curBaseWidth * scale, offsetY + curBaseHeight * scale)
-            canvas.drawBitmap(it, src, dst, paint)
-        }
-
-        val lcdLX: Float = if (isDynamic) 43f else 25.5f
-        val lcdLY: Float = if (isDynamic) 60f else 67.5f
-        val lcdLW: Float = if (isDynamic) 440f else 486f
-        val lcdLH: Float = if (isDynamic) 264f else 266.7f
+        shellRect.set(offsetX, offsetY, offsetX + shellWidth * scale, offsetY + shellHeight * scale)
+        bezelRect.set(offsetX, offsetY, offsetX + shellWidth * scale, offsetY + bezelHeight * scale)
+        canvas.drawRoundRect(shellRect, shellCorner * scale, shellCorner * scale, bodyPaint)
+        canvas.drawRoundRect(bezelRect, shellCorner * scale, shellCorner * scale, bezelPaint)
+        canvas.drawRoundRect(shellRect, shellCorner * scale, shellCorner * scale, shellStrokePaint)
 
         lcdDestRect.set(
-            offsetX + lcdLX * scale,
-            offsetY + lcdLY * scale,
-            offsetX + (lcdLX + lcdLW) * scale,
-            offsetY + (lcdLY + lcdLH) * scale
+            offsetX + lcdLeft * scale,
+            offsetY + lcdTop * scale,
+            offsetX + (lcdLeft + lcdWidth) * scale,
+            offsetY + (lcdTop + lcdHeight) * scale
         )
+        canvas.drawRoundRect(lcdDestRect, lcdCorner * scale, lcdCorner * scale, lcdFramePaint)
+        canvas.drawRoundRect(lcdDestRect, lcdCorner * scale, lcdCorner * scale, lcdFrameStrokePaint)
         canvas.drawBitmap(lcdBitmap, lcdRect, lcdDestRect, paint)
 
         if (showTouchZones) {
@@ -288,8 +292,13 @@ class ReplicaOverlay @JvmOverloads constructor(
                 )
             }
             // Show settings zone
-            val bezelH = if (isDynamic) 72f else 67.5f
-            canvas.drawRect(offsetX, offsetY, offsetX + curBaseWidth * scale, offsetY + bezelH * scale, zonePaint)
+            canvas.drawRect(
+                offsetX,
+                offsetY,
+                offsetX + shellWidth * scale,
+                offsetY + bezelHeight * scale,
+                zonePaint,
+            )
         }
 
         super.dispatchDraw(canvas)

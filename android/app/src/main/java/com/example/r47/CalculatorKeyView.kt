@@ -2,6 +2,7 @@ package com.example.r47
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -10,9 +11,24 @@ import android.view.View
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 
+internal data class KeypadFontSet(
+    val standard: Typeface?,
+    val numeric: Typeface?,
+    val tiny: Typeface?,
+)
+
 class CalculatorKeyView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : ConstraintLayout(context, attrs, defStyleAttr) {
+
+    companion object {
+        private val defaultPrimaryColor = Color.WHITE
+        private val defaultPrimaryDarkColor = Color.BLACK
+        private val fAccentColor = Color.parseColor("#E5AE5A")
+        private val gAccentColor = Color.parseColor("#7EB6BA")
+        private val letterColor = Color.parseColor("#808080")
+        private val longPressColor = Color.parseColor("#D4D8DD")
+    }
 
     private val buttonView = View(context)
     val primaryLabel = TextView(context)
@@ -24,8 +40,10 @@ class CalculatorKeyView @JvmOverloads constructor(
     var keyCode: Int = 0
     private var isFnKey: Boolean = false
     private var baseMainSize = 0f
-    private var isShiftedState = false
-    private var lastAlphaStateForLayout: Boolean? = null
+    private var lastLayoutClass: Int? = null
+    private var usesLetterSpacer = true
+    private var keepLetterSpacerInvisible = false
+    private var fontSet = KeypadFontSet(null, null, null)
 
     init {
         // Critical: Allow drawing outside bounds
@@ -34,7 +52,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         
         // Letter label (Right side of the view, bottom aligned with button)
         letterLabel.id = View.generateViewId()
-        letterLabel.setTextColor(Color.parseColor("#808080"))
+        letterLabel.setTextColor(letterColor)
         letterLabel.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
         letterLabel.includeFontPadding = false
         letterLabel.maxLines = 1
@@ -70,7 +88,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         
         // F label (Above button)
         fLabel.id = View.generateViewId()
-        fLabel.setTextColor(Color.parseColor("#E5AE5A"))
+        fLabel.setTextColor(fAccentColor)
         fLabel.gravity = Gravity.START or Gravity.BOTTOM
         fLabel.includeFontPadding = false
         fLabel.maxLines = 1
@@ -85,7 +103,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         // G label (Above button)
         gLabel.id = View.generateViewId()
-        gLabel.setTextColor(Color.parseColor("#7EB6BA"))
+        gLabel.setTextColor(gAccentColor)
         gLabel.gravity = Gravity.END or Gravity.BOTTOM
         gLabel.includeFontPadding = false
         gLabel.maxLines = 1
@@ -134,34 +152,26 @@ class CalculatorKeyView @JvmOverloads constructor(
         baseMainSize = btnH * mainLabelFactor
         
         // Initial sync of font size (will be updated again in updateLabels)
-        updateFontSize(fOn = false, gOn = false, isDynamicEnabled = false)
+        updateFontSize(fOn = false, gOn = false)
         fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, smallSize)
         gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, smallSize)
         letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, letterSize)
     }
 
-    private fun updateFontSize(fOn: Boolean, gOn: Boolean, isDynamicEnabled: Boolean) {
-        isShiftedState = fOn || gOn
-        
-        // Only shrink UI labels if dynamic scaling is explicitly allowed by the user.
-        var factor = if (isDynamicEnabled && isShiftedState) 0.70f else 1.0f
-        
-        // Target specific labels per user request: "40% smaller" means 60% size
-        if (isDynamicEnabled && fOn && keyCode == 14) factor = 0.60f // f-shift for x<->y (LASTx)
-        if (isDynamicEnabled && gOn && keyCode == 35) factor = 0.60f // g-shift for . (SHOW a b/c)
+    private fun updateFontSize(fOn: Boolean, gOn: Boolean) {
+        var factor = if (fOn || gOn) 0.70f else 1.0f
+
+        if (fOn && keyCode == 14) factor = 0.60f
+        if (gOn && keyCode == 35) factor = 0.60f
         
         val size = baseMainSize * factor
         primaryLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, if (isFnKey) size * 0.8f else size)
     }
 
-    private fun updateLayoutPositioning(alphaOn: Boolean) {
-        if (lastAlphaStateForLayout == alphaOn) return
-        lastAlphaStateForLayout = alphaOn
-
+    private fun resetLabelLayout() {
         val fParams = fLabel.layoutParams as LayoutParams
         val gParams = gLabel.layoutParams as LayoutParams
-        
-        // Reset to defaults
+
         fParams.horizontalChainStyle = LayoutParams.CHAIN_PACKED
         fParams.horizontalBias = 0.5f
         fParams.marginStart = 0
@@ -174,50 +184,43 @@ class CalculatorKeyView @JvmOverloads constructor(
         gParams.startToEnd = fLabel.id
         gParams.endToEnd = LayoutParams.PARENT_ID
 
-        if (keyCode == 11 || keyCode == 12) {
-            // Static gray labels centered above f/g keys
-            if (!alphaOn) {
+        fLabel.layoutParams = fParams
+        gLabel.layoutParams = gParams
+    }
+
+    private fun updateLayoutPositioning(layoutClass: Int) {
+        if (lastLayoutClass == layoutClass) return
+        lastLayoutClass = layoutClass
+
+        val fParams = fLabel.layoutParams as LayoutParams
+        val gParams = gLabel.layoutParams as LayoutParams
+        resetLabelLayout()
+
+        when (layoutClass) {
+            KeypadSceneContract.LAYOUT_CLASS_STATIC_SINGLE -> {
                 fParams.endToStart = LayoutParams.UNSET
                 fParams.endToEnd = LayoutParams.PARENT_ID
                 fParams.horizontalBias = 0.5f
                 gLabel.visibility = View.GONE
-                fLabel.setTextColor(Color.parseColor("#808080"))
-            } else {
-                gLabel.visibility = View.VISIBLE
-                fLabel.setTextColor(Color.parseColor("#E5AE5A"))
             }
-        } else if (alphaOn) {
-            // IN ALPHA MODE: Use Packed style for all keys to avoid wide gaps
-            fParams.horizontalChainStyle = LayoutParams.CHAIN_PACKED
-            fParams.marginEnd = 6 
-            fParams.horizontalBias = 0.5f
-        } else {
-            // NORMAL MODE: Apply specific positioning rules
-            val inst1Codes = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 18, 37)
-            val inst2Codes = intArrayOf(10, 14, 27, 32, 34, 35) // DRG, x<>y, *, -, 0, .
-            val otherOverlapCodes = intArrayOf(20, 21, 22, 24, 25, 26, 29, 30, 31, 36)
-
-            if (keyCode in inst1Codes) {
+            KeypadSceneContract.LAYOUT_CLASS_PACKED,
+            KeypadSceneContract.LAYOUT_CLASS_ALPHA,
+            KeypadSceneContract.LAYOUT_CLASS_TAM -> {
                 fParams.horizontalChainStyle = LayoutParams.CHAIN_PACKED
-                fParams.marginEnd = 6 
+                fParams.marginEnd = 6
                 fParams.horizontalBias = 0.5f
-            } else if (keyCode in inst2Codes) {
-                var yellowShift = -4
-                var blueShift = 0
-                if (keyCode == 14) yellowShift = -40 
-                if (keyCode == 10 || keyCode == 35) yellowShift = -30 
-                if (keyCode == 34) blueShift = -18 
-
+            }
+            KeypadSceneContract.LAYOUT_CLASS_OFFSET -> {
                 fParams.endToStart = LayoutParams.UNSET
                 fParams.endToEnd = LayoutParams.UNSET
                 fParams.horizontalBias = 0f
-                fParams.marginStart = yellowShift
-                
+                fParams.marginStart = -12
                 gParams.startToStart = LayoutParams.UNSET
                 gParams.startToEnd = LayoutParams.UNSET
                 gParams.horizontalBias = 1f
-                gParams.marginEnd = -blueShift 
-            } else if (keyCode in otherOverlapCodes) {
+                gParams.marginEnd = -8
+            }
+            KeypadSceneContract.LAYOUT_CLASS_EDGE -> {
                 fParams.endToStart = LayoutParams.UNSET
                 fParams.endToEnd = LayoutParams.UNSET
                 fParams.horizontalBias = 0f
@@ -227,18 +230,19 @@ class CalculatorKeyView @JvmOverloads constructor(
                 gParams.horizontalBias = 1f
             }
         }
-        
+
         fLabel.layoutParams = fParams
         gLabel.layoutParams = gParams
     }
 
-    fun setKey(code: Int, isFn: Boolean, typeface: Typeface?) {
+    internal fun setKey(code: Int, isFn: Boolean, fonts: KeypadFontSet) {
         this.keyCode = code
         this.isFnKey = isFn
-        primaryLabel.typeface = typeface
-        fLabel.typeface = typeface
-        gLabel.typeface = typeface
-        letterLabel.typeface = typeface
+        this.fontSet = fonts
+        primaryLabel.typeface = fonts.standard
+        fLabel.typeface = fonts.tiny ?: fonts.standard
+        gLabel.typeface = fonts.tiny ?: fonts.standard
+        letterLabel.typeface = fonts.tiny ?: fonts.standard
         
         if (isFn) {
             fLabel.visibility = View.GONE
@@ -252,42 +256,112 @@ class CalculatorKeyView @JvmOverloads constructor(
             gLabel.visibility = View.VISIBLE
             letterLabel.visibility = View.VISIBLE
             primaryLabel.visibility = View.VISIBLE
-            
-            // Initial positioning (Alpha off)
-            updateLayoutPositioning(false)
 
-            // Layout Alignment Logic:
-            // Keys that should take 100% of container width (no letter spacer)
+            lastLayoutClass = null
+            resetLabelLayout()
+
             if (code == 13 || code == 18 || code == 23 || code == 28 || code == 33) {
+                usesLetterSpacer = false
+                keepLetterSpacerInvisible = false
                 letterLabel.visibility = View.GONE
                 val lp = buttonView.layoutParams as LayoutParams
                 lp.endToEnd = LayoutParams.PARENT_ID
                 buttonView.layoutParams = lp
             } else {
-                // Keys that should leave space for a letter (20% width spacer)
+                usesLetterSpacer = true
                 val lp = buttonView.layoutParams as LayoutParams
                 lp.endToStart = letterLabel.id
                 buttonView.layoutParams = lp
-                
-                if (code == 17) {
-                    // Backspace matches width of 'g' (12) above it by keeping the spacer INVISIBLE
-                    letterLabel.visibility = View.INVISIBLE 
-                } else {
-                    letterLabel.visibility = View.VISIBLE
-                }
+                keepLetterSpacerInvisible = code == 17
+                letterLabel.visibility = if (keepLetterSpacerInvisible) View.INVISIBLE else View.VISIBLE
             }
 
-            // Background Color Logic:
-            if (code == 11) {
+            buttonView.setBackgroundResource(R.drawable.calculator_key_background)
+            primaryLabel.setTextColor(defaultPrimaryColor)
+        }
+    }
+
+    private fun applyStyleRole(styleRole: Int) {
+        when (styleRole) {
+            KeypadSceneContract.STYLE_SHIFT_F -> {
                 buttonView.setBackgroundResource(R.drawable.calculator_key_f_background)
-                primaryLabel.setTextColor(Color.BLACK)
-            } else if (code == 12) {
-                buttonView.setBackgroundResource(R.drawable.calculator_key_g_background)
-                primaryLabel.setTextColor(Color.BLACK)
-            } else {
-                buttonView.setBackgroundResource(R.drawable.calculator_key_background)
-                primaryLabel.setTextColor(Color.WHITE)
+                primaryLabel.setTextColor(defaultPrimaryDarkColor)
             }
+            KeypadSceneContract.STYLE_SHIFT_G -> {
+                buttonView.setBackgroundResource(R.drawable.calculator_key_g_background)
+                primaryLabel.setTextColor(defaultPrimaryDarkColor)
+            }
+            KeypadSceneContract.STYLE_SHIFT_FG -> {
+                buttonView.setBackgroundResource(R.drawable.calculator_key_fg_background)
+                primaryLabel.setTextColor(defaultPrimaryDarkColor)
+            }
+            else -> {
+                buttonView.setBackgroundResource(R.drawable.calculator_key_background)
+                primaryLabel.setTextColor(defaultPrimaryColor)
+            }
+        }
+    }
+
+    private fun applyLabelRole(labelView: TextView, role: Int, defaultColor: Int) {
+        val baseFlags = labelView.paintFlags and Paint.UNDERLINE_TEXT_FLAG.inv()
+        labelView.paintFlags = when (role) {
+            KeypadSceneContract.TEXT_ROLE_F_UNDERLINE,
+            KeypadSceneContract.TEXT_ROLE_G_UNDERLINE -> baseFlags or Paint.UNDERLINE_TEXT_FLAG
+            else -> baseFlags
+        }
+        labelView.typeface = when (role) {
+            KeypadSceneContract.TEXT_ROLE_F,
+            KeypadSceneContract.TEXT_ROLE_G,
+            KeypadSceneContract.TEXT_ROLE_F_UNDERLINE,
+            KeypadSceneContract.TEXT_ROLE_G_UNDERLINE,
+            KeypadSceneContract.TEXT_ROLE_LETTER,
+            KeypadSceneContract.TEXT_ROLE_LONGPRESS -> fontSet.tiny ?: fontSet.standard
+            else -> fontSet.standard
+        }
+        labelView.setTextColor(
+            when (role) {
+                KeypadSceneContract.TEXT_ROLE_LONGPRESS -> longPressColor
+                else -> defaultColor
+            }
+        )
+    }
+
+    private fun applySceneStyling(keyState: KeypadKeySnapshot) {
+        applyStyleRole(keyState.styleRole)
+        primaryLabel.typeface = when (keyState.styleRole) {
+            KeypadSceneContract.STYLE_NUMERIC -> fontSet.numeric ?: fontSet.standard
+            else -> fontSet.standard
+        }
+        applyLabelRole(
+            fLabel,
+            keyState.labelRole(KeypadSceneContract.LABEL_F),
+            if (keyState.layoutClass == KeypadSceneContract.LAYOUT_CLASS_STATIC_SINGLE) letterColor else fAccentColor,
+        )
+        applyLabelRole(
+            gLabel,
+            keyState.labelRole(KeypadSceneContract.LABEL_G),
+            gAccentColor,
+        )
+        applyLabelRole(
+            letterLabel,
+            keyState.labelRole(KeypadSceneContract.LABEL_LETTER),
+            letterColor,
+        )
+    }
+
+    private fun applyLabelVisibility(keyState: KeypadKeySnapshot) {
+        fLabel.visibility = if (keyState.fLabel.isBlank()) View.INVISIBLE else View.VISIBLE
+        gLabel.visibility = if (keyState.gLabel.isBlank()) View.INVISIBLE else View.VISIBLE
+        if (!usesLetterSpacer) {
+            letterLabel.visibility = View.GONE
+        } else if (keepLetterSpacerInvisible || keyState.letterLabel.isBlank()) {
+            letterLabel.visibility = View.INVISIBLE
+        } else {
+            letterLabel.visibility = View.VISIBLE
+        }
+
+        if (keyState.layoutClass == KeypadSceneContract.LAYOUT_CLASS_STATIC_SINGLE) {
+            gLabel.visibility = View.GONE
         }
     }
 
@@ -301,23 +375,32 @@ class CalculatorKeyView @JvmOverloads constructor(
         letterLabel.alpha = if (enabled) 1f else 0.6f
     }
 
-    internal fun updateLabels(snapshot: KeypadSnapshot, dynamicShiftEnabled: Boolean) {
+    internal fun updateLabels(snapshot: KeypadSnapshot) {
         val keyState = snapshot.keyStateFor(keyCode)
         applyEnabledState(keyState.isEnabled)
 
         if (isFnKey) {
             contentDescription = keyState.primaryLabel
         } else {
-            val alphaOn = snapshot.alphaOn
-
-            val allowDynamicScaling = dynamicShiftEnabled || alphaOn
-            updateFontSize(snapshot.shiftF, snapshot.shiftG || alphaOn, allowDynamicScaling)
-            updateLayoutPositioning(alphaOn)
-
             primaryLabel.text = keyState.primaryLabel
             fLabel.text = keyState.fLabel
             gLabel.text = keyState.gLabel
             letterLabel.text = keyState.letterLabel
+            updateFontSize(snapshot.shiftF, snapshot.shiftG || snapshot.alphaOn)
+            updateLayoutPositioning(keyState.layoutClass)
+            applySceneStyling(keyState)
+            applyLabelVisibility(keyState)
+            contentDescription = buildString {
+                append(keyState.primaryLabel)
+                if (keyState.fLabel.isNotBlank()) {
+                    append(", f ")
+                    append(keyState.fLabel)
+                }
+                if (keyState.gLabel.isNotBlank()) {
+                    append(", g ")
+                    append(keyState.gLabel)
+                }
+            }
         }
     }
     
