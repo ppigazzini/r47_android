@@ -131,7 +131,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         val bottom = offsetY + (lcdLY + ((maxY.toFloat() + 1f) / 240f) * lcdLH) * scale
 
         dirtyRect.set(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
-        invalidate(dirtyRect)
+        postInvalidateOnAnimation(dirtyRect.left, dirtyRect.top, dirtyRect.right, dirtyRect.bottom)
     }
 
     private fun getScale(w: Float): Float {

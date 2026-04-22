@@ -192,7 +192,7 @@ int register_main_activity_natives(JNIEnv *env) {
         (void *)Java_com_example_r47_MainActivity_getSoftkeyLabelNative},
       {"getKeyboardStateNative", "()[I",
         (void *)Java_com_example_r47_MainActivity_getKeyboardStateNative},
-      {"getKeypadMetaNative", "()[I",
+      {"getKeypadMetaNative", "(Z)[I",
         (void *)Java_com_example_r47_MainActivity_getKeypadMetaNative},
       {"getKeypadLabelsNative", "(Z)[Ljava/lang/String;",
         (void *)Java_com_example_r47_MainActivity_getKeypadLabelsNative},
