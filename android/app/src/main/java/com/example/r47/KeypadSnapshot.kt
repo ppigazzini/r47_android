@@ -39,6 +39,7 @@ internal object KeypadSceneContract {
     const val LABEL_F = 1
     const val LABEL_G = 2
     const val LABEL_LETTER = 3
+    const val LABEL_AUX = 4
 
     const val STYLE_DEFAULT = 0
     const val STYLE_SOFTKEY = 1
@@ -67,6 +68,26 @@ internal object KeypadSceneContract {
     const val LAYOUT_CLASS_STATIC_SINGLE = 6
     const val LAYOUT_CLASS_SOFTKEY = 7
 
+    const val SCENE_FLAG_SOFTKEY = 1 shl 0
+    const val SCENE_FLAG_REVERSE_VIDEO = 1 shl 1
+    const val SCENE_FLAG_TOP_LINE = 1 shl 2
+    const val SCENE_FLAG_BOTTOM_LINE = 1 shl 3
+    const val SCENE_FLAG_SHOW_CB = 1 shl 4
+    const val SCENE_FLAG_SHOW_TEXT = 1 shl 5
+    const val SCENE_FLAG_SHOW_VALUE = 1 shl 6
+    const val SCENE_FLAG_STRIKE_OUT = 1 shl 7
+    const val SCENE_FLAG_STRIKE_THROUGH = 1 shl 8
+    const val SCENE_FLAG_MENU = 1 shl 9
+    const val SCENE_FLAG_PREVIEW_TARGET = 1 shl 10
+    const val SCENE_FLAG_DOTTED_ROW = 1 shl 11
+
+    const val OVERLAY_RB_FALSE = 0
+    const val OVERLAY_RB_TRUE = 1
+    const val OVERLAY_CB_FALSE = 2
+    const val OVERLAY_CB_TRUE = 3
+    const val OVERLAY_MB_FALSE = 4
+    const val OVERLAY_MB_TRUE = 5
+
     fun labelRole(labelRoles: Int, slot: Int): Int {
         return (labelRoles shr (slot * 4)) and 0xF
     }
@@ -74,6 +95,10 @@ internal object KeypadSceneContract {
 
 internal fun KeypadKeySnapshot.labelRole(slot: Int): Int {
     return KeypadSceneContract.labelRole(labelRoles, slot)
+}
+
+internal fun KeypadKeySnapshot.hasSceneFlag(flag: Int): Boolean {
+    return (sceneFlags and flag) != 0
 }
 
 internal data class KeypadSnapshot(

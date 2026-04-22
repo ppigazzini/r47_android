@@ -1,8 +1,10 @@
 package com.example.r47
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -10,6 +12,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import kotlin.math.abs
 
 internal data class KeypadFontSet(
     val standard: Typeface?,
@@ -25,9 +28,44 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val defaultPrimaryColor = Color.WHITE
         private val defaultPrimaryDarkColor = Color.BLACK
         private val fAccentColor = Color.parseColor("#E5AE5A")
+        private val fHoverColor = Color.parseColor("#FFFF00")
         private val gAccentColor = Color.parseColor("#7EB6BA")
-        private val letterColor = Color.parseColor("#808080")
+        private val gHoverColor = Color.parseColor("#00FFFF")
+        private val fgAccentColor = Color.parseColor("#F1B053")
+        private val fgHoverColor = Color.parseColor("#E7D7A0")
+        private val alphaAccentColor = Color.parseColor("#E36C50")
+        private val alphaHoverColor = Color.parseColor("#FF8669")
+        private val letterColor = Color.parseColor("#A5A5A5")
         private val longPressColor = Color.parseColor("#D4D8DD")
+        private val mainKeyFillColor = Color.parseColor("#212121")
+        private val mainKeyPressedColor = Color.parseColor("#744A2E")
+        private val mainKeyStrokeColor = Color.parseColor("#25292F")
+        private val softkeyFillColor = Color.parseColor("#D7DDE2")
+        private val softkeyPressedColor = Color.parseColor("#C8D0D7")
+        private val softkeyDisabledColor = Color.parseColor("#BCC5CD")
+        private val softkeyReverseColor = Color.parseColor("#182027")
+        private val softkeyReversePressedColor = Color.parseColor("#24323C")
+        private val softkeyDarkTextColor = Color.parseColor("#151B20")
+        private val softkeyLightTextColor = Color.parseColor("#F4F7F9")
+        private val softkeyMetaDarkColor = Color.parseColor("#5A6670")
+        private val softkeyMetaLightColor = Color.parseColor("#C9D0D6")
+        private val softkeyValueDarkColor = Color.parseColor("#71451D")
+        private val softkeyValueLightColor = Color.parseColor("#F0C77A")
+        private val softkeyPreviewColor = Color.parseColor("#E5AE5A")
+        private const val MAIN_KEY_VIEW_HEIGHT = 68f
+        private const val MAIN_KEY_BUTTON_HEIGHT_RATIO = 43f / MAIN_KEY_VIEW_HEIGHT
+        private const val SMALL_KEY_CELL_WIDTH = 78f
+        private const val SMALL_KEY_BUTTON_WIDTH = 47f
+        private const val LARGE_KEY_CELL_WIDTH = 95f
+        private const val LARGE_KEY_BUTTON_WIDTH = 56f
+        private const val WIDE_KEY_BUTTON_WIDTH = 125f
+        private const val SMALL_KEY_LETTER_RATIO =
+            (SMALL_KEY_CELL_WIDTH - SMALL_KEY_BUTTON_WIDTH) / SMALL_KEY_CELL_WIDTH
+        private const val LARGE_KEY_LETTER_RATIO =
+            (LARGE_KEY_CELL_WIDTH - LARGE_KEY_BUTTON_WIDTH) / LARGE_KEY_CELL_WIDTH
+        private const val TEXT_ANCHOR_CENTER = 0
+        private const val TEXT_ANCHOR_TOP = 1
+        private const val TEXT_ANCHOR_BOTTOM = 2
     }
 
     private val buttonView = View(context)
@@ -39,16 +77,55 @@ class CalculatorKeyView @JvmOverloads constructor(
     
     var keyCode: Int = 0
     private var isFnKey: Boolean = false
-    private var baseMainSize = 0f
     private var lastLayoutClass: Int? = null
     private var usesLetterSpacer = true
     private var keepLetterSpacerInvisible = false
     private var fontSet = KeypadFontSet(null, null, null)
+    private var softkeyState = KeypadKeySnapshot.EMPTY
+    private var mainKeyState = KeypadKeySnapshot.EMPTY
+    private var currentShiftFOn = false
+    private var currentShiftGOn = false
+    private var designCellWidth = SMALL_KEY_CELL_WIDTH
+    private var designButtonWidth = SMALL_KEY_BUTTON_WIDTH
+    private val softkeyRect = RectF()
+    private val mainKeyRect = RectF()
+    private val mainKeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+    private val mainKeyStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f
+    }
+    private val softkeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+    private val softkeyStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f
+    }
+    private val softkeyTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
+    private val softkeyAuxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
+    private val softkeyValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.RIGHT
+    }
+    private val softkeyDecorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeWidth = 2f
+    }
+    private val softkeyDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
 
     init {
         // Critical: Allow drawing outside bounds
         clipChildren = false
         clipToPadding = false
+        setWillNotDraw(false)
         
         // Letter label (Right side of the view, bottom aligned with button)
         letterLabel.id = View.generateViewId()
@@ -59,8 +136,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         val letterParams = LayoutParams(0, 0)
         letterParams.endToEnd = LayoutParams.PARENT_ID
         letterParams.bottomToBottom = LayoutParams.PARENT_ID
-        letterParams.matchConstraintPercentWidth = 0.20f
-        letterParams.matchConstraintPercentHeight = 0.65f 
+        letterParams.matchConstraintPercentWidth = SMALL_KEY_LETTER_RATIO
+        letterParams.matchConstraintPercentHeight = MAIN_KEY_BUTTON_HEIGHT_RATIO
         addView(letterLabel, letterParams)
 
         // Button background view (Left side)
@@ -69,8 +146,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         btnParams.bottomToBottom = LayoutParams.PARENT_ID
         btnParams.startToStart = LayoutParams.PARENT_ID
         btnParams.endToStart = letterLabel.id
-        btnParams.matchConstraintPercentHeight = 0.65f 
-        buttonView.setBackgroundResource(R.drawable.calculator_key_background)
+        btnParams.matchConstraintPercentHeight = MAIN_KEY_BUTTON_HEIGHT_RATIO
+        buttonView.setBackgroundColor(Color.TRANSPARENT)
         addView(buttonView, btnParams)
 
         // Primary label (Center of button)
@@ -126,46 +203,39 @@ class CalculatorKeyView @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        val btnH = h * 0.65f
-        
-        var mainLabelFactor = 0.75f
-        val smallSize = h * 0.30f 
-        val letterSize = btnH * 0.42f
-        
-        // Specific sizing rules
-        val isNumber = keyCode in 18..20 || keyCode in 23..25 || keyCode in 28..30 || keyCode == 34
-        val isOperator = keyCode in 21..22 || keyCode in 26..27 || keyCode in 31..32 || keyCode in 35..37
-        val isSpecificFunction = keyCode == 18 || keyCode == 33 || keyCode == 36 || keyCode == 15 || keyCode == 16 || keyCode == 10
-        
-        if (keyCode in 7..9 || keyCode == 14 || keyCode == 18 || keyCode == 36) {
-            mainLabelFactor *= 0.85f 
-        } else if (isNumber || isOperator) {
-            mainLabelFactor *= 1.15f
-        } else if (isSpecificFunction) {
-            mainLabelFactor *= 0.85f
-        } else if (keyCode in 1..6) {
-            mainLabelFactor *= 0.95f
-        } else if (keyCode == 13 || keyCode == 17 || keyCode == 23 || keyCode == 28) {
-            mainLabelFactor *= 0.95f
-        }
-        
-        baseMainSize = btnH * mainLabelFactor
-        
-        // Initial sync of font size (will be updated again in updateLabels)
-        updateFontSize(fOn = false, gOn = false)
-        fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, smallSize)
-        gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, smallSize)
-        letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, letterSize)
+        updateFontSize(currentShiftFOn, currentShiftGOn)
     }
 
     private fun updateFontSize(fOn: Boolean, gOn: Boolean) {
-        var factor = if (fOn || gOn) 0.70f else 1.0f
+        currentShiftFOn = fOn
+        currentShiftGOn = gOn
 
-        if (fOn && keyCode == 14) factor = 0.60f
-        if (gOn && keyCode == 35) factor = 0.60f
-        
-        val size = baseMainSize * factor
-        primaryLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, if (isFnKey) size * 0.8f else size)
+        if (isFnKey || width <= 0) {
+            return
+        }
+
+        val cellScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
+        var primarySize = when (mainKeyState.styleRole) {
+            KeypadSceneContract.STYLE_NUMERIC -> 33f
+            KeypadSceneContract.STYLE_SHIFT_F,
+            KeypadSceneContract.STYLE_SHIFT_G,
+            KeypadSceneContract.STYLE_SHIFT_FG -> 27f
+            else -> 22f
+        } * cellScale
+
+        if (fOn || gOn) primarySize *= 0.70f
+        if (fOn && keyCode == 14) primarySize *= 0.86f
+        if (gOn && keyCode == 35) primarySize *= 0.86f
+
+        when {
+            keyCode in 7..9 || keyCode == 14 || keyCode == 18 || keyCode == 36 -> primarySize *= 0.88f
+            keyCode == 13 || keyCode == 17 || keyCode == 23 || keyCode == 28 -> primarySize *= 0.94f
+        }
+
+        primaryLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, primarySize)
+        fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, 18f * cellScale)
+        gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, 18f * cellScale)
+        letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, 19f * cellScale)
     }
 
     private fun resetLabelLayout() {
@@ -245,11 +315,14 @@ class CalculatorKeyView @JvmOverloads constructor(
         letterLabel.typeface = fonts.tiny ?: fonts.standard
         
         if (isFn) {
+            softkeyState = KeypadKeySnapshot.EMPTY
+            mainKeyState = KeypadKeySnapshot.EMPTY
             fLabel.visibility = View.GONE
             gLabel.visibility = View.GONE
             letterLabel.visibility = View.GONE
             primaryLabel.visibility = View.GONE
             buttonView.visibility = View.INVISIBLE
+            invalidate()
         } else {
             buttonView.visibility = View.VISIBLE
             fLabel.visibility = View.VISIBLE
@@ -259,6 +332,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
             lastLayoutClass = null
             resetLabelLayout()
+            configureMainKeySurface(code)
 
             if (code == 13 || code == 18 || code == 23 || code == 28 || code == 33) {
                 usesLetterSpacer = false
@@ -276,30 +350,81 @@ class CalculatorKeyView @JvmOverloads constructor(
                 letterLabel.visibility = if (keepLetterSpacerInvisible) View.INVISIBLE else View.VISIBLE
             }
 
-            buttonView.setBackgroundResource(R.drawable.calculator_key_background)
             primaryLabel.setTextColor(defaultPrimaryColor)
+            mainKeyState = KeypadKeySnapshot.EMPTY
         }
     }
 
     private fun applyStyleRole(styleRole: Int) {
         when (styleRole) {
             KeypadSceneContract.STYLE_SHIFT_F -> {
-                buttonView.setBackgroundResource(R.drawable.calculator_key_f_background)
                 primaryLabel.setTextColor(defaultPrimaryDarkColor)
             }
             KeypadSceneContract.STYLE_SHIFT_G -> {
-                buttonView.setBackgroundResource(R.drawable.calculator_key_g_background)
                 primaryLabel.setTextColor(defaultPrimaryDarkColor)
             }
             KeypadSceneContract.STYLE_SHIFT_FG -> {
-                buttonView.setBackgroundResource(R.drawable.calculator_key_fg_background)
+                primaryLabel.setTextColor(defaultPrimaryDarkColor)
+            }
+            KeypadSceneContract.STYLE_ALPHA -> {
                 primaryLabel.setTextColor(defaultPrimaryDarkColor)
             }
             else -> {
-                buttonView.setBackgroundResource(R.drawable.calculator_key_background)
                 primaryLabel.setTextColor(defaultPrimaryColor)
             }
         }
+    }
+
+    private fun configureMainKeySurface(code: Int) {
+        val (cellWidth, buttonWidth, letterRatio) = when {
+            code in 1..12 || code in 14..17 -> Triple(
+                SMALL_KEY_CELL_WIDTH,
+                SMALL_KEY_BUTTON_WIDTH,
+                SMALL_KEY_LETTER_RATIO,
+            )
+
+            code == 13 -> Triple(
+                WIDE_KEY_BUTTON_WIDTH,
+                WIDE_KEY_BUTTON_WIDTH,
+                0f,
+            )
+
+            code in 19..22 || code in 24..27 || code in 29..32 || code in 34..37 -> Triple(
+                LARGE_KEY_CELL_WIDTH,
+                LARGE_KEY_BUTTON_WIDTH,
+                LARGE_KEY_LETTER_RATIO,
+            )
+
+            code == 18 || code == 23 || code == 28 || code == 33 -> Triple(
+                SMALL_KEY_BUTTON_WIDTH,
+                SMALL_KEY_BUTTON_WIDTH,
+                0f,
+            )
+
+            else -> Triple(
+                SMALL_KEY_CELL_WIDTH,
+                SMALL_KEY_BUTTON_WIDTH,
+                SMALL_KEY_LETTER_RATIO,
+            )
+        }
+
+        designCellWidth = cellWidth
+        designButtonWidth = buttonWidth
+
+        val buttonParams = buttonView.layoutParams as LayoutParams
+        val letterParams = letterLabel.layoutParams as LayoutParams
+        letterParams.matchConstraintPercentWidth = letterRatio
+
+        if (letterRatio > 0f) {
+            buttonParams.endToStart = letterLabel.id
+            buttonParams.endToEnd = LayoutParams.UNSET
+        } else {
+            buttonParams.endToStart = LayoutParams.UNSET
+            buttonParams.endToEnd = LayoutParams.PARENT_ID
+        }
+
+        buttonView.layoutParams = buttonParams
+        letterLabel.layoutParams = letterParams
     }
 
     private fun applyLabelRole(labelView: TextView, role: Int, defaultColor: Int) {
@@ -367,12 +492,14 @@ class CalculatorKeyView @JvmOverloads constructor(
 
     private fun applyEnabledState(enabled: Boolean) {
         isEnabled = enabled
-        alpha = if (enabled || isFnKey) 1f else 0.45f
-        buttonView.alpha = if (enabled) 1f else 0.45f
-        primaryLabel.alpha = if (enabled) 1f else 0.6f
-        fLabel.alpha = if (enabled) 1f else 0.6f
-        gLabel.alpha = if (enabled) 1f else 0.6f
-        letterLabel.alpha = if (enabled) 1f else 0.6f
+        alpha = if (enabled) 1f else 0.45f
+        if (!isFnKey) {
+            buttonView.alpha = if (enabled) 1f else 0.45f
+            primaryLabel.alpha = if (enabled) 1f else 0.6f
+            fLabel.alpha = if (enabled) 1f else 0.6f
+            gLabel.alpha = if (enabled) 1f else 0.6f
+            letterLabel.alpha = if (enabled) 1f else 0.6f
+        }
     }
 
     internal fun updateLabels(snapshot: KeypadSnapshot) {
@@ -380,13 +507,19 @@ class CalculatorKeyView @JvmOverloads constructor(
         applyEnabledState(keyState.isEnabled)
 
         if (isFnKey) {
-            contentDescription = keyState.primaryLabel
+            softkeyState = keyState
+            mainKeyState = KeypadKeySnapshot.EMPTY
+            contentDescription = buildSoftkeyContentDescription(keyState)
+            invalidate()
         } else {
+            mainKeyState = keyState
             primaryLabel.text = keyState.primaryLabel
             fLabel.text = keyState.fLabel
             gLabel.text = keyState.gLabel
             letterLabel.text = keyState.letterLabel
-            updateFontSize(snapshot.shiftF, snapshot.shiftG || snapshot.alphaOn)
+            currentShiftFOn = snapshot.shiftF
+            currentShiftGOn = snapshot.shiftG || snapshot.alphaOn
+            updateFontSize(currentShiftFOn, currentShiftGOn)
             updateLayoutPositioning(keyState.layoutClass)
             applySceneStyling(keyState)
             applyLabelVisibility(keyState)
@@ -406,6 +539,322 @@ class CalculatorKeyView @JvmOverloads constructor(
     
     override fun setPressed(pressed: Boolean) {
         super.setPressed(pressed)
-        buttonView.isPressed = pressed
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        if (isFnKey) {
+            drawSoftkey(canvas)
+        } else {
+            drawMainKey(canvas)
+        }
+    }
+
+    private fun drawMainKey(canvas: Canvas) {
+        if (buttonView.width <= 0 || buttonView.height <= 0) {
+            return
+        }
+
+        val keyState = mainKeyState
+        val buttonScale = if (designButtonWidth > 0f) {
+            buttonView.width.toFloat() / designButtonWidth
+        } else {
+            1f
+        }
+        val inset = buttonScale
+        val cornerRadius = 3f * buttonScale
+        mainKeyStrokePaint.strokeWidth = 2f * buttonScale
+        mainKeyRect.set(
+            buttonView.left.toFloat() + inset,
+            buttonView.top.toFloat() + inset,
+            buttonView.right.toFloat() - inset,
+            buttonView.bottom.toFloat() - inset,
+        )
+
+        val fillColor = when (keyState.styleRole) {
+            KeypadSceneContract.STYLE_SHIFT_F -> if (isPressed) fHoverColor else fAccentColor
+            KeypadSceneContract.STYLE_SHIFT_G -> if (isPressed) gHoverColor else gAccentColor
+            KeypadSceneContract.STYLE_SHIFT_FG -> if (isPressed) fgHoverColor else fgAccentColor
+            KeypadSceneContract.STYLE_ALPHA -> if (isPressed) alphaHoverColor else alphaAccentColor
+            else -> if (isPressed) mainKeyPressedColor else mainKeyFillColor
+        }
+
+        mainKeyFillPaint.color = fillColor
+        mainKeyStrokePaint.color = mainKeyStrokeColor
+
+        canvas.drawRoundRect(mainKeyRect, cornerRadius, cornerRadius, mainKeyFillPaint)
+        canvas.drawRoundRect(mainKeyRect, cornerRadius, cornerRadius, mainKeyStrokePaint)
+    }
+
+    private fun drawSoftkey(canvas: Canvas) {
+        val keyState = softkeyState
+        val reverseVideo = keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_REVERSE_VIDEO)
+        val showText = keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT) &&
+            keyState.auxLabel.isNotBlank()
+        val showValue = keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_VALUE) &&
+            keyState.showValue != KeypadKeySnapshot.NO_VALUE
+        val showOverlay = keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_CB) &&
+            keyState.overlayState >= 0
+
+        softkeyRect.set(2f, 2f, width - 2f, height - 2f)
+
+        val fillColor = when {
+            !keyState.isEnabled -> softkeyDisabledColor
+            reverseVideo && isPressed -> softkeyReversePressedColor
+            reverseVideo -> softkeyReverseColor
+            isPressed -> softkeyPressedColor
+            else -> softkeyFillColor
+        }
+        val strokeColor = if (reverseVideo) softkeyLightTextColor else softkeyDarkTextColor
+        val primaryTextColor = if (reverseVideo) softkeyLightTextColor else softkeyDarkTextColor
+        val metaTextColor = if (reverseVideo) softkeyMetaLightColor else softkeyMetaDarkColor
+        val valueTextColor = if (reverseVideo) softkeyValueLightColor else softkeyValueDarkColor
+
+        softkeyFillPaint.color = fillColor
+        softkeyStrokePaint.color = strokeColor
+        softkeyDecorPaint.color = strokeColor
+        softkeyDotPaint.color = strokeColor
+
+        canvas.drawRoundRect(softkeyRect, 8f, 8f, softkeyFillPaint)
+        canvas.drawRoundRect(softkeyRect, 8f, 8f, softkeyStrokePaint)
+
+        if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_TOP_LINE)) {
+            canvas.drawLine(
+                softkeyRect.left + 8f,
+                softkeyRect.top + 7f,
+                softkeyRect.right - 8f,
+                softkeyRect.top + 7f,
+                softkeyDecorPaint,
+            )
+        }
+        if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_BOTTOM_LINE)) {
+            canvas.drawLine(
+                softkeyRect.left + 8f,
+                softkeyRect.bottom - 7f,
+                softkeyRect.right - 8f,
+                softkeyRect.bottom - 7f,
+                softkeyDecorPaint,
+            )
+        }
+        if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_DOTTED_ROW)) {
+            drawSoftkeyDots(canvas, strokeColor)
+        }
+        if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET)) {
+            softkeyDecorPaint.color = softkeyPreviewColor
+            canvas.drawLine(
+                softkeyRect.left + 10f,
+                softkeyRect.bottom - 4f,
+                softkeyRect.right - 10f,
+                softkeyRect.bottom - 4f,
+                softkeyDecorPaint,
+            )
+            softkeyDecorPaint.color = strokeColor
+        }
+
+        if (showValue) {
+            val valueText = formatSoftkeyValue(keyState.showValue)
+            if (valueText.isNotBlank()) {
+                drawFittedText(
+                    canvas = canvas,
+                    text = valueText,
+                    paint = softkeyValuePaint,
+                    typeface = fontSet.numeric ?: fontSet.tiny ?: fontSet.standard,
+                    baseSize = height * 0.18f,
+                    maxWidth = softkeyRect.width() * 0.34f,
+                    x = softkeyRect.right - 7f,
+                    anchorY = softkeyRect.top + 6f,
+                    color = valueTextColor,
+                    align = Paint.Align.RIGHT,
+                    verticalAnchor = TEXT_ANCHOR_TOP,
+                )
+            }
+        }
+
+        if (showOverlay) {
+            drawSoftkeyOverlay(
+                canvas = canvas,
+                overlayState = keyState.overlayState,
+                centerX = softkeyRect.right - 10f,
+                centerY = softkeyRect.bottom - 12f,
+                color = strokeColor,
+                reverseVideo = reverseVideo,
+            )
+        }
+
+        if (keyState.primaryLabel.isNotBlank()) {
+            val primaryCenterY = if (showText) softkeyRect.centerY() - 6f else softkeyRect.centerY()
+            val reservedRight = when {
+                showOverlay -> 16f
+                else -> 8f
+            }
+            drawFittedText(
+                canvas = canvas,
+                text = keyState.primaryLabel,
+                paint = softkeyTextPaint,
+                typeface = fontSet.standard,
+                baseSize = height * 0.22f,
+                maxWidth = softkeyRect.width() - reservedRight - 8f,
+                x = softkeyRect.centerX(),
+                anchorY = primaryCenterY,
+                color = primaryTextColor,
+            )
+        }
+
+        if (showText) {
+            drawFittedText(
+                canvas = canvas,
+                text = keyState.auxLabel,
+                paint = softkeyAuxPaint,
+                typeface = fontSet.tiny ?: fontSet.standard,
+                baseSize = height * 0.16f,
+                maxWidth = softkeyRect.width() - 12f,
+                x = softkeyRect.centerX(),
+                anchorY = softkeyRect.bottom - 11f,
+                color = metaTextColor,
+                verticalAnchor = TEXT_ANCHOR_BOTTOM,
+            )
+        }
+
+        if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_STRIKE_THROUGH)) {
+            canvas.drawLine(
+                softkeyRect.left + 8f,
+                softkeyRect.centerY(),
+                softkeyRect.right - 8f,
+                softkeyRect.centerY(),
+                softkeyDecorPaint,
+            )
+        }
+        if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_STRIKE_OUT)) {
+            canvas.drawLine(
+                softkeyRect.left + 7f,
+                softkeyRect.top + 10f,
+                softkeyRect.right - 7f,
+                softkeyRect.bottom - 10f,
+                softkeyDecorPaint,
+            )
+        }
+    }
+
+    private fun drawSoftkeyDots(canvas: Canvas, color: Int) {
+        softkeyDotPaint.color = color
+        val spacing = 8f
+        val startX = softkeyRect.centerX() - spacing
+        val y = softkeyRect.top + 4f
+        for (index in 0..2) {
+            canvas.drawCircle(startX + index * spacing, y, 1.7f, softkeyDotPaint)
+        }
+    }
+
+    private fun drawSoftkeyOverlay(
+        canvas: Canvas,
+        overlayState: Int,
+        centerX: Float,
+        centerY: Float,
+        color: Int,
+        reverseVideo: Boolean,
+    ) {
+        val size = 7f
+        softkeyDecorPaint.color = color
+
+        when (overlayState) {
+            KeypadSceneContract.OVERLAY_RB_FALSE -> {
+                canvas.drawCircle(centerX, centerY, size * 0.7f, softkeyDecorPaint)
+            }
+            KeypadSceneContract.OVERLAY_RB_TRUE -> {
+                canvas.drawCircle(centerX, centerY, size * 0.7f, softkeyDecorPaint)
+                canvas.drawCircle(centerX, centerY, size * 0.28f, softkeyDotPaint.apply { this.color = color })
+            }
+            KeypadSceneContract.OVERLAY_CB_FALSE -> {
+                canvas.drawRect(centerX - size * 0.7f, centerY - size * 0.7f, centerX + size * 0.7f, centerY + size * 0.7f, softkeyDecorPaint)
+            }
+            KeypadSceneContract.OVERLAY_CB_TRUE -> {
+                canvas.drawRect(centerX - size * 0.7f, centerY - size * 0.7f, centerX + size * 0.7f, centerY + size * 0.7f, softkeyDecorPaint)
+                canvas.drawLine(centerX - 3f, centerY, centerX - 1f, centerY + 3f, softkeyDecorPaint)
+                canvas.drawLine(centerX - 1f, centerY + 3f, centerX + 4f, centerY - 3f, softkeyDecorPaint)
+            }
+            KeypadSceneContract.OVERLAY_MB_FALSE,
+            KeypadSceneContract.OVERLAY_MB_TRUE -> {
+                val rect = RectF(centerX - 6.5f, centerY - 5.2f, centerX + 6.5f, centerY + 5.2f)
+                canvas.drawRoundRect(rect, 3f, 3f, softkeyDecorPaint)
+                drawFittedText(
+                    canvas = canvas,
+                    text = "M",
+                    paint = softkeyAuxPaint,
+                    typeface = fontSet.tiny ?: fontSet.standard,
+                    baseSize = height * 0.12f,
+                    maxWidth = 9f,
+                    x = centerX,
+                    anchorY = centerY - 0.5f,
+                    color = color,
+                )
+                if (overlayState == KeypadSceneContract.OVERLAY_MB_TRUE) {
+                    canvas.drawLine(centerX + 1f, centerY + 4f, centerX + 6f, centerY + 4f, softkeyDecorPaint)
+                }
+            }
+        }
+    }
+
+    private fun drawFittedText(
+        canvas: Canvas,
+        text: String,
+        paint: Paint,
+        typeface: Typeface?,
+        baseSize: Float,
+        maxWidth: Float,
+        x: Float,
+        anchorY: Float,
+        color: Int,
+        align: Paint.Align = Paint.Align.CENTER,
+        verticalAnchor: Int = TEXT_ANCHOR_CENTER,
+    ) {
+        if (text.isBlank()) {
+            return
+        }
+
+        paint.typeface = typeface
+        paint.textAlign = align
+        paint.color = color
+        paint.textSize = baseSize
+
+        val measured = paint.measureText(text)
+        if (measured > maxWidth && measured > 0f) {
+            paint.textSize = (baseSize * (maxWidth / measured)).coerceAtLeast(baseSize * 0.58f)
+        }
+
+        val metrics = paint.fontMetrics
+        val baseline = when (verticalAnchor) {
+            TEXT_ANCHOR_TOP -> anchorY - metrics.ascent
+            TEXT_ANCHOR_BOTTOM -> anchorY - metrics.descent
+            else -> anchorY - ((metrics.ascent + metrics.descent) / 2f)
+        }
+
+        canvas.drawText(text, x, baseline, paint)
+    }
+
+    private fun formatSoftkeyValue(showValue: Int): String {
+        return when (showValue) {
+            KeypadKeySnapshot.NO_VALUE,
+            -127 -> ""
+            else -> {
+                val prefix = if (showValue < 0) "-" else ""
+                prefix + abs(showValue).toString()
+            }
+        }
+    }
+
+    private fun buildSoftkeyContentDescription(keyState: KeypadKeySnapshot): String {
+        return buildString {
+            append(keyState.primaryLabel)
+            if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_TEXT) && keyState.auxLabel.isNotBlank()) {
+                append(", ")
+                append(keyState.auxLabel)
+            }
+            val valueText = formatSoftkeyValue(keyState.showValue)
+            if (valueText.isNotBlank()) {
+                append(", ")
+                append(valueText)
+            }
+        }
     }
 }

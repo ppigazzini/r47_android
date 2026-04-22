@@ -3,7 +3,7 @@
 This repository provides an Android port of the [SwissMicros C43/C47 project](https://gitlab.com/rpncalculators/c43.git). It runs the high-performance mathematical core of the C43 via a native JNI wrapper and uses a scene-driven Android-native keypad with native-drawn shell chrome.
 
 ## 🎯 Features
-- **Android-Native Keypad**: The UI renders the keypad from one native snapshot instead of relying on per-label JNI polling or invisible image hit zones.
+- **Android-Native Keypad**: The UI renders all 43 keys, including the stateful F1-F6 softkeys, from one native snapshot instead of relying on per-label JNI polling or invisible image hit zones.
 - **Native Shell Chrome**: The calculator body and LCD frame are drawn natively in Android instead of using a photographic skin backdrop.
 - **Native Performance**: Math engine runs in C via JNI for 100% parity with the hardware.
 - **Modern Android Support**: Optimized for high-refresh screens and 16KB page sizes (Android 15+).
