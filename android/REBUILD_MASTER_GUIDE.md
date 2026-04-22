@@ -79,14 +79,15 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 
 ### 2.1. Dynamic Scaling & Layout Sync
 
-- **Logical Canvas**: 537 x 1005 pixels.
-- **Scaling Rule**: `scale = ViewWidth / 537f`.
-- **Positioning**: The hardware body is centered vertically. Areas above/below are filled with `#2B2A29`.
+- **Logical Canvas**: 526 x 980 pixels.
+- **Scaling Rule**: `scale = ViewWidth / 526f`.
+- **Chrome Contract**: `ReplicaOverlay` draws the calculator shell and LCD frame with native Android graphics. The runtime no longer selects a bitmap skin.
+- **Positioning**: The hardware body is centered vertically. Areas above and below the shell remain filled by the activity background.
 
 ### 2.2. LCD Calibration
 
-- **Viewport**: `(25.5, 67.5)` relative to the logical canvas.
-- **Size**: `486 x 266.7` logical pixels.
+- **Viewport**: `(43, 60)` relative to the logical canvas.
+- **Size**: `440 x 264` logical pixels.
 
 ---
 

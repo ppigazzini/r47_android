@@ -53,7 +53,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private var currentSlotId = 0
     private var pendingSlotId: Int? = null 
 
-    private var currentSkin = "r47_background_v2"
     private var lcdMode = "vintage"
     private var scalingMode = "full_width"
 
@@ -65,8 +64,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private var isBeeperEnabled = true
     private var showTouchZones = false
-    var isDynamicShiftEnabled = false
-
     private fun performHapticClick() {
         if (!isHapticEnabled || hapticIntensity <= 0) return
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -178,17 +175,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 isBeeperEnabled = prefs.getBoolean(key, true)
                 syncAudioSettings()
             }
-            "current_skin" -> {
-                currentSkin = prefs.getString(key, "r47_background_v2") ?: "r47_background_v2"
-                replicaOverlay.setSkin(currentSkin)
-                setupInteractiveZones()
-            }
-            "dynamic_shift_labels" -> {
-                isDynamicShiftEnabled = prefs.getBoolean(key, false)
-                if (ReplicaKeypadLayout.usesDynamicKeypad(currentSkin)) {
-                    updateDynamicKeys()
-                }
-            }
             "lcd_mode" -> {
                 lcdMode = prefs.getString(key, "vintage") ?: "vintage"
                 applyLcdMode(lcdMode)
@@ -263,16 +249,16 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     internal fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
-        val resolvedMeta = meta ?: getKeypadMetaNative(isDynamicShiftEnabled)
+        val resolvedMeta = meta ?: getKeypadMetaNative(true)
         return KeypadSnapshot.fromNative(
             resolvedMeta,
-            getKeypadLabelsNative(isDynamicShiftEnabled),
+            getKeypadLabelsNative(true),
         )
     }
 
     private fun updateDynamicKeys(snapshot: KeypadSnapshot? = null) {
         val resolvedSnapshot = snapshot ?: currentKeypadSnapshot()
-        ReplicaKeypadLayout.updateDynamicKeys(this, replicaOverlay, currentSkin, resolvedSnapshot)
+        ReplicaKeypadLayout.updateDynamicKeys(this, replicaOverlay, resolvedSnapshot)
     }
 
     private fun offerCoreTask(task: Runnable) {
@@ -324,12 +310,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         isHighFidelityHapticEnabled = prefs.getBoolean("haptic_hifi_enabled", true)
         hapticIntensity = prefs.getInt("haptic_intensity", 180)
         beeperVolume = prefs.getInt("beeper_volume", 20)
-        currentSkin = prefs.getString("current_skin", "r47_background_v2") ?: "r47_background_v2"
         lcdMode = prefs.getString("lcd_mode", "vintage") ?: "vintage"
         scalingMode = prefs.getString("scaling_mode", "full_width") ?: "full_width"
         isBeeperEnabled = prefs.getBoolean("beeper_enabled", true)
         showTouchZones = prefs.getBoolean("show_touch_zones", false)
-        isDynamicShiftEnabled = prefs.getBoolean("dynamic_shift_labels", false)
         if (prefs.getBoolean("keep_screen_on", false)) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         syncAudioSettings()
         
@@ -348,20 +332,18 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             forceRefreshNative = ::forceRefreshNative,
             getDisplayPixels = ::getDisplayPixels,
             getKeypadMetaNative = ::getKeypadMetaNative,
-            isDynamicShiftEnabledProvider = { isDynamicShiftEnabled },
+            useSceneDrivenKeypadProvider = { true },
             getKeypadSnapshot = ::currentKeypadSnapshot,
             onLcdPixels = { pixels -> replicaOverlay.updateLcd(pixels) },
             onDynamicRefresh = ::updateDynamicKeys,
         )
         
         replicaOverlay.post {
-            replicaOverlay.setSkin(currentSkin)
+            replicaOverlay.setNativeChrome()
             replicaOverlay.setShowTouchZones(showTouchZones)
             replicaOverlay.setScalingMode(scalingMode)
             applyLcdMode(lcdMode)
-            if (ReplicaKeypadLayout.usesDynamicKeypad(currentSkin)) {
-                updateDynamicKeys()
-            }
+            updateDynamicKeys()
         }
 
         displayActionController.bindOverlay(replicaOverlay)
@@ -489,7 +471,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         ReplicaKeypadLayout.rebuild(
             activity = this,
             overlay = replicaOverlay,
-            currentSkin = currentSkin,
             performHapticClick = ::performHapticClick,
             dispatchKey = { keyCode -> offerCoreTask { sendKey(keyCode) } },
         )

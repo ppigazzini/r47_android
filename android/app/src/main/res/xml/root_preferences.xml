@@ -62,19 +62,6 @@
             app:summaryOff="Shows status and navigation bars (for 3-button navigation)"
             app:defaultValue="true" />
         <ListPreference
-            app:key="current_skin"
-            app:title="Calculator Skin"
-            app:entries="@array/skin_entries"
-            app:entryValues="@array/skin_values"
-            app:defaultValue="r47_background_v2" />
-        <SwitchPreferenceCompat
-            app:key="dynamic_shift_labels"
-            app:title="Dynamic Shift Labels"
-            app:summaryOn="f/g-shift and USER mode change keypad labels dynamically"
-            app:summaryOff="Primary legends stay stable while alpha labels still track native state"
-            app:defaultValue="false"
-            app:dependency="current_skin" />
-        <ListPreference
             app:key="lcd_mode"
             app:title="LCD Mode"
             app:entries="@array/lcd_entries"
