@@ -10,6 +10,15 @@ internal object ReplicaKeypadLayout {
     private const val SOFTKEY_STEP_X = 78f
     private const val SOFTKEY_WIDTH = 47f
     private const val SOFTKEY_HEIGHT = 49f
+    private const val MAIN_ROW_STEP_Y = 74f
+    private const val LARGE_ROW_STEP_Y = 75f
+    private const val FIRST_SMALL_ROW_Y = SOFTKEY_START_Y + MAIN_ROW_STEP_Y
+    private const val SECOND_SMALL_ROW_Y = FIRST_SMALL_ROW_Y + MAIN_ROW_STEP_Y
+    private const val ENTER_ROW_Y = SECOND_SMALL_ROW_Y + MAIN_ROW_STEP_Y
+    private const val FIRST_LARGE_ROW_Y = ENTER_ROW_Y + LARGE_ROW_STEP_Y
+    private const val SECOND_LARGE_ROW_Y = FIRST_LARGE_ROW_Y + LARGE_ROW_STEP_Y
+    private const val THIRD_LARGE_ROW_Y = SECOND_LARGE_ROW_Y + LARGE_ROW_STEP_Y
+    private const val FOURTH_LARGE_ROW_Y = THIRD_LARGE_ROW_Y + LARGE_ROW_STEP_Y
 
     private const val SMALL_ROW_START_X = 45f
     private const val SMALL_ROW_CELL_WIDTH = 78f
@@ -79,19 +88,19 @@ internal object ReplicaKeypadLayout {
         addKey(activity, overlay, fonts, snapshot, 42, true, SOFTKEY_START_X + SOFTKEY_STEP_X * 4f, SOFTKEY_START_Y, SOFTKEY_WIDTH, SOFTKEY_HEIGHT, performHapticClick, dispatchKey)
         addKey(activity, overlay, fonts, snapshot, 43, true, SOFTKEY_START_X + SOFTKEY_STEP_X * 5f, SOFTKEY_START_Y, SOFTKEY_WIDTH, SOFTKEY_HEIGHT, performHapticClick, dispatchKey)
 
-        addSmallRow(activity, overlay, fonts, snapshot, 1, 425f, performHapticClick, dispatchKey)
-        addSmallRow(activity, overlay, fonts, snapshot, 7, 499f, performHapticClick, dispatchKey)
+        addSmallRow(activity, overlay, fonts, snapshot, 1, FIRST_SMALL_ROW_Y, performHapticClick, dispatchKey)
+        addSmallRow(activity, overlay, fonts, snapshot, 7, SECOND_SMALL_ROW_Y, performHapticClick, dispatchKey)
 
-        addKey(activity, overlay, fonts, snapshot, 13, false, SMALL_ROW_START_X, 573f, 125f, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, snapshot, 14, false, 201f, 573f, SMALL_ROW_CELL_WIDTH, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, snapshot, 15, false, 279f, 573f, SMALL_ROW_CELL_WIDTH, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, snapshot, 16, false, 357f, 573f, SMALL_ROW_CELL_WIDTH, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, snapshot, 17, false, 435f, 573f, SMALL_ROW_CELL_WIDTH, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
+        addKey(activity, overlay, fonts, snapshot, 13, false, SMALL_ROW_START_X, ENTER_ROW_Y, 125f, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
+        addKey(activity, overlay, fonts, snapshot, 14, false, 201f, ENTER_ROW_Y, SMALL_ROW_CELL_WIDTH, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
+        addKey(activity, overlay, fonts, snapshot, 15, false, 279f, ENTER_ROW_Y, SMALL_ROW_CELL_WIDTH, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
+        addKey(activity, overlay, fonts, snapshot, 16, false, 357f, ENTER_ROW_Y, SMALL_ROW_CELL_WIDTH, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
+        addKey(activity, overlay, fonts, snapshot, 17, false, 435f, ENTER_ROW_Y, SMALL_ROW_CELL_WIDTH, SMALL_ROW_KEY_HEIGHT, performHapticClick, dispatchKey)
 
-        addLargeRow(activity, overlay, fonts, snapshot, 18, 648f, performHapticClick, dispatchKey)
-        addLargeRow(activity, overlay, fonts, snapshot, 23, 723f, performHapticClick, dispatchKey)
-        addLargeRow(activity, overlay, fonts, snapshot, 28, 798f, performHapticClick, dispatchKey)
-        addLargeRow(activity, overlay, fonts, snapshot, 33, 873f, performHapticClick, dispatchKey)
+        addLargeRow(activity, overlay, fonts, snapshot, 18, FIRST_LARGE_ROW_Y, performHapticClick, dispatchKey)
+        addLargeRow(activity, overlay, fonts, snapshot, 23, SECOND_LARGE_ROW_Y, performHapticClick, dispatchKey)
+        addLargeRow(activity, overlay, fonts, snapshot, 28, THIRD_LARGE_ROW_Y, performHapticClick, dispatchKey)
+        addLargeRow(activity, overlay, fonts, snapshot, 33, FOURTH_LARGE_ROW_Y, performHapticClick, dispatchKey)
     }
 
     private fun addSmallRow(
