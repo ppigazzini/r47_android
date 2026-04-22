@@ -51,6 +51,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -205,6 +212,13 @@ jobs:
       release_tag: ${{ steps.meta.outputs.release_tag }}
       release_title: ${{ steps.meta.outputs.release_title }}
     steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:

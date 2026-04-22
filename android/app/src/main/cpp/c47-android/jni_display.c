@@ -205,7 +205,7 @@ static int16_t resolveVisibleMainStyleItem(const calcKey_t *key, bool_t alphaOn)
 
 static bool_t isNumericStyleKey(const calcKey_t *key, int16_t visibleItem,
                                 bool_t alphaOn) {
-  if (alphaOn || tam.alpha) {
+  if (alphaOn || tam.alpha || shiftF || shiftG) {
     return false;
   }
 
@@ -456,8 +456,6 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
 
     snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", labelName);
     scene->enabled = true;
-    scene->sceneFlags |= KEYPAD_SCENE_FLAG_TOP_LINE | KEYPAD_SCENE_FLAG_BOTTOM_LINE;
-
     videoMode_t videoMode = vmNormal;
     int8_t showCb = NOVAL;
     int16_t showValue = NOVAL;
@@ -534,9 +532,7 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
       fillStaticSoftkeyMenuLabel(item, scene->primaryLabel,
                                  sizeof(scene->primaryLabel));
       scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO |
-                           KEYPAD_SCENE_FLAG_MENU |
-                           KEYPAD_SCENE_FLAG_TOP_LINE |
-                           KEYPAD_SCENE_FLAG_BOTTOM_LINE;
+               KEYPAD_SCENE_FLAG_MENU;
     } else {
       videoMode_t videoMode = vmNormal;
       int8_t showCb = NOVAL;
@@ -550,12 +546,6 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
 
       if (videoMode == vmReverse) {
         scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO;
-      }
-      if ((item / 10000) == 0 || (item / 10000) == 2) {
-        scene->sceneFlags |= KEYPAD_SCENE_FLAG_TOP_LINE;
-      }
-      if ((item / 10000) == 0 || (item / 10000) == 1) {
-        scene->sceneFlags |= KEYPAD_SCENE_FLAG_BOTTOM_LINE;
       }
       if (showCb != NOVAL) {
         scene->overlayState = showCb;
@@ -611,6 +601,10 @@ static int16_t resolveMainKeyItem(const calcKey_t *key, jint type,
   switch (type) {
   case KEYPAD_LABEL_PRIMARY:
     if (isDynamic) {
+      if (key->primary == ITM_SHIFTf || key->primary == ITM_SHIFTg ||
+          key->primary == KEY_fg) {
+        return key->primary;
+      }
       if (shiftF) {
         return key->fShifted;
       }
@@ -633,6 +627,14 @@ static int16_t resolveMainKeyItem(const calcKey_t *key, jint type,
 static const char *resolveMainKeyLabel(const calcKey_t *key, jint keyCode,
                                        jint type, jboolean isDynamic,
                                        bool_t alphaOn) {
+  if (alphaOn && type == KEYPAD_LABEL_PRIMARY) {
+    if (key->keyLblAim == ITM_SHIFTf || key->keyLblAim == ITM_SHIFTg ||
+        key->keyLblAim == KEY_fg) {
+      const char *shiftLabel = indexOfItems[abs(key->keyLblAim)].itemSoftmenuName;
+      return shiftLabel ? shiftLabel : "";
+    }
+  }
+
   if (!alphaOn && !tam.mode && keyCode == 37 && type == KEYPAD_LABEL_LETTER) {
     return "_";
   }

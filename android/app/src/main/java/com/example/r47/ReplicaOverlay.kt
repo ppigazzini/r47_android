@@ -9,10 +9,15 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.util.Log
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 class ReplicaOverlay @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : ViewGroup(context, attrs, defStyleAttr) {
+
+    private data class Projection(val scale: Float, val offsetX: Float, val offsetY: Float)
+    private data class FitFrame(val left: Float, val top: Float, val width: Float, val height: Float)
 
     private val shellWidth = 526f
     private val shellHeight = 980f
@@ -23,6 +28,10 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val lcdHeight = 264f
     private val shellCorner = 32f
     private val lcdCorner = 14f
+    private val adaptiveTrimLeft = 12f
+    private val adaptiveTrimTop = 14f
+    private val adaptiveTrimRight = 12f
+    private val adaptiveTrimBottom = 16f
     
     private var isPiPMode = false
     private var scalingMode = "full_width"
@@ -135,38 +144,24 @@ class ReplicaOverlay @JvmOverloads constructor(
         lcdBitmap.setPixels(pixels, 0, 400, 0, 0, 400, 240)
 
         // Calculate screen-space dirty rect
-        val w = width.toFloat()
-        val scale = getScale(w)
-        val offsetX = (w - shellWidth * scale) / 2f
-        val offsetY = (height - shellHeight * scale) / 2f
+        val projection = createProjection(width.toFloat(), height.toFloat())
 
         // Convert LCD coordinates to Screen coordinates
-        val left = offsetX + (lcdLeft + (minX.toFloat() / 400f) * lcdWidth) * scale
-        val top = offsetY + (lcdTop + (minY.toFloat() / 240f) * lcdHeight) * scale
-        val right = offsetX + (lcdLeft + ((maxX.toFloat() + 1f) / 400f) * lcdWidth) * scale
-        val bottom = offsetY + (lcdTop + ((maxY.toFloat() + 1f) / 240f) * lcdHeight) * scale
+        val left = projection.offsetX + (lcdLeft + (minX.toFloat() / 400f) * lcdWidth) * projection.scale
+        val top = projection.offsetY + (lcdTop + (minY.toFloat() / 240f) * lcdHeight) * projection.scale
+        val right = projection.offsetX + (lcdLeft + ((maxX.toFloat() + 1f) / 400f) * lcdWidth) * projection.scale
+        val bottom = projection.offsetY + (lcdTop + ((maxY.toFloat() + 1f) / 240f) * lcdHeight) * projection.scale
 
         dirtyRect.set(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
         postInvalidateOnAnimation(dirtyRect.left, dirtyRect.top, dirtyRect.right, dirtyRect.bottom)
-    }
-
-    private fun getScale(w: Float): Float {
-        return if (scalingMode == "physical") {
-            val metrics = resources.displayMetrics
-            val dpi = metrics.xdpi
-            (2.83f * dpi) / shellWidth
-        } else {
-            w / shellWidth
-        }
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (isPiPMode) return false
         gestureDetector.onTouchEvent(ev)
         
-        val scale = getScale(width.toFloat())
-        val offsetY = (height - shellHeight * scale) / 2f
-        val lY = (ev.y - offsetY) / scale
+        val projection = createProjection(width.toFloat(), height.toFloat())
+        val lY = (ev.y - projection.offsetY) / projection.scale
         
         // Intercept touches in the settings area (top bezel)
         if (lY < bezelHeight && lY > 0) {
@@ -189,9 +184,8 @@ class ReplicaOverlay @JvmOverloads constructor(
             return true
         }
         
-        val scale = getScale(width.toFloat())
-        val offsetY = (height - shellHeight * scale) / 2f
-        val lY = (event.y - offsetY) / scale
+        val projection = createProjection(width.toFloat(), height.toFloat())
+        val lY = (event.y - projection.offsetY) / projection.scale
         
         // If we intercepted this (or no one else took it), and it's in the bezel area
         if (lY < bezelHeight && lY > 0) {
@@ -205,10 +199,51 @@ class ReplicaOverlay @JvmOverloads constructor(
         return super.onTouchEvent(event)
     }
 
-    class LayoutParams(val x: Float, val y: Float, val w: Float, val h: Float) : ViewGroup.LayoutParams(0, 0)
+    class LayoutParams(
+        val xFraction: Float,
+        val yFraction: Float,
+        val widthFraction: Float,
+        val heightFraction: Float,
+    ) : ViewGroup.LayoutParams(0, 0)
 
     fun addReplicaView(view: View, x: Float, y: Float, w: Float, h: Float) {
-        addView(view, LayoutParams(x, y, w, h))
+        addView(
+            view,
+            LayoutParams(
+                xFraction = x / shellWidth,
+                yFraction = y / shellHeight,
+                widthFraction = w / shellWidth,
+                heightFraction = h / shellHeight,
+            )
+        )
+    }
+
+    private fun getFitFrame(): FitFrame {
+        return if (scalingMode == "physical") {
+            FitFrame(0f, 0f, shellWidth, shellHeight)
+        } else {
+            FitFrame(
+                left = adaptiveTrimLeft,
+                top = adaptiveTrimTop,
+                width = shellWidth - adaptiveTrimLeft - adaptiveTrimRight,
+                height = shellHeight - adaptiveTrimTop - adaptiveTrimBottom,
+            )
+        }
+    }
+
+    private fun createProjection(availableWidth: Float, availableHeight: Float): Projection {
+        val fitFrame = getFitFrame()
+        val fitScale = min(availableWidth / fitFrame.width, availableHeight / fitFrame.height)
+        val scale = if (scalingMode == "physical") {
+            val dpi = resources.displayMetrics.xdpi
+            val physicalScale = (2.83f * dpi) / shellWidth
+            min(physicalScale, fitScale)
+        } else {
+            fitScale
+        }
+        val offsetX = (availableWidth - fitFrame.width * scale) / 2f - fitFrame.left * scale
+        val offsetY = (availableHeight - fitFrame.height * scale) / 2f - fitFrame.top * scale
+        return Projection(scale, offsetX, offsetY)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -217,13 +252,15 @@ class ReplicaOverlay @JvmOverloads constructor(
         setMeasuredDimension(w, h)
 
         if (!isPiPMode) {
-            val scale = getScale(w.toFloat())
+            val projection = createProjection(w.toFloat(), h.toFloat())
             for (i in 0 until childCount) {
                 val child = getChildAt(i)
                 val lp = child.layoutParams as LayoutParams
+                val childWidth = (lp.widthFraction * shellWidth * projection.scale).roundToInt().coerceAtLeast(0)
+                val childHeight = (lp.heightFraction * shellHeight * projection.scale).roundToInt().coerceAtLeast(0)
                 child.measure(
-                    MeasureSpec.makeMeasureSpec((lp.w * scale).toInt(), MeasureSpec.EXACTLY),
-                    MeasureSpec.makeMeasureSpec((lp.h * scale).toInt(), MeasureSpec.EXACTLY)
+                    MeasureSpec.makeMeasureSpec(childWidth, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(childHeight, MeasureSpec.EXACTLY)
                 )
             }
         }
@@ -239,15 +276,13 @@ class ReplicaOverlay @JvmOverloads constructor(
 
         val w = (r - l).toFloat()
         val h = (b - t).toFloat()
-        val scale = getScale(w)
-        val offsetX = (w - shellWidth * scale) / 2f
-        val offsetY = (h - shellHeight * scale) / 2f
+        val projection = createProjection(w, h)
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             val lp = child.layoutParams as LayoutParams
-            val left = (lp.x * scale + offsetX).toInt()
-            val top = (lp.y * scale + offsetY).toInt()
+            val left = (projection.offsetX + lp.xFraction * shellWidth * projection.scale).roundToInt()
+            val top = (projection.offsetY + lp.yFraction * shellHeight * projection.scale).roundToInt()
             child.layout(left, top, left + child.measuredWidth, top + child.measuredHeight)
         }
     }
@@ -262,24 +297,32 @@ class ReplicaOverlay @JvmOverloads constructor(
             return
         }
 
-        val scale = getScale(w)
-        val offsetX = (w - shellWidth * scale) / 2f
-        val offsetY = (h - shellHeight * scale) / 2f
+        val projection = createProjection(w, h)
 
-        shellRect.set(offsetX, offsetY, offsetX + shellWidth * scale, offsetY + shellHeight * scale)
-        bezelRect.set(offsetX, offsetY, offsetX + shellWidth * scale, offsetY + bezelHeight * scale)
-        canvas.drawRoundRect(shellRect, shellCorner * scale, shellCorner * scale, bodyPaint)
-        canvas.drawRoundRect(bezelRect, shellCorner * scale, shellCorner * scale, bezelPaint)
-        canvas.drawRoundRect(shellRect, shellCorner * scale, shellCorner * scale, shellStrokePaint)
+        shellRect.set(
+            projection.offsetX,
+            projection.offsetY,
+            projection.offsetX + shellWidth * projection.scale,
+            projection.offsetY + shellHeight * projection.scale,
+        )
+        bezelRect.set(
+            projection.offsetX,
+            projection.offsetY,
+            projection.offsetX + shellWidth * projection.scale,
+            projection.offsetY + bezelHeight * projection.scale,
+        )
+        canvas.drawRoundRect(shellRect, shellCorner * projection.scale, shellCorner * projection.scale, bodyPaint)
+        canvas.drawRoundRect(bezelRect, shellCorner * projection.scale, shellCorner * projection.scale, bezelPaint)
+        canvas.drawRoundRect(shellRect, shellCorner * projection.scale, shellCorner * projection.scale, shellStrokePaint)
 
         lcdDestRect.set(
-            offsetX + lcdLeft * scale,
-            offsetY + lcdTop * scale,
-            offsetX + (lcdLeft + lcdWidth) * scale,
-            offsetY + (lcdTop + lcdHeight) * scale
+            projection.offsetX + lcdLeft * projection.scale,
+            projection.offsetY + lcdTop * projection.scale,
+            projection.offsetX + (lcdLeft + lcdWidth) * projection.scale,
+            projection.offsetY + (lcdTop + lcdHeight) * projection.scale
         )
-        canvas.drawRoundRect(lcdDestRect, lcdCorner * scale, lcdCorner * scale, lcdFramePaint)
-        canvas.drawRoundRect(lcdDestRect, lcdCorner * scale, lcdCorner * scale, lcdFrameStrokePaint)
+        canvas.drawRoundRect(lcdDestRect, lcdCorner * projection.scale, lcdCorner * projection.scale, lcdFramePaint)
+        canvas.drawRoundRect(lcdDestRect, lcdCorner * projection.scale, lcdCorner * projection.scale, lcdFrameStrokePaint)
         canvas.drawBitmap(lcdBitmap, lcdRect, lcdDestRect, paint)
 
         if (showTouchZones) {
@@ -293,10 +336,10 @@ class ReplicaOverlay @JvmOverloads constructor(
             }
             // Show settings zone
             canvas.drawRect(
-                offsetX,
-                offsetY,
-                offsetX + shellWidth * scale,
-                offsetY + bezelHeight * scale,
+                projection.offsetX,
+                projection.offsetY,
+                projection.offsetX + shellWidth * projection.scale,
+                projection.offsetY + bezelHeight * projection.scale,
                 zonePaint,
             )
         }
