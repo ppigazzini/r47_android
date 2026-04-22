@@ -16,7 +16,8 @@ internal class NativeCoreRuntime(
     private val saveStateNative: () -> Unit,
     private val forceRefreshNative: () -> Unit,
     private val getDisplayPixels: (IntArray) -> Unit,
-    private val getKeypadMetaNative: () -> IntArray,
+    private val getKeypadMetaNative: (Boolean) -> IntArray,
+    private val isDynamicShiftEnabledProvider: () -> Boolean,
     private val getKeypadSnapshot: (IntArray) -> KeypadSnapshot,
     private val onLcdPixels: (IntArray) -> Unit,
     private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
@@ -55,7 +56,7 @@ internal class NativeCoreRuntime(
                     onLcdPixels(lcdPixels)
                 }
 
-                val currentMeta = getKeypadMetaNative()
+                val currentMeta = getKeypadMetaNative(isDynamicShiftEnabledProvider())
                 val now = System.currentTimeMillis()
                 val shouldRefreshLabels = now - lastLabelRefresh > 500
                 val keypadStateChanged = !lastKeypadMeta.contentEquals(currentMeta)

@@ -263,7 +263,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     internal fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
-        val resolvedMeta = meta ?: getKeypadMetaNative()
+        val resolvedMeta = meta ?: getKeypadMetaNative(isDynamicShiftEnabled)
         return KeypadSnapshot.fromNative(
             resolvedMeta,
             getKeypadLabelsNative(isDynamicShiftEnabled),
@@ -348,6 +348,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             forceRefreshNative = ::forceRefreshNative,
             getDisplayPixels = ::getDisplayPixels,
             getKeypadMetaNative = ::getKeypadMetaNative,
+            isDynamicShiftEnabledProvider = { isDynamicShiftEnabled },
             getKeypadSnapshot = ::currentKeypadSnapshot,
             onLcdPixels = { pixels -> replicaOverlay.updateLcd(pixels) },
             onDynamicRefresh = ::updateDynamicKeys,
@@ -515,7 +516,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun getKeyboardStateNative(): IntArray // returns [shiftF, shiftG, calcMode, userMode, alphaFlag]
 
     // Snapshot keypad APIs used by the default Android-native keypad.
-    private external fun getKeypadMetaNative(): IntArray
+    private external fun getKeypadMetaNative(isDynamic: Boolean): IntArray
     private external fun getKeypadLabelsNative(isDynamic: Boolean): Array<String>
 
     @Keep fun onFileSelected(fd: Int) { onFileSelectedNative(fd) }

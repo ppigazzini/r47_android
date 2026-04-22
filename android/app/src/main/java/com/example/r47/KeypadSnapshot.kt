@@ -5,21 +5,38 @@ internal data class KeypadKeySnapshot(
     val fLabel: String,
     val gLabel: String,
     val letterLabel: String,
+    val auxLabel: String,
     val isEnabled: Boolean,
+    val styleRole: Int,
+    val labelRoles: Int,
+    val layoutClass: Int,
+    val sceneFlags: Int,
+    val overlayState: Int,
+    val showValue: Int,
 ) {
     companion object {
+        const val NO_VALUE = -126
+
         val EMPTY = KeypadKeySnapshot(
             primaryLabel = "",
             fLabel = "",
             gLabel = "",
             letterLabel = "",
+            auxLabel = "",
             isEnabled = false,
+            styleRole = 0,
+            labelRoles = 0,
+            layoutClass = 0,
+            sceneFlags = 0,
+            overlayState = NO_VALUE,
+            showValue = NO_VALUE,
         )
     }
 }
 
 internal data class KeypadSnapshot(
     val keyboardState: KeyboardStateSnapshot,
+    val sceneContractVersion: Int,
     val softmenuId: Int,
     val softmenuFirstItem: Int,
     val softmenuItemCount: Int,
@@ -28,6 +45,14 @@ internal data class KeypadSnapshot(
     val softmenuPageCount: Int,
     val softmenuHasPreviousPage: Boolean,
     val softmenuHasNextPage: Boolean,
+    val softmenuDottedRow: Int,
+    val functionPreviewActive: Boolean,
+    val functionPreviewKeyCode: Int,
+    val functionPreviewRow: Int,
+    val functionPreviewState: Int,
+    val functionPreviewTimeoutActive: Boolean,
+    val functionPreviewReleaseExec: Boolean,
+    val functionPreviewNopOrExecuted: Boolean,
     private val keyStates: List<KeypadKeySnapshot>,
 ) {
     val shiftF: Boolean
@@ -54,7 +79,7 @@ internal data class KeypadSnapshot(
 
     companion object {
         private const val KEY_COUNT = 43
-        private const val LABELS_PER_KEY = 4
+        private const val LABELS_PER_KEY = 5
 
         private const val META_SHIFT_F = 0
         private const val META_SHIFT_G = 1
@@ -70,12 +95,28 @@ internal data class KeypadSnapshot(
         private const val META_SOFTMENU_HAS_PREVIOUS = 11
         private const val META_SOFTMENU_HAS_NEXT = 12
         private const val META_KEY_ENABLED_OFFSET = 13
-        private const val META_LENGTH = META_KEY_ENABLED_OFFSET + KEY_COUNT
+        private const val META_CONTRACT_VERSION = META_KEY_ENABLED_OFFSET + KEY_COUNT
+        private const val META_SOFTMENU_DOTTED_ROW = META_CONTRACT_VERSION + 1
+        private const val META_FN_PREVIEW_ACTIVE = META_SOFTMENU_DOTTED_ROW + 1
+        private const val META_FN_PREVIEW_KEY = META_FN_PREVIEW_ACTIVE + 1
+        private const val META_FN_PREVIEW_ROW = META_FN_PREVIEW_KEY + 1
+        private const val META_FN_PREVIEW_STATE = META_FN_PREVIEW_ROW + 1
+        private const val META_FN_PREVIEW_TIMEOUT_ACTIVE = META_FN_PREVIEW_STATE + 1
+        private const val META_FN_PREVIEW_RELEASE_EXEC = META_FN_PREVIEW_TIMEOUT_ACTIVE + 1
+        private const val META_FN_PREVIEW_NOP_OR_EXECUTED = META_FN_PREVIEW_RELEASE_EXEC + 1
+        private const val META_STYLE_ROLE_OFFSET = META_FN_PREVIEW_NOP_OR_EXECUTED + 1
+        private const val META_LABEL_ROLE_OFFSET = META_STYLE_ROLE_OFFSET + KEY_COUNT
+        private const val META_LAYOUT_CLASS_OFFSET = META_LABEL_ROLE_OFFSET + KEY_COUNT
+        private const val META_SCENE_FLAGS_OFFSET = META_LAYOUT_CLASS_OFFSET + KEY_COUNT
+        private const val META_OVERLAY_STATE_OFFSET = META_SCENE_FLAGS_OFFSET + KEY_COUNT
+        private const val META_SHOW_VALUE_OFFSET = META_OVERLAY_STATE_OFFSET + KEY_COUNT
+        private const val META_LENGTH = META_SHOW_VALUE_OFFSET + KEY_COUNT
 
         private val EMPTY_KEYS = List(KEY_COUNT) { KeypadKeySnapshot.EMPTY }
 
         val EMPTY = KeypadSnapshot(
             keyboardState = KeyboardStateSnapshot.EMPTY,
+            sceneContractVersion = 0,
             softmenuId = 0,
             softmenuFirstItem = 0,
             softmenuItemCount = 0,
@@ -84,6 +125,14 @@ internal data class KeypadSnapshot(
             softmenuPageCount = 0,
             softmenuHasPreviousPage = false,
             softmenuHasNextPage = false,
+            softmenuDottedRow = -1,
+            functionPreviewActive = false,
+            functionPreviewKeyCode = 0,
+            functionPreviewRow = -1,
+            functionPreviewState = 0,
+            functionPreviewTimeoutActive = false,
+            functionPreviewReleaseExec = false,
+            functionPreviewNopOrExecuted = false,
             keyStates = EMPTY_KEYS,
         )
 
@@ -100,12 +149,20 @@ internal data class KeypadSnapshot(
                     fLabel = resolvedLabels.getOrElse(labelIndex + 1) { "" },
                     gLabel = resolvedLabels.getOrElse(labelIndex + 2) { "" },
                     letterLabel = resolvedLabels.getOrElse(labelIndex + 3) { "" },
+                    auxLabel = resolvedLabels.getOrElse(labelIndex + 4) { "" },
                     isEnabled = meta[META_KEY_ENABLED_OFFSET + index] != 0,
+                    styleRole = meta[META_STYLE_ROLE_OFFSET + index],
+                    labelRoles = meta[META_LABEL_ROLE_OFFSET + index],
+                    layoutClass = meta[META_LAYOUT_CLASS_OFFSET + index],
+                    sceneFlags = meta[META_SCENE_FLAGS_OFFSET + index],
+                    overlayState = meta[META_OVERLAY_STATE_OFFSET + index],
+                    showValue = meta[META_SHOW_VALUE_OFFSET + index],
                 )
             }
 
             return KeypadSnapshot(
                 keyboardState = KeyboardStateSnapshot.fromMeta(meta),
+                sceneContractVersion = meta[META_CONTRACT_VERSION],
                 softmenuId = meta[META_SOFTMENU_ID],
                 softmenuFirstItem = meta[META_SOFTMENU_FIRST_ITEM],
                 softmenuItemCount = meta[META_SOFTMENU_ITEM_COUNT],
@@ -114,6 +171,14 @@ internal data class KeypadSnapshot(
                 softmenuPageCount = meta[META_SOFTMENU_PAGE_COUNT],
                 softmenuHasPreviousPage = meta[META_SOFTMENU_HAS_PREVIOUS] != 0,
                 softmenuHasNextPage = meta[META_SOFTMENU_HAS_NEXT] != 0,
+                softmenuDottedRow = meta[META_SOFTMENU_DOTTED_ROW],
+                functionPreviewActive = meta[META_FN_PREVIEW_ACTIVE] != 0,
+                functionPreviewKeyCode = meta[META_FN_PREVIEW_KEY],
+                functionPreviewRow = meta[META_FN_PREVIEW_ROW],
+                functionPreviewState = meta[META_FN_PREVIEW_STATE],
+                functionPreviewTimeoutActive = meta[META_FN_PREVIEW_TIMEOUT_ACTIVE] != 0,
+                functionPreviewReleaseExec = meta[META_FN_PREVIEW_RELEASE_EXEC] != 0,
+                functionPreviewNopOrExecuted = meta[META_FN_PREVIEW_NOP_OR_EXECUTED] != 0,
                 keyStates = keyStates,
             )
         }
