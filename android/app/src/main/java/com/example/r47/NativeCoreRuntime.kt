@@ -83,11 +83,12 @@ internal class NativeCoreRuntime(
         stopFrameLoop()
         if (stopApp) {
             isAppRunningShared = false
+            coreTasks.clear()
         }
     }
 
     fun offerTask(task: Runnable) {
-        if (isNativeInitializedShared) {
+        if (isAppRunningShared) {
             coreTasks.offer(task)
         }
     }
