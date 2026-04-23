@@ -139,12 +139,8 @@ if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_PROJECT_DIR/stage_native_source
     exit 1
 fi
 
-# Copy Assets (Textures and Fonts)
-echo "--- Copying Assets ---"
-DRAWABLE_DIR="$ANDROID_PROJECT_DIR/app/src/main/res/drawable"
-mkdir -p "$DRAWABLE_DIR"
-# Note: r47_texture.png is managed within the Android project; do not overwrite from core.
-
+# Copy Assets (Fonts)
+echo "--- Copying Font Assets ---"
 ASSETS_FONTS_DIR="$ANDROID_PROJECT_DIR/app/src/main/assets/fonts"
 mkdir -p "$ASSETS_FONTS_DIR"
 cp -v res/fonts/*.ttf "$ASSETS_FONTS_DIR/"
