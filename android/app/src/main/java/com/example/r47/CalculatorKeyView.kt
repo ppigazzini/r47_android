@@ -699,7 +699,6 @@ class CalculatorKeyView @JvmOverloads constructor(
                 centerX = softkeyRect.right - 10f,
                 centerY = softkeyRect.bottom - 12f,
                 color = decorColor,
-                reverseVideo = reverseVideo,
             )
         }
 
@@ -797,7 +796,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         centerX: Float,
         centerY: Float,
         color: Int,
-        reverseVideo: Boolean,
     ) {
         val size = 7f
         softkeyDecorPaint.color = color

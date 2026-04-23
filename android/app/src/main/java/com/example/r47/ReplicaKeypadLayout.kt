@@ -43,7 +43,6 @@ internal object ReplicaKeypadLayout {
     }
 
     fun updateDynamicKeys(
-        activity: MainActivity,
         overlay: ReplicaOverlay,
         snapshot: KeypadSnapshot,
     ) {
