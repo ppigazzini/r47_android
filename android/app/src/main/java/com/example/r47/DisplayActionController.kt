@@ -30,12 +30,7 @@ internal class DisplayActionController(
     }
 
     private fun isDisplayLongPress(overlay: ReplicaOverlay, x: Float, y: Float): Boolean {
-        val scale = overlay.width.toFloat() / 537f
-        val offsetX = (overlay.width - 537f * scale) / 2f
-        val offsetY = (overlay.height - 1005f * scale) / 2f
-        val localX = (x - offsetX) / scale
-        val localY = (y - offsetY) / scale
-        return localX in 25.5f..511.5f && localY in 67.5f..334.2f
+        return overlay.isPointInLcd(x, y)
     }
 
     private fun showDisplayActionsDialog() {

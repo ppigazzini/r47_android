@@ -10,14 +10,41 @@ if [ -d "$HOME/.sdkman/candidates/gradle/current/bin" ]; then
     export PATH="$HOME/.sdkman/candidates/gradle/current/bin:$PATH"
 fi
 
+resolve_path() {
+    local target="$1"
+    local dir
+
+    while [ -L "$target" ]; do
+        dir=$(cd -P "$(dirname "$target")" && pwd)
+        target=$(readlink "$target")
+        case "$target" in
+            /*) ;;
+            *) target="$dir/$target" ;;
+        esac
+    done
+
+    dir=$(cd -P "$(dirname "$target")" && pwd)
+    printf '%s/%s\n' "$dir" "$(basename "$target")"
+}
+
 if [ -n "$JAVA_HOME" ] && [ ! -d "$JAVA_HOME" ]; then
     unset JAVA_HOME
 fi
 
 if [ -z "$JAVA_HOME" ]; then
+    if [ "$(uname -s)" = "Darwin" ] && [ -x /usr/libexec/java_home ]; then
+        JAVA_HOME_CANDIDATE=$(/usr/libexec/java_home 2>/dev/null || true)
+        if [ -d "$JAVA_HOME_CANDIDATE" ]; then
+            export JAVA_HOME="$JAVA_HOME_CANDIDATE"
+            echo "Detected JAVA_HOME from /usr/libexec/java_home: $JAVA_HOME"
+        fi
+    fi
+fi
+
+if [ -z "$JAVA_HOME" ]; then
     JAVA_BIN=$(command -v java 2>/dev/null || true)
     if [ -n "$JAVA_BIN" ]; then
-        JAVA_HOME_CANDIDATE=$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")
+        JAVA_HOME_CANDIDATE=$(dirname "$(dirname "$(resolve_path "$JAVA_BIN")")")
         if [ -d "$JAVA_HOME_CANDIDATE" ]; then
             export JAVA_HOME="$JAVA_HOME_CANDIDATE"
             echo "Detected JAVA_HOME from PATH: $JAVA_HOME"

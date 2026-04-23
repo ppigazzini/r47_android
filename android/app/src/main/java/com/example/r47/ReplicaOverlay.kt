@@ -119,6 +119,21 @@ class ReplicaOverlay @JvmOverloads constructor(
         invalidate()
     }
 
+    fun isPointInLcd(x: Float, y: Float): Boolean {
+        if (width <= 0 || height <= 0) {
+            return false
+        }
+
+        val projection = createProjection(width.toFloat(), height.toFloat())
+        val localX = (x - projection.offsetX) / projection.scale
+        val localY = (y - projection.offsetY) / projection.scale
+
+        return localX >= lcdLeft &&
+            localX <= lcdLeft + lcdWidth &&
+            localY >= lcdTop &&
+            localY <= lcdTop + lcdHeight
+    }
+
     fun updateLcd(pixels: IntArray) {
         var minX = 400
         var maxX = 0
