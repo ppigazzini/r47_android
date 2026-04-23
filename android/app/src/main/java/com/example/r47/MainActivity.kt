@@ -258,7 +258,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun updateDynamicKeys(snapshot: KeypadSnapshot? = null) {
         val resolvedSnapshot = snapshot ?: currentKeypadSnapshot()
-        ReplicaKeypadLayout.updateDynamicKeys(this, replicaOverlay, resolvedSnapshot)
+        ReplicaKeypadLayout.updateDynamicKeys(replicaOverlay, resolvedSnapshot)
     }
 
     private fun offerCoreTask(task: Runnable) {

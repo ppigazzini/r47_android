@@ -68,6 +68,8 @@ else
     echo "WARNING: No local Java installation detected. Gradle build requires JDK 17+."
 fi
 
+R47_BUILD_JOBS=${R47_BUILD_JOBS:-${CMAKE_BUILD_PARALLEL_LEVEL:-}}
+
 PROJECT_ROOT="$(pwd)"
 export ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}
 
@@ -126,7 +128,11 @@ if [ -d "build.sim" ] && [ ! -f "build.sim/build.ninja" ]; then
     rm -rf build.sim
 fi
 
-make sim
+if [ -n "$R47_BUILD_JOBS" ]; then
+    make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
+else
+    make sim
+fi
 
 if [ $? -ne 0 ]; then
     echo "ERROR: 'make sim' failed."
@@ -170,7 +176,11 @@ if [ -n "$R47_VERSION_NAME" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionNam
 # Clean cxx to ensure fresh cmake run
 rm -rf app/.cxx
 $GRADLE_CMD clean
-$GRADLE_CMD assembleDebug $GRADLE_PROPS
+if [ -n "$R47_BUILD_JOBS" ]; then
+    $GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_PROPS
+else
+    $GRADLE_CMD assembleDebug $GRADLE_PROPS
+fi
 
 APK_PATH="app/build/outputs/apk/debug/R47calculator-debug.apk"
 if [ -f "$APK_PATH" ]; then

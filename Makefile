@@ -1,5 +1,7 @@
 .PHONY: all clean sim test test_asan dmcp dmcpr47 dmcp5 dmcp5r47 docs testPgms both_asan dist_windows dist_macos dist_linux dist_dmcp dist_dmcpr47 dist_dmcp5 dist_dmcp5r47 repeattest
 
+.SECONDEXPANSION:
+
 all: sim
 both: sim simr47
 
@@ -7,6 +9,9 @@ EXE =
 ifeq ($(OS),Windows_NT)
   EXE = .exe
 endif
+
+NINJA = ninja
+NINJAFLAGS ?=
 
 BUILD_PC = build.sim
 DIST_DIR_PC = build.sim
@@ -31,7 +36,7 @@ clean: $(GMP_MESON_BUILD)
 	rm -f src_files_stamp testPgms_stamp
 
 build.sim:
-	meson setup $(BUILD_PC) --buildtype=custom -DRASPBERRY=`tools/onARaspberry` -DDECNUMBER_FASTMUL=true
+	meson setup $@ --buildtype=custom -DRASPBERRY=`tools/onARaspberry` -DDECNUMBER_FASTMUL=true
 
 both_asan: clean
 ifeq ($(OS),Windows_NT)
@@ -40,8 +45,8 @@ ifeq ($(OS),Windows_NT)
 else
 	meson setup $(BUILD_PC) --buildtype=custom -DDECNUMBER_FASTMUL=true -Dc_args="-Wno-deprecated-declarations" -Db_sanitize=address
 endif
-	cd $(BUILD_PC) && ninja sim
-	cd $(BUILD_PC) && ninja simr47
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) sim
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) simr47
 	cp $(BUILD_PC)/src/c47-gtk/c47$(EXE) ./ 
 	cp $(BUILD_PC)/src/c47-gtk/r47$(EXE) ./ 
 ifneq ($(OS),Windows_NT)
@@ -66,10 +71,10 @@ ifneq ($(OS),Windows_NT)
 endif
 
 build.rel:
-	meson setup $(BUILD_PC) --buildtype=release -DCI_COMMIT_TAG=$(CI_COMMIT_TAG) -DDECNUMBER_FASTMUL=true
+	meson setup $@ --buildtype=release -DCI_COMMIT_TAG=$(CI_COMMIT_TAG) -DDECNUMBER_FASTMUL=true
 
 build.rel.debug:
-	meson setup $(BUILD_PC) --buildtype=custom  -DCI_COMMIT_TAG=$(CI_COMMIT_TAG) -DDECNUMBER_FASTMUL=true
+	meson setup $@ --buildtype=custom  -DCI_COMMIT_TAG=$(CI_COMMIT_TAG) -DDECNUMBER_FASTMUL=true
 
 build.dmcp:
 	meson setup build.dmcp.p$(DMCP_PACKAGE)  --cross-file=src/c47-dmcp/cross_arm_gcc.build  -DDMCPVERSION=dmcp  -DCI_COMMIT_TAG=$(CI_COMMIT_TAG) -DDECNUMBER_FASTMUL=true -DDMCP_PACKAGE=$(DMCP_PACKAGE)
@@ -77,8 +82,8 @@ build.dmcp:
 build.dmcp5:
 	meson setup build.dmcp5 --cross-file=src/c47-dmcp5/cross_arm_gcc.build -DDMCPVERSION=dmcp5 -DCI_COMMIT_TAG=$(CI_COMMIT_TAG) -DDECNUMBER_FASTMUL=true
 
-sim: $(BUILD_PC)
-	cd $(BUILD_PC) && ninja sim
+sim: $$(BUILD_PC)
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) sim
 	cp $(BUILD_PC)/src/c47-gtk/c47$(EXE) ./ 
 	install -C $(BUILD_PC)/src/generateCatalogs/softmenuCatalogs.h src/generated/
 	install -C $(BUILD_PC)/src/generateConstants/constantPointers.h src/generated/
@@ -86,8 +91,8 @@ sim: $(BUILD_PC)
 	install -C $(BUILD_PC)/src/generateConstants/constantPointers2.c src/generated/
 	install -C $(BUILD_PC)/src/ttf2RasterFonts/rasterFontsData.c src/generated/
 
-simr47: $(BUILD_PC)
-	cd $(BUILD_PC) && ninja simr47
+simr47: $$(BUILD_PC)
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) simr47
 	cp $(BUILD_PC)/src/c47-gtk/r47$(EXE) ./ 
 	install -C $(BUILD_PC)/src/generateCatalogs/softmenuCatalogs.h src/generated/
 	install -C $(BUILD_PC)/src/generateConstants/constantPointers.h src/generated/
@@ -96,27 +101,27 @@ simr47: $(BUILD_PC)
 	install -C $(BUILD_PC)/src/ttf2RasterFonts/rasterFontsData.c src/generated/
 
 dmcp: build.dmcp
-	cd build.dmcp.p$(DMCP_PACKAGE) && ninja dmcp
+	cd build.dmcp.p$(DMCP_PACKAGE) && $(NINJA) $(NINJAFLAGS) dmcp
 
 dmcpr47: build.dmcp
-	cd build.dmcp.p$(DMCP_PACKAGE) && ninja dmcp_r47
+	cd build.dmcp.p$(DMCP_PACKAGE) && $(NINJA) $(NINJAFLAGS) dmcp_r47
 
 dmcp5: build.dmcp5
-	cd build.dmcp5 && ninja dmcp5
+	cd build.dmcp5 && $(NINJA) $(NINJAFLAGS) dmcp5
 
 dmcp5r47: build.dmcp5
-	cd build.dmcp5 && ninja dmcp5_r47
+	cd build.dmcp5 && $(NINJA) $(NINJAFLAGS) dmcp5_r47
 
-docs: build.sim
-	cd $(BUILD_PC) && ninja docs
+docs: $$(BUILD_PC)
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) docs
 
-testPgms: build.sim
-	cd $(BUILD_PC) && ninja testPgms
+testPgms: $$(BUILD_PC)
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) testPgms
 	mkdir -p res/testPgms
 	cp $(BUILD_PC)/src/generateTestPgms/testPgms.bin res/testPgms/
 
-test: clean build.sim testPgms
-	cd $(BUILD_PC) && ninja test
+test: clean $$(BUILD_PC) testPgms
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) test
 
 test_asan: clean testPgms
 	meson setup $(BUILD_PC)
@@ -126,7 +131,7 @@ ifeq ($(OS),Windows_NT)
 else
 	meson setup $(BUILD_PC) --buildtype=custom -DRASPBERRY=`tools/onARaspberry` -DDECNUMBER_FASTMUL=true -Dc_args="-Wno-deprecated-declarations" -Db_sanitize=address
 endif
-	cd $(BUILD_PC) && ninja test
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) test
 
 # ----------------------------
 # Incremental repeattest
@@ -136,14 +141,14 @@ SRC_FILES := $(shell find src -name '*.c' -o -name '*.h')
 src_files_stamp: $(SRC_FILES)
 	touch $@
 
-testPgms_stamp: build.sim src_files_stamp
-	cd $(BUILD_PC) && ninja testPgms
+testPgms_stamp: $$(BUILD_PC) src_files_stamp
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) testPgms
 	mkdir -p res/testPgms
 	cp $(BUILD_PC)/src/generateTestPgms/testPgms.bin res/testPgms/
 	touch $@
 
-repeattest: build.sim testPgms_stamp
-	cd $(BUILD_PC) && ninja test
+repeattest: $$(BUILD_PC) testPgms_stamp
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) test
 
 build.rel/wiki: build.rel
 	rm -fr $(BUILD_PC)/wiki
@@ -171,7 +176,14 @@ else
   FORCENEW_TESTPGMS = 1
 endif
 
-dist_install_PC: sim simr47
+
+dist_build_PC:
+	$(MAKE) $(BUILD_PC)
+	cd $(BUILD_PC) && $(NINJA) $(NINJAFLAGS) sim simr47 testPgms
+	mkdir -p res/testPgms
+	cp $(BUILD_PC)/src/generateTestPgms/testPgms.bin res/testPgms/
+
+dist_install_PC: dist_build_PC
 	mkdir -p $(DIST_DIR_PC)/res/
 	cp $(BUILD_PC)/src/c47-gtk/c47$(EXE) $(DIST_DIR_PC)/
 	cp $(BUILD_PC)/src/c47-gtk/r47$(EXE) $(DIST_DIR_PC)/
@@ -184,7 +196,7 @@ dist_install_PC: sim simr47
 	cp res/R47short.png $(DIST_DIR_PC)/res/
 	cp res/fonts/C47__StandardFont.ttf $(DIST_DIR_PC)/
 
-dist_testPgms_PC: testPgms dist_install_PC
+dist_testPgms_PC: dist_install_PC
 	mkdir -p $(DIST_DIR_PC)/res/testPgms/
 	cp res/testPgms/testPgms.bin res/testPgms/testPgms.txt $(DIST_DIR_PC)/res/testPgms/
 	cd $(DIST_DIR_PC) && $(XVFB) ./c47$(EXE) --writeexportall
@@ -193,8 +205,10 @@ dist_testPgms_PC: testPgms dist_install_PC
 
 dist_windows: BUILD_PC = build.rel
 dist_windows: DIST_DIR_PC = $(WIN_DIST_DIR)
-dist_windows: build.rel/wiki dist_testPgms_PC
+dist_windows: dist_testPgms_PC
 	rm -rf $(WIN_DIST_DIR)/PROGRAMS
+	rm -fr $(BUILD_PC)/wiki
+	git clone https://gitlab.com/rpncalculators/c43.wiki.git $(BUILD_PC)/wiki
 	mkdir -p $(WIN_DIST_DIR)/res/tone
 	cp res/tone/*.wav $(WIN_DIST_DIR)/res/tone/
 	cp res/c47.reg $(WIN_DIST_DIR)/
@@ -309,7 +323,7 @@ build.dmcp.p$(PKG):
 	  -DDMCP_PACKAGE=$(PKG)
 
 dmcp_pkg$(PKG): build.dmcp.p$(PKG)
-	cd build.dmcp.p$(PKG) && ninja dmcp
+	cd build.dmcp.p$(PKG) && $(NINJA) $(NINJAFLAGS) dmcp
 
 dist_dmcp_pkg$(PKG): dmcp_pkg$(PKG)
 dist_dmcp_pkg$(PKG): _DIST_DIR_DM = $(DIST_DIR_DM)-pkg$(PKG)

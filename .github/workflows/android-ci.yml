@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: android-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -199,7 +199,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          make test
+          make -j "${{ steps.jobs.outputs.jobs }}" \
+            NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
+            test
 
   android-debug:
     name: Build and package Android debug APK
@@ -282,14 +284,53 @@ jobs:
           java-version: '17'
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@39fdf500b386709a9a4a769f717dad447ac345b9 # v6
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
+          cache-provider: basic
           cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Select writable Android SDK root
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdk_root="$HOME/.android/sdk"
+          mkdir -p "$sdk_root"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
 
+      - name: Resolve Android SDK cache paths
+        id: android-sdk
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          if [[ -z "$sdk_root" ]]; then
+            echo "Failed to resolve Android SDK root." >&2
+            exit 1
+          fi
+
+          echo "sdk_root=$sdk_root" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Android SDK packages cache
+        id: android-sdk-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: |
+            ${{ steps.android-sdk.outputs.sdk_root }}/licenses
+            ${{ steps.android-sdk.outputs.sdk_root }}/platform-tools
+            ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ steps.versions.outputs.compile_sdk }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.versions.outputs.build_tools_version }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.versions.outputs.cmake_version }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.versions.outputs.ndk_version }}
+          key: ${{ runner.os }}-android-sdk-${{ steps.versions.outputs.compile_sdk }}-${{ steps.versions.outputs.build_tools_version }}-${{ steps.versions.outputs.cmake_version }}-${{ steps.versions.outputs.ndk_version }}-v1
+
       - name: Install Android SDK packages
+        if: steps.android-sdk-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -440,6 +481,7 @@ jobs:
         shell: bash
         env:
           R47_NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+          R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
           GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
@@ -597,7 +639,7 @@ jobs:
           Notes:
           - This is a main-branch snapshot prerelease, not a signed store release.
           - The included APK is signed with the default debug signing config.
-          - The workflow ran the root simulator test suite with make test.
+          - The workflow ran the root simulator test suite with parallel make test.
           - The workflow verified packaged ABIs and ran the Android 16 KB zip
             alignment check described in the Android docs.
 
