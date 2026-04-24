@@ -82,12 +82,9 @@ internal class StorageAccessCoordinator(
         }
 
         try {
-            val fileDescriptor = activity.contentResolver.openFileDescriptor(uri, mode)
-            if (fileDescriptor != null) {
+            activity.contentResolver.openFileDescriptor(uri, mode)?.use { fileDescriptor ->
                 onNativeFileSelected(fileDescriptor.detachFd())
-            } else {
-                onNativeFileCancelled()
-            }
+            } ?: onNativeFileCancelled()
         } catch (error: Exception) {
             Log.e(TAG, "Failed to open selected SAF file", error)
             onNativeFileCancelled()
