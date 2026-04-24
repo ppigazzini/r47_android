@@ -38,9 +38,9 @@ engine loop.
 - preference state controls Android shell behavior such as fullscreen mode,
   chrome mode, scaling mode, haptics, beeper volume, and touch-zone debugging.
   `chrome_mode` now chooses between the default `r47_texture` shell, the
-  `r47_background_v2` and `r47_black_edition` background-only shells, and the
-  native-drawn shell. All four modes share the same logical touch grid, and
-  the background shells inherit the texture-aligned LCD placement.
+  `r47_background` background-backed shell, and the native-drawn shell. All
+  three modes share the same logical touch grid, and the background mode
+  inherits the texture-aligned LCD placement.
 
 ## Runtime and event flow
 

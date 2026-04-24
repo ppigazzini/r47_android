@@ -1,12 +1,12 @@
 # R47 Android Port: RPN Calculator
 
-This repository provides an Android port of the [SwissMicros C43/C47 project](https://gitlab.com/rpncalculators/c43.git). It runs the high-performance mathematical core of the C43 via a native JNI wrapper and now restores the full historical shell-background set: the default `r47_texture` classic image shell, the background-only `r47_background_v2` and `r47_black_edition` shells, and a native-drawn chrome mode.
+This repository provides an Android port of the [SwissMicros C43/C47 project](https://gitlab.com/rpncalculators/c43.git). It runs the high-performance mathematical core of the C43 via a native JNI wrapper and exposes three live shell modes: the default `r47_texture` classic image shell, the background-backed `r47_background` shell, and a native-drawn chrome mode.
 
 ## 🎯 Features
-- **Scene-Driven Android Keypad**: In `native`, `r47_background_v2`, and `r47_black_edition` modes, the UI renders all 43 keys, including the stateful F1-F6 softkeys, from one native snapshot instead of relying on per-label JNI polling.
-- **Restored Shell Backgrounds**: Settings expose `r47_texture` as the default shell image, plus `r47_background_v2`, `r47_black_edition`, and `native` chrome.
+- **Scene-Driven Android Keypad**: In `native` and `r47_background` modes, the UI renders all 43 keys, including the stateful F1-F6 softkeys, from one native snapshot instead of relying on per-label JNI polling.
+- **Restored Shell Backgrounds**: Settings expose `r47_texture` as the default shell image, plus `r47_background` and `native` chrome.
 - **Normalized Shared Touch Geometry**: `r47_texture` keeps the image-backed shell with invisible touch zones, and all chrome modes now reuse one normalized touch grid with contiguous cell boundaries, matched outer keypad bounds, and the same active-key layout.
-- **Shell-Mode Parity**: All chrome modes now share the same settings-entry touch strip, and `r47_background_v2` plus `r47_black_edition` align their virtual LCD position to the classic texture shell instead of using the older higher placement.
+- **Shell-Mode Parity**: All chrome modes now share the same settings-entry touch strip, and `r47_background` aligns its virtual LCD position to the classic texture shell instead of using the older higher placement.
 - **Native Performance**: Math engine runs in C via JNI for 100% parity with the hardware.
 - **Modern Android Support**: Optimized for high-refresh screens and 16KB page sizes (Android 15+).
 - **SAF Integration**: Full support for Android's Storage Access Framework for programs and state files.

@@ -19,8 +19,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     companion object {
         const val CHROME_MODE_NATIVE = "native"
         const val CHROME_MODE_TEXTURE = "r47_texture"
-        const val CHROME_MODE_BACKGROUND_V2 = "r47_background_v2"
-        const val CHROME_MODE_BLACK_EDITION = "r47_black_edition"
+        const val CHROME_MODE_BACKGROUND = "r47_background"
     }
 
     private data class Projection(val scale: Float, val offsetX: Float, val offsetY: Float)
@@ -69,7 +68,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         drawNativeChrome = true,
     )
     private val backgroundChromeSpec = ChromeSpec(
-        mode = CHROME_MODE_BACKGROUND_V2,
+        mode = CHROME_MODE_BACKGROUND,
         shellWidth = 526f,
         shellHeight = 980f,
         bezelHeight = 72f,
@@ -82,23 +81,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         adaptiveTrimTop = 14f,
         adaptiveTrimRight = 12f,
         adaptiveTrimBottom = 16f,
-        imageResId = R.drawable.r47_background_v2,
-    )
-    private val blackEditionChromeSpec = ChromeSpec(
-        mode = CHROME_MODE_BLACK_EDITION,
-        shellWidth = 526f,
-        shellHeight = 980f,
-        bezelHeight = 72f,
-        settingsTouchHeight = sharedSettingsTouchHeight,
-        lcdLeft = sharedVirtualLcdLeft,
-        lcdTop = sharedVirtualLcdTop,
-        lcdWidth = sharedVirtualLcdWidth,
-        lcdHeight = sharedVirtualLcdHeight,
-        adaptiveTrimLeft = 12f,
-        adaptiveTrimTop = 14f,
-        adaptiveTrimRight = 12f,
-        adaptiveTrimBottom = 16f,
-        imageResId = R.drawable.r47_black_edition,
+        imageResId = R.drawable.r47_background,
     )
     private val textureChromeSpec = ChromeSpec(
         mode = CHROME_MODE_TEXTURE,
@@ -211,11 +194,10 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
 
     private fun resolveChromeSpec(mode: String): ChromeSpec {
-        return when (mode) {
-            CHROME_MODE_TEXTURE -> textureChromeSpec
-            "image" -> backgroundChromeSpec
-            CHROME_MODE_BACKGROUND_V2 -> backgroundChromeSpec
-            CHROME_MODE_BLACK_EDITION -> blackEditionChromeSpec
+        return when {
+            mode == CHROME_MODE_TEXTURE -> textureChromeSpec
+            mode == "image" -> backgroundChromeSpec
+            mode.startsWith(CHROME_MODE_BACKGROUND) -> backgroundChromeSpec
             else -> nativeChromeSpec
         }
     }
