@@ -140,12 +140,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     private fun normalizeChromeMode(mode: String?): String {
-        return when (mode) {
-            ReplicaOverlay.CHROME_MODE_NATIVE,
-            ReplicaOverlay.CHROME_MODE_TEXTURE,
-            ReplicaOverlay.CHROME_MODE_BACKGROUND_V2,
-            ReplicaOverlay.CHROME_MODE_BLACK_EDITION -> mode
-            "image" -> ReplicaOverlay.CHROME_MODE_BACKGROUND_V2
+        return when {
+            mode == null -> ReplicaOverlay.CHROME_MODE_TEXTURE
+            mode == ReplicaOverlay.CHROME_MODE_NATIVE ||
+                mode == ReplicaOverlay.CHROME_MODE_TEXTURE ||
+                mode == ReplicaOverlay.CHROME_MODE_BACKGROUND -> mode
+            mode == "image" -> ReplicaOverlay.CHROME_MODE_BACKGROUND
+            mode.startsWith("r47_") -> ReplicaOverlay.CHROME_MODE_BACKGROUND
             else -> ReplicaOverlay.CHROME_MODE_TEXTURE
         }
     }

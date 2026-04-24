@@ -79,15 +79,15 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 
 ### 2.1. Dynamic Scaling & Layout Sync
 
-- **Logical Canvases**: `r47_texture` uses `537 x 1005`; `native`, `r47_background_v2`, and `r47_black_edition` use `526 x 980`.
+- **Logical Canvases**: `r47_texture` uses `537 x 1005`; `native` and `r47_background` use `526 x 980`.
 - **Scaling Rule**: `ReplicaOverlay` fits the active shell contract inside the available window. `physical` mode caps that fit scale by the calculator's physical-width target derived from display DPI.
-- **Chrome Contract**: `chrome_mode` selects between the default `r47_texture` classic shell with hidden touch zones, the background-only `r47_background_v2` and `r47_black_edition` shells that keep the scene-driven keypad, and the native-drawn chrome mode.
+- **Chrome Contract**: `chrome_mode` selects between the default `r47_texture` classic shell with hidden touch zones, the background-backed `r47_background` scene-driven shell, and the native-drawn chrome mode.
 - **Positioning**: The active shell is centered inside the view. Areas above and below the shell remain filled by the activity background.
 
 ### 2.2. LCD Calibration
 
 - **`r47_texture` Viewport**: `(25.5, 67.5)` with size `486 x 266.7` relative to the classic shell.
-- **`native` / `r47_background_v2` / `r47_black_edition` Viewport**: `(43, 60)` with size `440 x 264` relative to the scene-driven shell.
+- **`native` / `r47_background` Viewport**: `(43, 60)` with size `440 x 264` relative to the scene-driven shell.
 
 ---
 

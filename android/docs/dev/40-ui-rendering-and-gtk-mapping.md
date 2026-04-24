@@ -11,24 +11,24 @@ not against device pixels:
 - `native`: shell size `526 x 980`, visual bezel `72`, shared settings touch
   strip height `67.5 x 980 / 1005`, LCD viewport left `43`, top `60`, width
   `440`, height `264`
-- `r47_background_v2`, `r47_black_edition`: shell size `526 x 980`, visual
-  bezel `72`, shared settings touch strip height `67.5 x 980 / 1005`, LCD
-  viewport derived from the texture shell by scaling left and width with
-  `526 / 537` and top and height with `980 / 1005`
+- `r47_background`: shell size `526 x 980`, visual bezel `72`, shared
+  settings touch strip height `67.5 x 980 / 1005`, LCD viewport derived from
+  the texture shell by scaling left and width with `526 / 537` and top and
+  height with `980 / 1005`
 
 `ReplicaOverlay` projects the active shell into the current window. In normal
 mode it either draws native shell chrome with `Canvas`, draws the restored
-`r47_background_v2` or `r47_black_edition` background-only shell image behind
-the scene-driven keypad, or draws the restored `r47_texture` classic image
-shell. `ReplicaKeypadLayout` now owns one normalized shared touch-cell map
-across all chrome modes. The grid uses contiguous row bands, shared midline
-boundaries, and consistent outer keypad bounds inside each row group.
-`r47_texture` uses that map without rendered key views, while the native and
-background-only shells keep the scene-driven key views on top of the same
-active-cell geometry. `ReplicaOverlay` also keeps one shared settings-entry
-touch strip across all chrome modes, and the two background shells derive their
-LCD placement from the texture shell coordinates scaled into the shared shell
-space. In PiP mode the overlay draws the LCD bitmap
+`r47_background` background shell image behind the scene-driven keypad, or
+draws the restored `r47_texture` classic image shell. `ReplicaKeypadLayout`
+now owns one normalized shared touch-cell map across all chrome modes. The
+grid uses contiguous row bands, shared midline boundaries, and consistent outer
+keypad bounds inside each row group. `r47_texture` uses that map without
+rendered key views, while the native and background-backed modes keep the
+scene-driven key views on top of the same active-cell geometry.
+`ReplicaOverlay` also keeps one shared settings-entry touch strip across all
+chrome modes, and the background mode derives its LCD placement from the
+texture shell coordinates scaled into the shared shell space. In PiP mode the
+overlay draws the LCD bitmap
 full-window and maps horizontal touches across the LCD to the six softkeys.
 
 The overlay exposes two scaling modes:
@@ -37,17 +37,14 @@ The overlay exposes two scaling modes:
 - `physical`: cap the fit scale to a physical-size target derived from display
   DPI
 
-The overlay exposes four shell chrome values:
+The overlay exposes three shell chrome values:
 
 - `r47_texture`: restore the classic full-image shell and use the shared
   invisible touch-cell map plus the same settings-entry touch strip as the
   other modes
-- `r47_background_v2`: draw the simulator-style background-only shell while
+- `r47_background`: draw the density-qualified background shell while
   keeping the scene-driven keypad renderer on the shared touch-cell map and the
   texture-aligned LCD frame
-- `r47_black_edition`: draw the dark background-only shell while keeping the
-  same scene-driven keypad renderer, touch-cell map, and texture-aligned LCD
-  frame
 - `native`: draw the body, bezel, and LCD frame with Android `Canvas` while
   keeping the same logical keypad geometry and settings-entry touch strip
 
