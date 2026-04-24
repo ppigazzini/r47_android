@@ -39,11 +39,11 @@ resolve_path() {
     printf '%s/%s\n' "$dir" "$(basename "$target")"
 }
 
-if [ -n "$JAVA_HOME" ] && [ ! -d "$JAVA_HOME" ]; then
+if [ -n "${JAVA_HOME-}" ] && [ ! -d "$JAVA_HOME" ]; then
     unset JAVA_HOME
 fi
 
-if [ -z "$JAVA_HOME" ]; then
+if [ -z "${JAVA_HOME-}" ]; then
     if [ "$(uname -s)" = "Darwin" ] && [ -x /usr/libexec/java_home ]; then
         JAVA_HOME_CANDIDATE=$(/usr/libexec/java_home 2>/dev/null || true)
         if [ -d "$JAVA_HOME_CANDIDATE" ]; then
@@ -53,7 +53,7 @@ if [ -z "$JAVA_HOME" ]; then
     fi
 fi
 
-if [ -z "$JAVA_HOME" ]; then
+if [ -z "${JAVA_HOME-}" ]; then
     JAVA_BIN=$(command -v java 2>/dev/null || true)
     if [ -n "$JAVA_BIN" ]; then
         JAVA_HOME_CANDIDATE=$(dirname "$(dirname "$(resolve_path "$JAVA_BIN")")")
@@ -64,7 +64,7 @@ if [ -z "$JAVA_HOME" ]; then
     fi
 fi
 
-if [ -z "$JAVA_HOME" ] && [ -d /usr/lib/jvm ]; then
+if [ -z "${JAVA_HOME-}" ] && [ -d /usr/lib/jvm ]; then
     for jvm in /usr/lib/jvm/default-java /usr/lib/jvm/*; do
         if [ -d "$jvm" ] && [ -x "$jvm/bin/java" ]; then
             export JAVA_HOME="$jvm"
@@ -74,7 +74,7 @@ if [ -z "$JAVA_HOME" ] && [ -d /usr/lib/jvm ]; then
     done
 fi
 
-if [ -n "$JAVA_HOME" ]; then
+if [ -n "${JAVA_HOME-}" ]; then
     export PATH="$JAVA_HOME/bin:$PATH"
 else
     echo "WARNING: No local Java installation detected. Gradle build requires JDK 17+."
@@ -123,8 +123,8 @@ export CMAKE_BUILD_PARALLEL_LEVEL="$R47_BUILD_JOBS"
 detect_android_sdk_root() {
     local candidate=""
 
-    for candidate in "$ANDROID_SDK_ROOT" "$ANDROID_HOME" "$HOME/.android/sdk" "$HOME/Android/Sdk"; do
-        if [ -n "$candidate" ] && [ -d "$candidate" ] && [ -d "$candidate/platform-tools" -o -d "$candidate/ndk" ]; then
+    for candidate in "${ANDROID_SDK_ROOT-}" "${ANDROID_HOME-}" "$HOME/.android/sdk" "$HOME/Android/Sdk"; do
+        if [ -n "$candidate" ] && [ -d "$candidate" ] && { [ -d "$candidate/platform-tools" ] || [ -d "$candidate/ndk" ]; }; then
             printf '%s\n' "$candidate"
             return 0
         fi
@@ -227,18 +227,21 @@ ensure_local_minizip_prefix() {
 
 resolve_cmake_bin() {
     local candidate=""
+    local sdk_root="${ANDROID_SDK_ROOT-}"
 
     if command -v cmake >/dev/null 2>&1; then
         command -v cmake
         return 0
     fi
 
-    for candidate in "$ANDROID_SDK_ROOT/cmake/$R47_CMAKE_VERSION/bin/cmake" "$ANDROID_SDK_ROOT"/cmake/*/bin/cmake; do
-        if [ -x "$candidate" ]; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    done
+    if [ -n "$sdk_root" ]; then
+        for candidate in "$sdk_root/cmake/$R47_CMAKE_VERSION/bin/cmake" "$sdk_root"/cmake/*/bin/cmake; do
+            if [ -x "$candidate" ]; then
+                printf '%s\n' "$candidate"
+                return 0
+            fi
+        done
+    fi
 
     return 1
 }
@@ -263,7 +266,7 @@ fi
 # 2. Check for Gradle Property in android/gradle.properties
 # 3. Extract Default from build.gradle
 # 4. Fallback to latest installed
-IF_NDK_VERSION=${R47_NDK_VERSION}
+IF_NDK_VERSION=${R47_NDK_VERSION-}
 if [ -z "$IF_NDK_VERSION" ]; then
     IF_NDK_VERSION=$(grep "r47.ndkVersion=" "$PROJECT_ROOT/android/gradle.properties" 2>/dev/null | cut -d'=' -f2 || true)
 fi
@@ -286,8 +289,8 @@ else
     fi
 fi
 
-export ANDROID_HOME=$ANDROID_SDK_ROOT
-export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
+export ANDROID_HOME="$ANDROID_SDK_ROOT"
+export ANDROID_NDK_HOME="$ANDROID_NDK_ROOT"
 
 R47_XLSXIO_URL=${R47_XLSXIO_URL:-https://github.com/brechtsanders/xlsxio.git}
 R47_XLSXIO_COMMIT=${R47_XLSXIO_COMMIT:-a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9}
