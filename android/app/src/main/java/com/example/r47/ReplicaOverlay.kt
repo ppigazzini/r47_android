@@ -30,6 +30,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         val shellWidth: Float,
         val shellHeight: Float,
         val bezelHeight: Float,
+        val settingsTouchHeight: Float = bezelHeight,
         val lcdLeft: Float,
         val lcdTop: Float,
         val lcdWidth: Float,
@@ -44,11 +45,19 @@ class ReplicaOverlay @JvmOverloads constructor(
 
     private val shellCorner = 32f
     private val lcdCorner = 14f
+    private val sharedTextureScaleX = 526f / 537f
+    private val sharedTextureScaleY = 980f / 1005f
+    private val sharedSettingsTouchHeight = 67.5f * sharedTextureScaleY
+    private val sharedVirtualLcdLeft = 25.5f * sharedTextureScaleX
+    private val sharedVirtualLcdTop = 67.5f * sharedTextureScaleY
+    private val sharedVirtualLcdWidth = 486f * sharedTextureScaleX
+    private val sharedVirtualLcdHeight = 266.7f * sharedTextureScaleY
     private val nativeChromeSpec = ChromeSpec(
         mode = CHROME_MODE_NATIVE,
         shellWidth = 526f,
         shellHeight = 980f,
         bezelHeight = 72f,
+        settingsTouchHeight = sharedSettingsTouchHeight,
         lcdLeft = 43f,
         lcdTop = 60f,
         lcdWidth = 440f,
@@ -64,10 +73,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         shellWidth = 526f,
         shellHeight = 980f,
         bezelHeight = 72f,
-        lcdLeft = 43f,
-        lcdTop = 60f,
-        lcdWidth = 440f,
-        lcdHeight = 264f,
+        settingsTouchHeight = sharedSettingsTouchHeight,
+        lcdLeft = sharedVirtualLcdLeft,
+        lcdTop = sharedVirtualLcdTop,
+        lcdWidth = sharedVirtualLcdWidth,
+        lcdHeight = sharedVirtualLcdHeight,
         adaptiveTrimLeft = 12f,
         adaptiveTrimTop = 14f,
         adaptiveTrimRight = 12f,
@@ -79,10 +89,11 @@ class ReplicaOverlay @JvmOverloads constructor(
         shellWidth = 526f,
         shellHeight = 980f,
         bezelHeight = 72f,
-        lcdLeft = 43f,
-        lcdTop = 60f,
-        lcdWidth = 440f,
-        lcdHeight = 264f,
+        settingsTouchHeight = sharedSettingsTouchHeight,
+        lcdLeft = sharedVirtualLcdLeft,
+        lcdTop = sharedVirtualLcdTop,
+        lcdWidth = sharedVirtualLcdWidth,
+        lcdHeight = sharedVirtualLcdHeight,
         adaptiveTrimLeft = 12f,
         adaptiveTrimTop = 14f,
         adaptiveTrimRight = 12f,
@@ -94,6 +105,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         shellWidth = 537f,
         shellHeight = 1005f,
         bezelHeight = 67.5f,
+        settingsTouchHeight = 67.5f,
         lcdLeft = 25.5f,
         lcdTop = 67.5f,
         lcdWidth = 486f,
@@ -282,7 +294,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         val spec = currentChromeSpec()
         
         // Intercept touches in the settings area (top bezel)
-        if (lY < spec.bezelHeight && lY > 0) {
+        if (lY < spec.settingsTouchHeight && lY > 0) {
             return true
         }
         
@@ -307,7 +319,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         val spec = currentChromeSpec()
         
         // If we intercepted this (or no one else took it), and it's in the bezel area
-        if (lY < spec.bezelHeight && lY > 0) {
+        if (lY < spec.settingsTouchHeight && lY > 0) {
             if (event.action == MotionEvent.ACTION_UP) {
                 Log.i("ReplicaOverlay", "Settings area tap received")
                 onSettingsTapListener?.invoke()
@@ -323,10 +335,18 @@ class ReplicaOverlay @JvmOverloads constructor(
         val logicalY: Float,
         val logicalWidth: Float,
         val logicalHeight: Float,
+        val showTouchZone: Boolean = false,
     ) : ViewGroup.LayoutParams(0, 0)
 
-    fun addReplicaView(view: View, x: Float, y: Float, w: Float, h: Float) {
-        addView(view, LayoutParams(x, y, w, h))
+    fun addReplicaView(
+        view: View,
+        x: Float,
+        y: Float,
+        w: Float,
+        h: Float,
+        showTouchZone: Boolean = false,
+    ) {
+        addView(view, LayoutParams(x, y, w, h, showTouchZone))
     }
 
     private fun getFitFrame(spec: ChromeSpec): FitFrame {
@@ -448,6 +468,10 @@ class ReplicaOverlay @JvmOverloads constructor(
         if (showTouchZones) {
             for (i in 0 until childCount) {
                 val child = getChildAt(i)
+                val lp = child.layoutParams as? LayoutParams ?: continue
+                if (!lp.showTouchZone) {
+                    continue
+                }
                 canvas.drawRect(
                     child.left.toFloat(), child.top.toFloat(),
                     child.right.toFloat(), child.bottom.toFloat(),
@@ -459,7 +483,7 @@ class ReplicaOverlay @JvmOverloads constructor(
                 projection.offsetX,
                 projection.offsetY,
                 projection.offsetX + spec.shellWidth * projection.scale,
-                projection.offsetY + spec.bezelHeight * projection.scale,
+                projection.offsetY + spec.settingsTouchHeight * projection.scale,
                 zonePaint,
             )
         }
