@@ -189,22 +189,32 @@ ensure_local_minizip_prefix() {
         return 0
     fi
 
+    if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then
+        echo "ERROR: Automatic minizip bootstrap requires apt-get and dpkg-deb. Install a static minizip development package manually and set R47_MINIZIP_PREFIX to a prefix containing include/minizip/unzip.h and lib/libminizip.a." >&2
+        return 1
+    fi
+
     rm -rf "$deb_dir"
     mkdir -p "$deb_dir"
 
-    (
+    if ! (
         cd "$deb_dir"
         apt-get download libminizip-dev >/dev/null
-    )
+    ); then
+        echo "ERROR: Failed to download libminizip-dev for the pinned xlsxio bootstrap. Install minizip development files manually or set R47_MINIZIP_PREFIX." >&2
+        return 1
+    fi
 
     deb_file=$(find "$deb_dir" -maxdepth 1 -name 'libminizip-dev_*.deb' | head -n1)
     if [ -z "$deb_file" ]; then
+        echo "ERROR: libminizip-dev download completed without producing a .deb payload. Install minizip development files manually or set R47_MINIZIP_PREFIX." >&2
         return 1
     fi
 
     dpkg-deb -x "$deb_file" "$extract_dir"
     lib_file=$(find "$extract_dir" -path '*/libminizip.a' | head -n1)
     if [ -z "$lib_file" ]; then
+        echo "ERROR: Extracted libminizip-dev payload did not contain libminizip.a. Install a compatible static minizip package manually or set R47_MINIZIP_PREFIX." >&2
         return 1
     fi
 
