@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private var currentSlotId = 0
     private var pendingSlotId: Int? = null 
 
+    private var chromeMode = "r47_texture"
     private var lcdMode = "vintage"
     private var scalingMode = "full_width"
 
@@ -138,6 +139,28 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         else setLcdColors(BW_TEXT.toInt(), BW_BG.toInt())
     }
 
+    private fun normalizeChromeMode(mode: String?): String {
+        return when (mode) {
+            ReplicaOverlay.CHROME_MODE_NATIVE,
+            ReplicaOverlay.CHROME_MODE_TEXTURE,
+            ReplicaOverlay.CHROME_MODE_BACKGROUND_V2,
+            ReplicaOverlay.CHROME_MODE_BLACK_EDITION -> mode
+            "image" -> ReplicaOverlay.CHROME_MODE_BACKGROUND_V2
+            else -> ReplicaOverlay.CHROME_MODE_TEXTURE
+        }
+    }
+
+    private fun applyChromeMode(mode: String) {
+        chromeMode = normalizeChromeMode(mode)
+        if (::replicaOverlay.isInitialized) {
+            replicaOverlay.setChromeMode(chromeMode)
+            setupInteractiveZones()
+            if (::coreRuntime.isInitialized && chromeMode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
+                updateDynamicKeys()
+            }
+        }
+    }
+
     private fun applyFullscreenMode(isFullscreen: Boolean) {
         val win = window ?: return
         try {
@@ -178,6 +201,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             "lcd_mode" -> {
                 lcdMode = prefs.getString(key, "vintage") ?: "vintage"
                 applyLcdMode(lcdMode)
+            }
+            "chrome_mode" -> {
+                applyChromeMode(prefs.getString(key, ReplicaOverlay.CHROME_MODE_TEXTURE) ?: ReplicaOverlay.CHROME_MODE_TEXTURE)
             }
             "scaling_mode" -> {
                 scalingMode = prefs.getString(key, "full_width") ?: "full_width"
@@ -310,6 +336,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         isHighFidelityHapticEnabled = prefs.getBoolean("haptic_hifi_enabled", true)
         hapticIntensity = prefs.getInt("haptic_intensity", 180)
         beeperVolume = prefs.getInt("beeper_volume", 20)
+        val storedChromeMode = prefs.getString("chrome_mode", ReplicaOverlay.CHROME_MODE_TEXTURE)
+        chromeMode = normalizeChromeMode(storedChromeMode)
+        if (storedChromeMode != chromeMode) {
+            prefs.edit().putString("chrome_mode", chromeMode).apply()
+        }
         lcdMode = prefs.getString("lcd_mode", "vintage") ?: "vintage"
         scalingMode = prefs.getString("scaling_mode", "full_width") ?: "full_width"
         isBeeperEnabled = prefs.getBoolean("beeper_enabled", true)
@@ -317,6 +348,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         if (prefs.getBoolean("keep_screen_on", false)) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         syncAudioSettings()
         
+        replicaOverlay.setChromeMode(chromeMode)
         setupInteractiveZones()
         slotsList = slotStore.loadSlots()
         currentSlotId = slotStore.readCurrentSlotId()
@@ -339,11 +371,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         )
         
         replicaOverlay.post {
-            replicaOverlay.setNativeChrome()
             replicaOverlay.setShowTouchZones(showTouchZones)
             replicaOverlay.setScalingMode(scalingMode)
             applyLcdMode(lcdMode)
-            updateDynamicKeys()
+            if (chromeMode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
+                updateDynamicKeys()
+            }
         }
 
         displayActionController.bindOverlay(replicaOverlay)
@@ -471,6 +504,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         ReplicaKeypadLayout.rebuild(
             activity = this,
             overlay = replicaOverlay,
+            chromeMode = chromeMode,
             performHapticClick = ::performHapticClick,
             dispatchKey = { keyCode -> offerCoreTask { sendKey(keyCode) } },
         )

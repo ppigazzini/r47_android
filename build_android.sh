@@ -108,8 +108,133 @@ fi
 export R47_BUILD_JOBS
 export CMAKE_BUILD_PARALLEL_LEVEL="$R47_BUILD_JOBS"
 
+detect_android_sdk_root() {
+    local candidate=""
+
+    for candidate in "$ANDROID_SDK_ROOT" "$ANDROID_HOME" "$HOME/.android/sdk" "$HOME/Android/Sdk"; do
+        if [ -n "$candidate" ] && [ -d "$candidate" ] && [ -d "$candidate/platform-tools" -o -d "$candidate/ndk" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+ensure_xlsxio_toolchain() {
+    local xlsxio_prefix="${R47_XLSXIO_PREFIX:-$HOME/.cache/r47/xlsxio/$R47_XLSXIO_COMMIT}"
+    local xlsxio_dir="${TMPDIR:-/tmp}/r47-xlsxio-$R47_XLSXIO_COMMIT"
+    local minizip_prefix=""
+    local cmake_args=(
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        -DBUILD_STATIC=ON
+        -DBUILD_SHARED=OFF
+        -DBUILD_DOCUMENTATION=FALSE
+        -DBUILD_EXAMPLES=FALSE
+        -DBUILD_TOOLS=ON
+        -DWITH_LIBZIP=OFF
+    )
+
+    if command -v xlsxio_xlsx2csv >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if [ -x "$xlsxio_prefix/bin/xlsxio_xlsx2csv" ]; then
+        export PATH="$xlsxio_prefix/bin:$PATH"
+        return 0
+    fi
+
+    echo "--- Bootstrapping pinned xlsxio toolchain ---"
+    rm -rf "$xlsxio_dir"
+    git init --initial-branch=main "$xlsxio_dir" >/dev/null
+    git -C "$xlsxio_dir" remote add origin "$R47_XLSXIO_URL"
+    git -C "$xlsxio_dir" fetch --depth 1 origin "$R47_XLSXIO_COMMIT"
+    git -C "$xlsxio_dir" checkout --detach FETCH_HEAD >/dev/null
+
+    mkdir -p "$xlsxio_prefix"
+    if ! pkg-config --exists minizip 2>/dev/null; then
+        minizip_prefix=$(ensure_local_minizip_prefix) || return 1
+        cmake_args+=("-DMINIZIP_DIR=$minizip_prefix")
+    fi
+
+    "$R47_CMAKE_BIN" -S "$xlsxio_dir" -B "$xlsxio_dir/build" "${cmake_args[@]}"
+    "$R47_CMAKE_BIN" --build "$xlsxio_dir/build" --parallel "$R47_BUILD_JOBS"
+    "$R47_CMAKE_BIN" --install "$xlsxio_dir/build" --prefix "$xlsxio_prefix"
+
+    export PATH="$xlsxio_prefix/bin:$PATH"
+    command -v xlsxio_xlsx2csv >/dev/null 2>&1
+}
+
+ensure_local_minizip_prefix() {
+    local minizip_prefix="${R47_MINIZIP_PREFIX:-$HOME/.cache/r47/minizip/dev}"
+    local deb_dir="${TMPDIR:-/tmp}/r47-minizip-deb"
+    local extract_dir="$deb_dir/extract"
+    local deb_file=""
+    local lib_file=""
+
+    if [ -f "$minizip_prefix/include/minizip/unzip.h" ] && [ -f "$minizip_prefix/lib/libminizip.a" ]; then
+        printf '%s\n' "$minizip_prefix"
+        return 0
+    fi
+
+    rm -rf "$deb_dir"
+    mkdir -p "$deb_dir"
+
+    (
+        cd "$deb_dir"
+        apt-get download libminizip-dev >/dev/null
+    )
+
+    deb_file=$(find "$deb_dir" -maxdepth 1 -name 'libminizip-dev_*.deb' | head -n1)
+    if [ -z "$deb_file" ]; then
+        return 1
+    fi
+
+    dpkg-deb -x "$deb_file" "$extract_dir"
+    lib_file=$(find "$extract_dir" -path '*/libminizip.a' | head -n1)
+    if [ -z "$lib_file" ]; then
+        return 1
+    fi
+
+    mkdir -p "$minizip_prefix/include/minizip" "$minizip_prefix/lib"
+    cp -f "$extract_dir"/usr/include/minizip/*.h "$minizip_prefix/include/minizip/"
+    cp -f "$lib_file" "$minizip_prefix/lib/"
+
+    printf '%s\n' "$minizip_prefix"
+}
+
+resolve_cmake_bin() {
+    local candidate=""
+
+    if command -v cmake >/dev/null 2>&1; then
+        command -v cmake
+        return 0
+    fi
+
+    for candidate in "$ANDROID_SDK_ROOT/cmake/$R47_CMAKE_VERSION/bin/cmake" "$ANDROID_SDK_ROOT"/cmake/*/bin/cmake; do
+        if [ -x "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 PROJECT_ROOT="$(pwd)"
-export ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}
+if ANDROID_SDK_ROOT_CANDIDATE=$(detect_android_sdk_root); then
+    export ANDROID_SDK_ROOT="$ANDROID_SDK_ROOT_CANDIDATE"
+else
+    export ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Android/Sdk}}
+fi
+
+R47_CMAKE_VERSION=${R47_CMAKE_VERSION-}
+if [ -z "$R47_CMAKE_VERSION" ]; then
+    R47_CMAKE_VERSION=$(grep "r47.cmakeVersion=" "$PROJECT_ROOT/android/gradle.properties" 2>/dev/null | cut -d'=' -f2)
+fi
+if [ -z "$R47_CMAKE_VERSION" ]; then
+    R47_CMAKE_VERSION=$(sed -n "s/.*project.findProperty('r47.cmakeVersion') ?: \"\([^\"]*\)\".*/\1/p" "$PROJECT_ROOT/android/app/build.gradle" | head -n1)
+fi
 
 # --- NDK Version Selection ---
 # 1. Check for Environment Override
@@ -141,6 +266,18 @@ fi
 
 export ANDROID_HOME=$ANDROID_SDK_ROOT
 export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
+
+R47_XLSXIO_URL=${R47_XLSXIO_URL:-https://github.com/brechtsanders/xlsxio.git}
+R47_XLSXIO_COMMIT=${R47_XLSXIO_COMMIT:-a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9}
+if ! R47_CMAKE_BIN=$(resolve_cmake_bin); then
+    echo "ERROR: No usable cmake executable found. Install cmake or Android SDK CMake $R47_CMAKE_VERSION."
+    exit 1
+fi
+export PATH="$(dirname "$R47_CMAKE_BIN"):$PATH"
+if ! ensure_xlsxio_toolchain; then
+    echo "ERROR: Failed to provision xlsxio_xlsx2csv."
+    exit 1
+fi
 
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
 CPP_DIR="$ANDROID_PROJECT_DIR/app/src/main/cpp"

@@ -2,23 +2,38 @@
 
 ## Logical shell model
 
-The Android shell renders against a logical calculator canvas, not against
-device pixels:
+The Android shell renders against one of two logical calculator canvases, not
+against device pixels:
 
-- shell size: `526 x 980`
-- top bezel height: `72`
-- LCD viewport: left `43`, top `60`, width `440`, height `264`
+- `r47_texture`: shell size `537 x 1005`, top bezel `67.5`, LCD viewport left
+  `25.5`, top `67.5`, width `486`, height `266.7`
+- `native`, `r47_background_v2`, `r47_black_edition`: shell size `526 x 980`,
+  top bezel `72`, LCD viewport left `43`, top `60`, width `440`, height `264`
 
-`ReplicaOverlay` projects that logical shell into the current window. In normal
-mode it draws the body, bezel, LCD frame, and LCD bitmap with `Canvas`. In PiP
-mode it draws the LCD bitmap full-window and maps horizontal touches across the
-LCD to the six softkeys.
+`ReplicaOverlay` projects the active shell into the current window. In normal
+mode it either draws native shell chrome with `Canvas`, draws the restored
+`r47_background_v2` or `r47_black_edition` background-only shell image behind
+the scene-driven keypad, or draws the restored `r47_texture` classic image
+shell. `ReplicaKeypadLayout` keeps the scene-driven key views for the native
+and background-only shells, but restores classic invisible touch zones for the
+texture shell. In PiP mode the overlay draws the LCD bitmap full-window and
+maps horizontal touches across the LCD to the six softkeys.
 
 The overlay exposes two scaling modes:
 
 - `full_width`: fit the logical shell inside the trimmed window frame
 - `physical`: cap the fit scale to a physical-size target derived from display
   DPI
+
+The overlay exposes four shell chrome values:
+
+- `r47_texture`: restore the classic full-image shell and classic hit-zone
+  geometry
+- `r47_background_v2`: draw the simulator-style background-only shell while
+  keeping the scene-driven keypad geometry
+- `r47_black_edition`: draw the dark background-only shell while keeping the
+  same scene-driven keypad geometry
+- `native`: draw the body, bezel, and LCD frame with Android `Canvas`
 
 The projection is the first place to inspect when the shell or LCD looks
 correctly rendered but globally misplaced.
