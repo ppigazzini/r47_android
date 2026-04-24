@@ -186,7 +186,7 @@ To ensure beeper tones remain distinct and melodies are paced correctly:
 
 ## 10. External Keyboard Mapping
 
-The application implements an extensive mapping table for external hardware keyboards, providing simulator parity for RPN shortcuts.
+The application implements an extensive mapping table for external hardware keyboards. It covers many RPN shortcuts and calculator key IDs, but it remains an Android-specific contract rather than full GTK simulator shortcut parity.
 
 ---
 

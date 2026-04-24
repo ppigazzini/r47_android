@@ -22,10 +22,11 @@ engine loop.
   `PROGRAMS`, `SAVFILES`, and `SCREENS` subfolders.
 - `DisplayActionController`: owns display long-press actions such as copy X
   register, paste number, and entry into Picture-in-Picture.
-- `ReplicaOverlay` and `ReplicaKeypadLayout`: host the shell chrome modes, LCD
-  projection, the restored `r47_texture` classic hit zones, the scene-driven
-  key views used by `native` and the background-only shells, and the PiP
-  interaction surface.
+- `ReplicaOverlay` and `ReplicaKeypadLayout`: host the shell chrome modes, the
+  normalized shared keypad touch grid, LCD projection, the classic
+  `r47_texture` image-backed shell, the scene-driven key views used by
+  `native` and the background-only shells, the shared settings-entry strip,
+  and the PiP interaction surface.
 - `SettingsActivity`: owns the settings UI and preference-driven Android shell
   options.
 
@@ -38,7 +39,8 @@ engine loop.
   chrome mode, scaling mode, haptics, beeper volume, and touch-zone debugging.
   `chrome_mode` now chooses between the default `r47_texture` shell, the
   `r47_background_v2` and `r47_black_edition` background-only shells, and the
-  native-drawn shell.
+  native-drawn shell. All four modes share the same logical touch grid, and
+  the background shells inherit the texture-aligned LCD placement.
 
 ## Runtime and event flow
 

@@ -2,22 +2,34 @@
 
 ## Logical shell model
 
-The Android shell renders against one of two logical calculator canvases, not
-against device pixels:
+The Android shell still renders against two logical calculator body canvases,
+not against device pixels:
 
-- `r47_texture`: shell size `537 x 1005`, top bezel `67.5`, LCD viewport left
-  `25.5`, top `67.5`, width `486`, height `266.7`
-- `native`, `r47_background_v2`, `r47_black_edition`: shell size `526 x 980`,
-  top bezel `72`, LCD viewport left `43`, top `60`, width `440`, height `264`
+- `r47_texture`: shell size `537 x 1005`, visual bezel and settings touch
+  strip height `67.5`, LCD viewport left `25.5`, top `67.5`, width `486`,
+  height `266.7`
+- `native`: shell size `526 x 980`, visual bezel `72`, shared settings touch
+  strip height `67.5 x 980 / 1005`, LCD viewport left `43`, top `60`, width
+  `440`, height `264`
+- `r47_background_v2`, `r47_black_edition`: shell size `526 x 980`, visual
+  bezel `72`, shared settings touch strip height `67.5 x 980 / 1005`, LCD
+  viewport derived from the texture shell by scaling left and width with
+  `526 / 537` and top and height with `980 / 1005`
 
 `ReplicaOverlay` projects the active shell into the current window. In normal
 mode it either draws native shell chrome with `Canvas`, draws the restored
 `r47_background_v2` or `r47_black_edition` background-only shell image behind
 the scene-driven keypad, or draws the restored `r47_texture` classic image
-shell. `ReplicaKeypadLayout` keeps the scene-driven key views for the native
-and background-only shells, but restores classic invisible touch zones for the
-texture shell. In PiP mode the overlay draws the LCD bitmap full-window and
-maps horizontal touches across the LCD to the six softkeys.
+shell. `ReplicaKeypadLayout` now owns one normalized shared touch-cell map
+across all chrome modes. The grid uses contiguous row bands, shared midline
+boundaries, and consistent outer keypad bounds inside each row group.
+`r47_texture` uses that map without rendered key views, while the native and
+background-only shells keep the scene-driven key views on top of the same
+active-cell geometry. `ReplicaOverlay` also keeps one shared settings-entry
+touch strip across all chrome modes, and the two background shells derive their
+LCD placement from the texture shell coordinates scaled into the shared shell
+space. In PiP mode the overlay draws the LCD bitmap
+full-window and maps horizontal touches across the LCD to the six softkeys.
 
 The overlay exposes two scaling modes:
 
@@ -27,13 +39,17 @@ The overlay exposes two scaling modes:
 
 The overlay exposes four shell chrome values:
 
-- `r47_texture`: restore the classic full-image shell and classic hit-zone
-  geometry
+- `r47_texture`: restore the classic full-image shell and use the shared
+  invisible touch-cell map plus the same settings-entry touch strip as the
+  other modes
 - `r47_background_v2`: draw the simulator-style background-only shell while
-  keeping the scene-driven keypad geometry
+  keeping the scene-driven keypad renderer on the shared touch-cell map and the
+  texture-aligned LCD frame
 - `r47_black_edition`: draw the dark background-only shell while keeping the
-  same scene-driven keypad geometry
-- `native`: draw the body, bezel, and LCD frame with Android `Canvas`
+  same scene-driven keypad renderer, touch-cell map, and texture-aligned LCD
+  frame
+- `native`: draw the body, bezel, and LCD frame with Android `Canvas` while
+  keeping the same logical keypad geometry and settings-entry touch strip
 
 The projection is the first place to inspect when the shell or LCD looks
 correctly rendered but globally misplaced.
@@ -68,8 +84,10 @@ frame boundary while still having different owners.
 
 ## Keypad conversion model
 
-The keypad is scene-driven. Android does not poll per-label text from separate
-bridge calls and does not use invisible image hit zones.
+The rendered keypad path is scene-driven. Android does not poll per-label text
+from separate bridge calls. `r47_texture` still keeps invisible image-backed
+touch zones, but those zones now come from the same normalized touch-cell map
+used by the rendered shells.
 
 The native side provides two arrays:
 
@@ -92,17 +110,22 @@ projection, and drawing.
 
 ## GTK-derived geometry
 
-`ReplicaKeypadLayout` places all 43 keys using fixed logical coordinates on the
-same shell model used by the overlay:
+`ReplicaKeypadLayout` places all 43 touch cells using fixed logical coordinates
+on the same shell model used by the overlay:
 
-- one softkey row
-- two small rows
-- one enter row
-- four large rows
+- one softkey row on a shared six-column boundary model
+- two small rows on that same six-column boundary model
+- one enter row where key `13` spans two columns on the shared midline
+  boundaries
+- four large rows on one shared five-column boundary model
 
 The layout constants are GTK-derived geometry values expressed in the Android
 logical shell space. The Android side does not recalculate key positions from
-live GTK code.
+live GTK code. The current touch-cell map is normalized by row template instead
+of older per-row shrink or shift tweaks, so adjacent cells meet at shared
+midlines and row groups keep consistent outer bounds. That map is shared across
+the texture shell and the rendered shells even though the repo still keeps two
+logical shell canvases.
 
 This is a mapping layer, not a port of the GTK layout engine. When geometry
 parity changes, update the Android logical constants or the native scene data,

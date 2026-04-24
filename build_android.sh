@@ -1,5 +1,17 @@
 #!/bin/bash
 
+set -Eeuo pipefail
+
+on_error() {
+    local exit_code="$?"
+    local line_no="${1:-${BASH_LINENO[0]:-$LINENO}}"
+
+    echo "ERROR: build_android.sh failed with exit code ${exit_code} at line ${line_no} while running: ${BASH_COMMAND}" >&2
+    exit "$exit_code"
+}
+
+trap 'on_error "${BASH_LINENO[0]:-$LINENO}"' ERR
+
 # =============================================================================
 # R47 Android Build Script
 # =============================================================================
@@ -230,7 +242,7 @@ fi
 
 R47_CMAKE_VERSION=${R47_CMAKE_VERSION-}
 if [ -z "$R47_CMAKE_VERSION" ]; then
-    R47_CMAKE_VERSION=$(grep "r47.cmakeVersion=" "$PROJECT_ROOT/android/gradle.properties" 2>/dev/null | cut -d'=' -f2)
+    R47_CMAKE_VERSION=$(grep "r47.cmakeVersion=" "$PROJECT_ROOT/android/gradle.properties" 2>/dev/null | cut -d'=' -f2 || true)
 fi
 if [ -z "$R47_CMAKE_VERSION" ]; then
     R47_CMAKE_VERSION=$(sed -n "s/.*project.findProperty('r47.cmakeVersion') ?: \"\([^\"]*\)\".*/\1/p" "$PROJECT_ROOT/android/app/build.gradle" | head -n1)
@@ -243,10 +255,10 @@ fi
 # 4. Fallback to latest installed
 IF_NDK_VERSION=${R47_NDK_VERSION}
 if [ -z "$IF_NDK_VERSION" ]; then
-    IF_NDK_VERSION=$(grep "r47.ndkVersion=" "$PROJECT_ROOT/android/gradle.properties" 2>/dev/null | cut -d'=' -f2)
+    IF_NDK_VERSION=$(grep "r47.ndkVersion=" "$PROJECT_ROOT/android/gradle.properties" 2>/dev/null | cut -d'=' -f2 || true)
 fi
 if [ -z "$IF_NDK_VERSION" ]; then
-    IF_NDK_VERSION=$(grep "ndkVersion" "$PROJECT_ROOT/android/app/build.gradle" | grep -o '".*"' | sed 's/"//g')
+    IF_NDK_VERSION=$(grep "ndkVersion" "$PROJECT_ROOT/android/app/build.gradle" | grep -o '".*"' | sed 's/"//g' || true)
 fi
 
 if [ -n "$IF_NDK_VERSION" ] && [ -d "$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION" ]; then
@@ -254,7 +266,7 @@ if [ -n "$IF_NDK_VERSION" ] && [ -d "$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION" ]; t
     export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION"
 else
     # Fallback to latest available NDK
-    LATEST_NDK=$(ls -1 "$ANDROID_SDK_ROOT/ndk" 2>/dev/null | sort -V | tail -n1)
+    LATEST_NDK=$(ls -1 "$ANDROID_SDK_ROOT/ndk" 2>/dev/null | sort -V | tail -n1 || true)
     if [ -n "$LATEST_NDK" ]; then
         echo "NDK $IF_NDK_VERSION not found. Falling back to latest: $LATEST_NDK"
         export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$LATEST_NDK"
@@ -306,11 +318,6 @@ fi
 
 make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
 
-if [ $? -ne 0 ]; then
-    echo "ERROR: 'make sim' failed."
-    exit 1
-fi
-
 # --- 4. Stage Native Source Code ---
 if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_PROJECT_DIR/stage_native_sources.sh"; then
     echo "ERROR: Android native staging failed."
@@ -341,14 +348,19 @@ chmod +x "$GRADLE_CMD"
 # Pass detected NDK/SDK versions as Project Properties to override build.gradle defaults
 GRADLE_PROPS="-Pr47.ndkVersion=$IF_NDK_VERSION"
 GRADLE_PROPS="$GRADLE_PROPS -Pr47.coreVersion=$COMMIT_HASH"
-if [ -n "$R47_COMPILE_SDK" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.compileSdk=$R47_COMPILE_SDK"; fi
-if [ -n "$R47_VERSION_CODE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionCode=$R47_VERSION_CODE"; fi
-if [ -n "$R47_VERSION_NAME" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionName=$R47_VERSION_NAME"; fi
+COMPILE_SDK_OVERRIDE=${R47_COMPILE_SDK-}
+VERSION_CODE_OVERRIDE=${R47_VERSION_CODE-}
+VERSION_NAME_OVERRIDE=${R47_VERSION_NAME-}
+
+if [ -n "$COMPILE_SDK_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.compileSdk=$COMPILE_SDK_OVERRIDE"; fi
+if [ -n "$VERSION_CODE_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionCode=$VERSION_CODE_OVERRIDE"; fi
+if [ -n "$VERSION_NAME_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionName=$VERSION_NAME_OVERRIDE"; fi
+GRADLE_EXTRA_ARGS=${R47_GRADLE_ARGS-}
 
 # Clean cxx to ensure fresh cmake run
 rm -rf app/.cxx
-$GRADLE_CMD clean
-$GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_PROPS
+$GRADLE_CMD clean $GRADLE_EXTRA_ARGS
+$GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_EXTRA_ARGS $GRADLE_PROPS
 
 APK_PATH="app/build/outputs/apk/debug/R47calculator-debug.apk"
 if [ -f "$APK_PATH" ]; then

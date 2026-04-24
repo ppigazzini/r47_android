@@ -483,10 +483,22 @@ jobs:
           R47_NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
+          R47_GRADLE_ARGS: '--no-daemon --stacktrace --console=plain'
           GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
-          ./build_android.sh
+          mkdir -p ci-artifacts/logs
+          ./build_android.sh 2>&1 | tee ci-artifacts/logs/build-android.log
+
+      - name: Upload Android build log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}-build-log
+          path: ci-artifacts/logs/build-android.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
 
       - name: Collect packaging evidence
         shell: bash
