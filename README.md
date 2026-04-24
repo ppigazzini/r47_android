@@ -56,11 +56,15 @@ Ensure `ANDROID_SDK_ROOT` is set in your environment.
 ```bash
 ./build_android.sh
 ```
-`build_android.sh` runs `make sim`, then delegates native staging to
+`build_android.sh` resolves its worker count from `R47_BUILD_JOBS`, then
+`CMAKE_BUILD_PARALLEL_LEVEL`, then the host CPU count. It exports
+`CMAKE_BUILD_PARALLEL_LEVEL`, runs
+`make -j <jobs> NINJAFLAGS="-j <jobs>" sim`, then delegates native staging to
 `android/stage_native_sources.sh`. That step copies the synced `src/c47` tree,
 `dep/decNumberICU`, generated files, and mini-gmp inputs into
-`android/app/src/main/cpp` before Gradle builds the debug APK. The staged tree
-is an Android build input, not the preferred source of truth.
+`android/app/src/main/cpp` before Gradle builds the debug APK with
+`--max-workers <jobs>`. The staged tree is an Android build input, not the
+preferred source of truth.
 The checked-in release version inputs default to `r47.versionCode=1` and
 `r47.versionName=0.1.0`. Debug builds append the synchronized core revision as a
 `-snapshot.<core>` suffix automatically.
@@ -83,9 +87,13 @@ r47.versionName=0.1.0
 Note: You can also target **API 36 (Android 16 preview)** by setting `r47.compileSdk=36` and `r47.targetSdk=36` if you have the preview SDK installed.
 
 #### Option 2: Environment Variables (Linux / macOS / WSL)
-You can pass the NDK version and optional release-version overrides as environment variables before running the build script:
+You can pass the NDK version, an explicit worker count, and optional
+release-version overrides as environment variables before running the build
+script. If `R47_BUILD_JOBS` is unset, the script auto-detects the host CPU
+count:
 ```bash
 export R47_NDK_VERSION="29.0.14206865"
+export R47_BUILD_JOBS="8"
 export R47_VERSION_CODE="1"
 export R47_VERSION_NAME="0.1.0"
 ./build_android.sh
@@ -95,11 +103,11 @@ export R47_VERSION_NAME="0.1.0"
 If you are running from a native Windows terminal without WSL or Git Bash:
 **PowerShell:**
 ```powershell
-$env:R47_NDK_VERSION="29.0.14206865"; $env:R47_VERSION_CODE="1"; $env:R47_VERSION_NAME="0.1.0"; ./build_android.sh
+$env:R47_NDK_VERSION="29.0.14206865"; $env:R47_BUILD_JOBS="8"; $env:R47_VERSION_CODE="1"; $env:R47_VERSION_NAME="0.1.0"; ./build_android.sh
 ```
 **CMD:**
 ```cmd
-set R47_NDK_VERSION=29.0.14206865 && set R47_VERSION_CODE=1 && set R47_VERSION_NAME=0.1.0 && ./build_android.sh
+set R47_NDK_VERSION=29.0.14206865 && set R47_BUILD_JOBS=8 && set R47_VERSION_CODE=1 && set R47_VERSION_NAME=0.1.0 && ./build_android.sh
 ```
 
 #### Option 4: Append To gradle.properties (Alternative For Windows)
