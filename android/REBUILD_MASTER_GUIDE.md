@@ -162,6 +162,10 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
 ### 8.1. Android Native Staging
 
 - `build_android.sh` remains the top-level Android debug-build entry point.
+- `build_android.sh` MUST resolve one worker count from `R47_BUILD_JOBS`, then
+  `CMAKE_BUILD_PARALLEL_LEVEL`, then the host CPU count, export that value as
+  `CMAKE_BUILD_PARALLEL_LEVEL`, and thread it through `make`, `NINJAFLAGS`, and
+  `gradlew --max-workers`.
 - After `make sim`, it MUST delegate native staging to `android/stage_native_sources.sh`.
 - That staging step copies the synced `src/c47` tree, `dep/decNumberICU`, generated files, and mini-gmp inputs into `android/app/src/main/cpp`.
 - Android compatibility for upstream GTK, GDK, and Cairo includes MUST live in tracked Android stub headers under `android/app/src/main/cpp/c47-android/stubs` plus `android_mocks.h`. Do not reintroduce post-copy `sed` rewrites of staged sources.

@@ -68,7 +68,45 @@ else
     echo "WARNING: No local Java installation detected. Gradle build requires JDK 17+."
 fi
 
-R47_BUILD_JOBS=${R47_BUILD_JOBS:-${CMAKE_BUILD_PARALLEL_LEVEL:-}}
+normalize_job_count() {
+    case "$1" in
+        ''|*[!0-9]*|0)
+            return 1
+            ;;
+        *)
+            printf '%s\n' "$1"
+            ;;
+    esac
+}
+
+detect_job_count() {
+    local detected_jobs=""
+
+    if command -v nproc >/dev/null 2>&1; then
+        detected_jobs=$(nproc 2>/dev/null || true)
+    fi
+
+    if [ -z "$detected_jobs" ] && command -v getconf >/dev/null 2>&1; then
+        detected_jobs=$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)
+    fi
+
+    if ! detected_jobs=$(normalize_job_count "$detected_jobs"); then
+        detected_jobs=1
+    fi
+
+    printf '%s\n' "$detected_jobs"
+}
+
+R47_BUILD_JOBS_INPUT=${R47_BUILD_JOBS-}
+if ! R47_BUILD_JOBS=$(normalize_job_count "$R47_BUILD_JOBS_INPUT"); then
+    CMAKE_BUILD_JOBS_INPUT=${CMAKE_BUILD_PARALLEL_LEVEL-}
+    if ! R47_BUILD_JOBS=$(normalize_job_count "$CMAKE_BUILD_JOBS_INPUT"); then
+        R47_BUILD_JOBS=$(detect_job_count)
+    fi
+fi
+
+export R47_BUILD_JOBS
+export CMAKE_BUILD_PARALLEL_LEVEL="$R47_BUILD_JOBS"
 
 PROJECT_ROOT="$(pwd)"
 export ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}
@@ -111,6 +149,7 @@ echo "======================================================="
 echo "R47 Android Builder"
 echo "SDK: $ANDROID_SDK_ROOT"
 echo "NDK: $ANDROID_NDK_ROOT"
+echo "Jobs: $R47_BUILD_JOBS"
 echo "======================================================="
 
 # --- 2. Update Version from Upstream (c43 Core) ---
@@ -128,11 +167,7 @@ if [ -d "build.sim" ] && [ ! -f "build.sim/build.ninja" ]; then
     rm -rf build.sim
 fi
 
-if [ -n "$R47_BUILD_JOBS" ]; then
-    make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
-else
-    make sim
-fi
+make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
 
 if [ $? -ne 0 ]; then
     echo "ERROR: 'make sim' failed."
@@ -176,11 +211,7 @@ if [ -n "$R47_VERSION_NAME" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionNam
 # Clean cxx to ensure fresh cmake run
 rm -rf app/.cxx
 $GRADLE_CMD clean
-if [ -n "$R47_BUILD_JOBS" ]; then
-    $GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_PROPS
-else
-    $GRADLE_CMD assembleDebug $GRADLE_PROPS
-fi
+$GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_PROPS
 
 APK_PATH="app/build/outputs/apk/debug/R47calculator-debug.apk"
 if [ -f "$APK_PATH" ]; then
