@@ -2,17 +2,41 @@
 
 #include <string.h>
 
+static int restoreScreenMutexAndReturn(int lockCount, int fd) {
+  LOGI("requestAndroidFile: Re-acquiring screenMutex (%d times)", lockCount);
+  for (int index = 0; index < lockCount; index++) {
+    pthread_mutex_lock(&screenMutex);
+  }
+
+  return fd;
+}
+
+static int failAndroidFileRequest(int lockCount) {
+  pthread_mutex_lock(&fileMutex);
+  isCoreBlockingForIo = false;
+  fileReady = false;
+  fileCancelled = true;
+  fileDescriptor = -1;
+  pthread_mutex_unlock(&fileMutex);
+
+  return restoreScreenMutexAndReturn(lockCount, -1);
+}
+
 int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   LOGI("requestAndroidFile(isSave=%d, defaultName=%s, fileType=%d)", isSave,
        defaultName, fileType);
-  if (!g_requestFileId) {
-    LOGE("requestAndroidFile: g_requestFileId is NULL!");
+  if (!g_requestFileId || !g_mainActivityObj) {
+    LOGE("requestAndroidFile: requestFile bridge is not ready");
     return -1;
   }
 
-  JNIEnv *env;
+  JNIEnv *env = NULL;
   if ((*g_jvm)->GetEnv(g_jvm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
-    (*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL);
+    jint attachResult = (*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL);
+    if (attachResult != JNI_OK || !env) {
+      LOGE("requestAndroidFile: AttachCurrentThread failed (%d)", attachResult);
+      return -1;
+    }
   }
 
   int lockCount = 0;
@@ -30,9 +54,25 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   pthread_mutex_unlock(&fileMutex);
 
   jstring nameObj = (*env)->NewStringUTF(env, defaultName ? defaultName : "");
+  if ((*env)->ExceptionCheck(env)) {
+    LOGE("requestAndroidFile: NewStringUTF threw before request dispatch");
+    (*env)->ExceptionDescribe(env);
+    (*env)->ExceptionClear(env);
+    return failAndroidFileRequest(lockCount);
+  }
+
   (*env)->CallVoidMethod(env, g_mainActivityObj, g_requestFileId,
                          (jboolean)isSave, nameObj, (jint)fileType);
-  (*env)->DeleteLocalRef(env, nameObj);
+  if (nameObj) {
+    (*env)->DeleteLocalRef(env, nameObj);
+  }
+
+  if ((*env)->ExceptionCheck(env)) {
+    LOGE("requestAndroidFile: requestFile threw before a file result was posted");
+    (*env)->ExceptionDescribe(env);
+    (*env)->ExceptionClear(env);
+    return failAndroidFileRequest(lockCount);
+  }
 
   pthread_mutex_lock(&fileMutex);
   LOGI("requestAndroidFile: Waiting for file result...");
@@ -44,12 +84,7 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   LOGI("requestAndroidFile: Resumed, fd=%d, cancelled=%d", fd, fileCancelled);
   pthread_mutex_unlock(&fileMutex);
 
-  LOGI("requestAndroidFile: Re-acquiring screenMutex (%d times)", lockCount);
-  for (int index = 0; index < lockCount; index++) {
-    pthread_mutex_lock(&screenMutex);
-  }
-
-  return fd;
+  return restoreScreenMutexAndReturn(lockCount, fd);
 }
 
 JNIEXPORT void JNICALL

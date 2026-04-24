@@ -176,7 +176,6 @@ Java_com_example_r47_MainActivity_loadStateNative(JNIEnv *env,
   extern void updateMatrixHeightCache(void);
   extern uint16_t currentLocalStepNumber;
   extern uint16_t currentProgramNumber;
-#include "typeDefinitions.h"
   extern programList_t *programList;
   scanLabelsAndPrograms();
   if (currentProgramNumber > 0) {
