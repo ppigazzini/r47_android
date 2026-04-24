@@ -16,28 +16,98 @@ class ReplicaOverlay @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : ViewGroup(context, attrs, defStyleAttr) {
 
+    companion object {
+        const val CHROME_MODE_NATIVE = "native"
+        const val CHROME_MODE_TEXTURE = "r47_texture"
+        const val CHROME_MODE_BACKGROUND_V2 = "r47_background_v2"
+        const val CHROME_MODE_BLACK_EDITION = "r47_black_edition"
+    }
+
     private data class Projection(val scale: Float, val offsetX: Float, val offsetY: Float)
     private data class FitFrame(val left: Float, val top: Float, val width: Float, val height: Float)
+    private data class ChromeSpec(
+        val mode: String,
+        val shellWidth: Float,
+        val shellHeight: Float,
+        val bezelHeight: Float,
+        val lcdLeft: Float,
+        val lcdTop: Float,
+        val lcdWidth: Float,
+        val lcdHeight: Float,
+        val adaptiveTrimLeft: Float = 0f,
+        val adaptiveTrimTop: Float = 0f,
+        val adaptiveTrimRight: Float = 0f,
+        val adaptiveTrimBottom: Float = 0f,
+        val imageResId: Int? = null,
+        val drawNativeChrome: Boolean = false,
+    )
 
-    private val shellWidth = 526f
-    private val shellHeight = 980f
-    private val bezelHeight = 72f
-    private val lcdLeft = 43f
-    private val lcdTop = 60f
-    private val lcdWidth = 440f
-    private val lcdHeight = 264f
     private val shellCorner = 32f
     private val lcdCorner = 14f
-    private val adaptiveTrimLeft = 12f
-    private val adaptiveTrimTop = 14f
-    private val adaptiveTrimRight = 12f
-    private val adaptiveTrimBottom = 16f
+    private val nativeChromeSpec = ChromeSpec(
+        mode = CHROME_MODE_NATIVE,
+        shellWidth = 526f,
+        shellHeight = 980f,
+        bezelHeight = 72f,
+        lcdLeft = 43f,
+        lcdTop = 60f,
+        lcdWidth = 440f,
+        lcdHeight = 264f,
+        adaptiveTrimLeft = 12f,
+        adaptiveTrimTop = 14f,
+        adaptiveTrimRight = 12f,
+        adaptiveTrimBottom = 16f,
+        drawNativeChrome = true,
+    )
+    private val backgroundChromeSpec = ChromeSpec(
+        mode = CHROME_MODE_BACKGROUND_V2,
+        shellWidth = 526f,
+        shellHeight = 980f,
+        bezelHeight = 72f,
+        lcdLeft = 43f,
+        lcdTop = 60f,
+        lcdWidth = 440f,
+        lcdHeight = 264f,
+        adaptiveTrimLeft = 12f,
+        adaptiveTrimTop = 14f,
+        adaptiveTrimRight = 12f,
+        adaptiveTrimBottom = 16f,
+        imageResId = R.drawable.r47_background_v2,
+    )
+    private val blackEditionChromeSpec = ChromeSpec(
+        mode = CHROME_MODE_BLACK_EDITION,
+        shellWidth = 526f,
+        shellHeight = 980f,
+        bezelHeight = 72f,
+        lcdLeft = 43f,
+        lcdTop = 60f,
+        lcdWidth = 440f,
+        lcdHeight = 264f,
+        adaptiveTrimLeft = 12f,
+        adaptiveTrimTop = 14f,
+        adaptiveTrimRight = 12f,
+        adaptiveTrimBottom = 16f,
+        imageResId = R.drawable.r47_black_edition,
+    )
+    private val textureChromeSpec = ChromeSpec(
+        mode = CHROME_MODE_TEXTURE,
+        shellWidth = 537f,
+        shellHeight = 1005f,
+        bezelHeight = 67.5f,
+        lcdLeft = 25.5f,
+        lcdTop = 67.5f,
+        lcdWidth = 486f,
+        lcdHeight = 266.7f,
+        imageResId = R.drawable.r47_texture,
+    )
     
     private var isPiPMode = false
+    private var chromeMode = CHROME_MODE_NATIVE
     private var scalingMode = "full_width"
     private var showTouchZones = false
 
     private val lcdBitmap = Bitmap.createBitmap(400, 240, Bitmap.Config.ARGB_8888)
+    private val chromeBitmapCache = mutableMapOf<Int, Bitmap?>()
     private val lastLcdPixels = IntArray(400 * 240)
     private val lcdRect = Rect(0, 0, 400, 240)
     private val lcdDestRect = RectF()
@@ -114,9 +184,39 @@ class ReplicaOverlay @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setNativeChrome() {
+    fun setChromeMode(mode: String) {
+        val resolvedMode = resolveChromeSpec(mode).mode
+        if (chromeMode == resolvedMode) {
+            return
+        }
+        chromeMode = resolvedMode
         requestLayout()
         invalidate()
+    }
+
+    fun setNativeChrome() {
+        setChromeMode(CHROME_MODE_NATIVE)
+    }
+
+    private fun resolveChromeSpec(mode: String): ChromeSpec {
+        return when (mode) {
+            CHROME_MODE_TEXTURE -> textureChromeSpec
+            "image" -> backgroundChromeSpec
+            CHROME_MODE_BACKGROUND_V2 -> backgroundChromeSpec
+            CHROME_MODE_BLACK_EDITION -> blackEditionChromeSpec
+            else -> nativeChromeSpec
+        }
+    }
+
+    private fun currentChromeSpec(): ChromeSpec {
+        return resolveChromeSpec(chromeMode)
+    }
+
+    private fun chromeBitmapFor(spec: ChromeSpec): Bitmap? {
+        val resId = spec.imageResId ?: return null
+        return chromeBitmapCache.getOrPut(resId) {
+            BitmapFactory.decodeResource(resources, resId)
+        }
     }
 
     fun isPointInLcd(x: Float, y: Float): Boolean {
@@ -124,14 +224,15 @@ class ReplicaOverlay @JvmOverloads constructor(
             return false
         }
 
+        val spec = currentChromeSpec()
         val projection = createProjection(width.toFloat(), height.toFloat())
         val localX = (x - projection.offsetX) / projection.scale
         val localY = (y - projection.offsetY) / projection.scale
 
-        return localX >= lcdLeft &&
-            localX <= lcdLeft + lcdWidth &&
-            localY >= lcdTop &&
-            localY <= lcdTop + lcdHeight
+        return localX >= spec.lcdLeft &&
+            localX <= spec.lcdLeft + spec.lcdWidth &&
+            localY >= spec.lcdTop &&
+            localY <= spec.lcdTop + spec.lcdHeight
     }
 
     fun updateLcd(pixels: IntArray) {
@@ -159,13 +260,14 @@ class ReplicaOverlay @JvmOverloads constructor(
         lcdBitmap.setPixels(pixels, 0, 400, 0, 0, 400, 240)
 
         // Calculate screen-space dirty rect
+        val spec = currentChromeSpec()
         val projection = createProjection(width.toFloat(), height.toFloat())
 
         // Convert LCD coordinates to Screen coordinates
-        val left = projection.offsetX + (lcdLeft + (minX.toFloat() / 400f) * lcdWidth) * projection.scale
-        val top = projection.offsetY + (lcdTop + (minY.toFloat() / 240f) * lcdHeight) * projection.scale
-        val right = projection.offsetX + (lcdLeft + ((maxX.toFloat() + 1f) / 400f) * lcdWidth) * projection.scale
-        val bottom = projection.offsetY + (lcdTop + ((maxY.toFloat() + 1f) / 240f) * lcdHeight) * projection.scale
+        val left = projection.offsetX + (spec.lcdLeft + (minX.toFloat() / 400f) * spec.lcdWidth) * projection.scale
+        val top = projection.offsetY + (spec.lcdTop + (minY.toFloat() / 240f) * spec.lcdHeight) * projection.scale
+        val right = projection.offsetX + (spec.lcdLeft + ((maxX.toFloat() + 1f) / 400f) * spec.lcdWidth) * projection.scale
+        val bottom = projection.offsetY + (spec.lcdTop + ((maxY.toFloat() + 1f) / 240f) * spec.lcdHeight) * projection.scale
 
         dirtyRect.set(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
         postInvalidateOnAnimation(dirtyRect.left, dirtyRect.top, dirtyRect.right, dirtyRect.bottom)
@@ -177,9 +279,10 @@ class ReplicaOverlay @JvmOverloads constructor(
         
         val projection = createProjection(width.toFloat(), height.toFloat())
         val lY = (ev.y - projection.offsetY) / projection.scale
+        val spec = currentChromeSpec()
         
         // Intercept touches in the settings area (top bezel)
-        if (lY < bezelHeight && lY > 0) {
+        if (lY < spec.bezelHeight && lY > 0) {
             return true
         }
         
@@ -201,9 +304,10 @@ class ReplicaOverlay @JvmOverloads constructor(
         
         val projection = createProjection(width.toFloat(), height.toFloat())
         val lY = (event.y - projection.offsetY) / projection.scale
+        val spec = currentChromeSpec()
         
         // If we intercepted this (or no one else took it), and it's in the bezel area
-        if (lY < bezelHeight && lY > 0) {
+        if (lY < spec.bezelHeight && lY > 0) {
             if (event.action == MotionEvent.ACTION_UP) {
                 Log.i("ReplicaOverlay", "Settings area tap received")
                 onSettingsTapListener?.invoke()
@@ -215,43 +319,36 @@ class ReplicaOverlay @JvmOverloads constructor(
     }
 
     class LayoutParams(
-        val xFraction: Float,
-        val yFraction: Float,
-        val widthFraction: Float,
-        val heightFraction: Float,
+        val logicalX: Float,
+        val logicalY: Float,
+        val logicalWidth: Float,
+        val logicalHeight: Float,
     ) : ViewGroup.LayoutParams(0, 0)
 
     fun addReplicaView(view: View, x: Float, y: Float, w: Float, h: Float) {
-        addView(
-            view,
-            LayoutParams(
-                xFraction = x / shellWidth,
-                yFraction = y / shellHeight,
-                widthFraction = w / shellWidth,
-                heightFraction = h / shellHeight,
-            )
-        )
+        addView(view, LayoutParams(x, y, w, h))
     }
 
-    private fun getFitFrame(): FitFrame {
+    private fun getFitFrame(spec: ChromeSpec): FitFrame {
         return if (scalingMode == "physical") {
-            FitFrame(0f, 0f, shellWidth, shellHeight)
+            FitFrame(0f, 0f, spec.shellWidth, spec.shellHeight)
         } else {
             FitFrame(
-                left = adaptiveTrimLeft,
-                top = adaptiveTrimTop,
-                width = shellWidth - adaptiveTrimLeft - adaptiveTrimRight,
-                height = shellHeight - adaptiveTrimTop - adaptiveTrimBottom,
+                left = spec.adaptiveTrimLeft,
+                top = spec.adaptiveTrimTop,
+                width = spec.shellWidth - spec.adaptiveTrimLeft - spec.adaptiveTrimRight,
+                height = spec.shellHeight - spec.adaptiveTrimTop - spec.adaptiveTrimBottom,
             )
         }
     }
 
     private fun createProjection(availableWidth: Float, availableHeight: Float): Projection {
-        val fitFrame = getFitFrame()
+        val spec = currentChromeSpec()
+        val fitFrame = getFitFrame(spec)
         val fitScale = min(availableWidth / fitFrame.width, availableHeight / fitFrame.height)
         val scale = if (scalingMode == "physical") {
             val dpi = resources.displayMetrics.xdpi
-            val physicalScale = (2.83f * dpi) / shellWidth
+            val physicalScale = (2.83f * dpi) / spec.shellWidth
             min(physicalScale, fitScale)
         } else {
             fitScale
@@ -271,8 +368,8 @@ class ReplicaOverlay @JvmOverloads constructor(
             for (i in 0 until childCount) {
                 val child = getChildAt(i)
                 val lp = child.layoutParams as LayoutParams
-                val childWidth = (lp.widthFraction * shellWidth * projection.scale).roundToInt().coerceAtLeast(0)
-                val childHeight = (lp.heightFraction * shellHeight * projection.scale).roundToInt().coerceAtLeast(0)
+                val childWidth = (lp.logicalWidth * projection.scale).roundToInt().coerceAtLeast(0)
+                val childHeight = (lp.logicalHeight * projection.scale).roundToInt().coerceAtLeast(0)
                 child.measure(
                     MeasureSpec.makeMeasureSpec(childWidth, MeasureSpec.EXACTLY),
                     MeasureSpec.makeMeasureSpec(childHeight, MeasureSpec.EXACTLY)
@@ -296,8 +393,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             val lp = child.layoutParams as LayoutParams
-            val left = (projection.offsetX + lp.xFraction * shellWidth * projection.scale).roundToInt()
-            val top = (projection.offsetY + lp.yFraction * shellHeight * projection.scale).roundToInt()
+            val left = (projection.offsetX + lp.logicalX * projection.scale).roundToInt()
+            val top = (projection.offsetY + lp.logicalY * projection.scale).roundToInt()
             child.layout(left, top, left + child.measuredWidth, top + child.measuredHeight)
         }
     }
@@ -313,31 +410,39 @@ class ReplicaOverlay @JvmOverloads constructor(
         }
 
         val projection = createProjection(w, h)
+        val spec = currentChromeSpec()
 
         shellRect.set(
             projection.offsetX,
             projection.offsetY,
-            projection.offsetX + shellWidth * projection.scale,
-            projection.offsetY + shellHeight * projection.scale,
+            projection.offsetX + spec.shellWidth * projection.scale,
+            projection.offsetY + spec.shellHeight * projection.scale,
         )
         bezelRect.set(
             projection.offsetX,
             projection.offsetY,
-            projection.offsetX + shellWidth * projection.scale,
-            projection.offsetY + bezelHeight * projection.scale,
+            projection.offsetX + spec.shellWidth * projection.scale,
+            projection.offsetY + spec.bezelHeight * projection.scale,
         )
-        canvas.drawRoundRect(shellRect, shellCorner * projection.scale, shellCorner * projection.scale, bodyPaint)
-        canvas.drawRoundRect(bezelRect, shellCorner * projection.scale, shellCorner * projection.scale, bezelPaint)
-        canvas.drawRoundRect(shellRect, shellCorner * projection.scale, shellCorner * projection.scale, shellStrokePaint)
+        val backgroundBitmap = chromeBitmapFor(spec)
+        if (backgroundBitmap != null) {
+            canvas.drawBitmap(backgroundBitmap, null, shellRect, paint)
+        } else {
+            canvas.drawRoundRect(shellRect, shellCorner * projection.scale, shellCorner * projection.scale, bodyPaint)
+            canvas.drawRoundRect(bezelRect, shellCorner * projection.scale, shellCorner * projection.scale, bezelPaint)
+            canvas.drawRoundRect(shellRect, shellCorner * projection.scale, shellCorner * projection.scale, shellStrokePaint)
+        }
 
         lcdDestRect.set(
-            projection.offsetX + lcdLeft * projection.scale,
-            projection.offsetY + lcdTop * projection.scale,
-            projection.offsetX + (lcdLeft + lcdWidth) * projection.scale,
-            projection.offsetY + (lcdTop + lcdHeight) * projection.scale
+            projection.offsetX + spec.lcdLeft * projection.scale,
+            projection.offsetY + spec.lcdTop * projection.scale,
+            projection.offsetX + (spec.lcdLeft + spec.lcdWidth) * projection.scale,
+            projection.offsetY + (spec.lcdTop + spec.lcdHeight) * projection.scale
         )
-        canvas.drawRoundRect(lcdDestRect, lcdCorner * projection.scale, lcdCorner * projection.scale, lcdFramePaint)
-        canvas.drawRoundRect(lcdDestRect, lcdCorner * projection.scale, lcdCorner * projection.scale, lcdFrameStrokePaint)
+        if (spec.drawNativeChrome) {
+            canvas.drawRoundRect(lcdDestRect, lcdCorner * projection.scale, lcdCorner * projection.scale, lcdFramePaint)
+            canvas.drawRoundRect(lcdDestRect, lcdCorner * projection.scale, lcdCorner * projection.scale, lcdFrameStrokePaint)
+        }
         canvas.drawBitmap(lcdBitmap, lcdRect, lcdDestRect, paint)
 
         if (showTouchZones) {
@@ -353,8 +458,8 @@ class ReplicaOverlay @JvmOverloads constructor(
             canvas.drawRect(
                 projection.offsetX,
                 projection.offsetY,
-                projection.offsetX + shellWidth * projection.scale,
-                projection.offsetY + bezelHeight * projection.scale,
+                projection.offsetX + spec.shellWidth * projection.scale,
+                projection.offsetY + spec.bezelHeight * projection.scale,
                 zonePaint,
             )
         }

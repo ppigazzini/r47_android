@@ -1,10 +1,11 @@
 # R47 Android Port: RPN Calculator
 
-This repository provides an Android port of the [SwissMicros C43/C47 project](https://gitlab.com/rpncalculators/c43.git). It runs the high-performance mathematical core of the C43 via a native JNI wrapper and uses a scene-driven Android-native keypad with native-drawn shell chrome.
+This repository provides an Android port of the [SwissMicros C43/C47 project](https://gitlab.com/rpncalculators/c43.git). It runs the high-performance mathematical core of the C43 via a native JNI wrapper and now restores the full historical shell-background set: the default `r47_texture` classic image shell, the background-only `r47_background_v2` and `r47_black_edition` shells, and a native-drawn chrome mode.
 
 ## 🎯 Features
-- **Android-Native Keypad**: The UI renders all 43 keys, including the stateful F1-F6 softkeys, from one native snapshot instead of relying on per-label JNI polling or invisible image hit zones.
-- **Native Shell Chrome**: The calculator body and LCD frame are drawn natively in Android instead of using a photographic skin backdrop.
+- **Scene-Driven Android Keypad**: In `native`, `r47_background_v2`, and `r47_black_edition` modes, the UI renders all 43 keys, including the stateful F1-F6 softkeys, from one native snapshot instead of relying on per-label JNI polling.
+- **Restored Shell Backgrounds**: Settings expose `r47_texture` as the default shell image, plus `r47_background_v2`, `r47_black_edition`, and `native` chrome.
+- **Classic Texture Compatibility**: `r47_texture` restores the legacy image-backed shell and its classic invisible hit zones, while the other two PNGs remain background-only shells behind the newer scene-driven keypad.
 - **Native Performance**: Math engine runs in C via JNI for 100% parity with the hardware.
 - **Modern Android Support**: Optimized for high-refresh screens and 16KB page sizes (Android 15+).
 - **SAF Integration**: Full support for Android's Storage Access Framework for programs and state files.

@@ -22,8 +22,10 @@ engine loop.
   `PROGRAMS`, `SAVFILES`, and `SCREENS` subfolders.
 - `DisplayActionController`: owns display long-press actions such as copy X
   register, paste number, and entry into Picture-in-Picture.
-- `ReplicaOverlay` and `ReplicaKeypadLayout`: host the shell chrome, LCD
-  projection, key views, and PiP interaction surface.
+- `ReplicaOverlay` and `ReplicaKeypadLayout`: host the shell chrome modes, LCD
+  projection, the restored `r47_texture` classic hit zones, the scene-driven
+  key views used by `native` and the background-only shells, and the PiP
+  interaction surface.
 - `SettingsActivity`: owns the settings UI and preference-driven Android shell
   options.
 
@@ -33,7 +35,10 @@ engine loop.
 - slot metadata is an Android model owned by `SlotStore`, not by the native
   calculator core.
 - preference state controls Android shell behavior such as fullscreen mode,
-  scaling mode, haptics, beeper volume, and touch-zone debugging.
+  chrome mode, scaling mode, haptics, beeper volume, and touch-zone debugging.
+  `chrome_mode` now chooses between the default `r47_texture` shell, the
+  `r47_background_v2` and `r47_black_edition` background-only shells, and the
+  native-drawn shell.
 
 ## Runtime and event flow
 
