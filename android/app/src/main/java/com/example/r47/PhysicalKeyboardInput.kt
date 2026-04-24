@@ -1,6 +1,7 @@
 package com.example.r47
 
 import android.view.KeyEvent
+import java.util.concurrent.Executors
 
 internal sealed interface PhysicalKeyboardAction {
     data class NativeKey(
@@ -157,219 +158,232 @@ internal object PhysicalKeyboardShortcuts {
     private const val TAP_DELAY_MS = 50L
     private const val LONG_PAUSE_MS = 100L
 
+    private val shortcutExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "R47ShortcutDispatch").apply {
+            isDaemon = true
+        }
+    }
+
     fun dispatch(
         action: PhysicalKeyboardAction.Shortcut,
         offerCoreTask: (Runnable) -> Unit,
         sendKey: (String, Boolean, Boolean) -> Unit,
         sendMenu: (Int) -> Unit,
     ) {
-        offerCoreTask {
+        shortcutExecutor.execute {
+            val enqueueKey = { id: String, isFunctionKey: Boolean, isRelease: Boolean ->
+                offerCoreTask(Runnable { sendKey(id, isFunctionKey, isRelease) })
+            }
+            val enqueueMenu = { menuId: Int ->
+                offerCoreTask(Runnable { sendMenu(menuId) })
+            }
+
             when (action.id) {
                 "SEQ_PERCENT" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "07")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "07")
                 }
                 "SEQ_FACTORIAL" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "02")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "02")
                 }
                 "SEQ_DOTD" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "03")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "03")
                 }
                 "SEQ_HASH" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "05")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "05")
                 }
                 "SEQ_MS" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "02")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "02")
                 }
                 "SEQ_LASTX" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "13")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "13")
                 }
                 "SEQ_ECONST" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "36", pauseAfterReleaseMs = LONG_PAUSE_MS)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "36", pauseAfterReleaseMs = LONG_PAUSE_MS)
                     tap(
-                        sendKey,
+                        enqueueKey,
                         "2",
                         isFunctionKey = true,
                         pauseAfterReleaseMs = LONG_PAUSE_MS,
                     )
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "2", isFunctionKey = true)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "2", isFunctionKey = true)
                 }
                 "SEQ_toREC" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "00")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "00")
                 }
                 "SEQ_TAN" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "20")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "20")
                 }
                 "SEQ_ATAN" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "20")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "20")
                 }
                 "SEQ_XTHROOT" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "03")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "03")
                 }
                 "SEQ_UNDO" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "16")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "16")
                 }
                 "SEQ_USER" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "09")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "09")
                 }
                 "SEQ_IMAG_J" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "00")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "00")
                 }
                 "SEQ_DISP" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "14")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "14")
                 }
                 "SEQ_10X" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "04")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "04")
                 }
                 "SEQ_PI" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "08")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "08")
                 }
                 "SEQ_toI" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "04")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "04")
                 }
-                "SEQ_HOME" -> sendMenu(-1921)
-                "SEQ_MYMENU" -> sendMenu(-1349)
+                "SEQ_HOME" -> enqueueMenu(-1921)
+                "SEQ_MYMENU" -> enqueueMenu(-1349)
                 "SEQ_toPOL" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "01")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "01")
                 }
                 "SEQ_IMAG_POL" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "01")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "01")
                 }
                 "SEQ_ALPHA" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "17")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "17")
                 }
                 "SEQ_SIGMAP" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "21", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(sendKey, "1", isFunctionKey = true)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "21", pauseAfterReleaseMs = LONG_PAUSE_MS)
+                    tap(enqueueKey, "1", isFunctionKey = true)
                 }
                 "SEQ_ANGLE" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "06")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "06")
                 }
                 "SEQ_SIN" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "18")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "18")
                 }
                 "SEQ_ASIN" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "18")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "18")
                 }
                 "SEQ_RUP" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "08")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "08")
                 }
                 "SEQ_PREFIX" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "15")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "15")
                 }
                 "SEQ_GTO" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "17")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "17")
                 }
                 "SEQ_EXP" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "15")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "15")
                 }
                 "SEQ_COMPLEX" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "12")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "12")
                 }
                 "SEQ_STK" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "13")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "13")
                 }
                 "SEQ_EXP_E" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "05")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "05")
                 }
                 "SEQ_COS" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "19")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "19")
                 }
                 "SEQ_ACOS" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "19")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "19")
                 }
                 "SEQ_LBL" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "05")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "05")
                 }
                 "SEQ_PRGM" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "35")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "35")
                 }
                 "SEQ_PREF" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "28")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "28")
                 }
                 "SEQ_RTN" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "35")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "35")
                 }
-                "SEQ_DRG" -> press(sendKey, "09")
+                "SEQ_DRG" -> press(enqueueKey, "09")
                 "SEQ_SI_n" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "3", isFunctionKey = true)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "3", isFunctionKey = true)
                 }
                 "SEQ_SI_u" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "2", isFunctionKey = true)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "2", isFunctionKey = true)
                 }
                 "SEQ_SI_m" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "1", isFunctionKey = true)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "1", isFunctionKey = true)
                 }
                 "SEQ_SI_k" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(sendKey, "1", isFunctionKey = true)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+                    tap(enqueueKey, "1", isFunctionKey = true)
                 }
                 "SEQ_SI_M" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
-                    tap(sendKey, "2", isFunctionKey = true)
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "15", pauseAfterReleaseMs = LONG_PAUSE_MS)
+                    tap(enqueueKey, "2", isFunctionKey = true)
                 }
                 "SEQ_TGLFRT" -> {
-                    tap(sendKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "34")
+                    tap(enqueueKey, "11", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "34")
                 }
                 "SEQ_AIM" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "17")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "17")
                 }
                 "SEQ_ABS" -> {
-                    tap(sendKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
-                    tap(sendKey, "06")
+                    tap(enqueueKey, "10", pauseAfterReleaseMs = TAP_DELAY_MS)
+                    tap(enqueueKey, "06")
                 }
-                else -> return@offerCoreTask
+                else -> return@execute
             }
         }
     }
