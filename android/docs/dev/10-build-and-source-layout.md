@@ -54,6 +54,17 @@ Development rule:
 - Change the staged tree directly only for Android-specific shims, stubs, and
   build-local files that do not have a canonical root owner.
 
+Build-safety rule:
+
+- The synced upstream `src/**` tree, including `src/**/meson.build`, is
+  authoritative for the shared native build graph.
+- `sync_public.sh` and hosted CI overlay upstream first and then restore
+  repo-owned files from Git, so restore allowlists and generic restore loops
+  must never restore `src/**`.
+- Android-only native fixes belong under
+  `android/app/src/main/cpp/c47-android` or in staging logic, not in tracked
+  root `src/**` overrides.
+
 ## Android build flow
 
 1. `sync_public.sh` overlays the upstream core into the working tree and
@@ -98,6 +109,8 @@ lane.
 - root core or generator changes: `make test` and then `./build_android.sh`.
 - CI-only changes: verify `.github/workflows/android-ci.yml` against the local
   build contract and the artifact names described above.
+- sync or restore-boundary changes: confirm restore logic still excludes `^src/`
+  and does not reintroduce tracked local overrides under `src/**`.
 
 ## When to rebuild from the top
 

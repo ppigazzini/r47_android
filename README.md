@@ -47,6 +47,12 @@ chmod +x sync_public.sh
 ./sync_public.sh
 ```
 
+Repository constraint for contributors: the synced upstream core under `src/`
+is authoritative. Keep repo-owned changes in the Android shell, build scripts,
+docs, workflows, and Android-specific native bridge or HAL code. Do not keep
+local overrides under `src/**`, including `src/**/meson.build`, because they
+can silently override the synced upstream build graph and break future builds.
+
 ### 2. Build the Simulator (PC)
 ```bash
 ./dist.sh
@@ -67,6 +73,9 @@ Ensure `ANDROID_SDK_ROOT` is set in your environment.
 `android/app/src/main/cpp` before Gradle builds the debug APK with
 `--max-workers <jobs>`. The staged tree is an Android build input, not the
 preferred source of truth.
+Because sync and CI overlay the upstream core before restoring repo-owned
+scaffolding, local build fixes should go in the Android shell, Android HAL or
+JNI bridge, or staging scripts instead of in checked-in `src/**` overrides.
 The checked-in release version inputs default to `r47.versionCode=1` and
 `r47.versionName=0.1.0`. Debug builds append the synchronized core revision as a
 `-snapshot.<core>` suffix automatically.
