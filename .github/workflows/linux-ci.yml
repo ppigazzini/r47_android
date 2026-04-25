@@ -197,12 +197,7 @@ jobs:
 
           while IFS= read -r meson_file; do
             git checkout -- "$meson_file"
-          done < <(git ls-files | grep -E '(^|/)meson\.build$')
-
-          git checkout -- \
-            src/c47/programming/input.c \
-            src/c47/programming/lblGtoXeq.c \
-            src/c47/screen.c
+          done < <(git ls-files | grep -E '(^|/)meson\.build$' | grep -Ev '^src/')
 
       - name: Set artifact metadata
         id: meta
