@@ -9,12 +9,18 @@ not against device pixels:
   strip height `67.5`, LCD viewport left `25.5`, top `67.5`, width `486`,
   height `266.7`
 - `native`: shell size `526 x 980`, visual bezel `72`, shared settings touch
-  strip height `67.5 x 980 / 1005`, LCD viewport left `43`, top `60`, width
-  `440`, height `264`
+  strip height `67.5 x 980 / 1005`, LCD viewport derived from the texture
+  shell by scaling left and width with `526 / 537` and top and height with
+  `980 / 1005`
 - `r47_background`: shell size `526 x 980`, visual bezel `72`, shared
   settings touch strip height `67.5 x 980 / 1005`, LCD viewport derived from
   the texture shell by scaling left and width with `526 / 537` and top and
   height with `980 / 1005`
+
+In `full_width`, `ReplicaOverlay` now fits one shared visible frame across all
+three modes. The shared-shell modes trim `12 / 14 / 12 / 16` logical units,
+and `r47_texture` trims those same margins scaled back into texture space so
+the LCD window and the shell crop land at the same on-screen position.
 
 `ReplicaOverlay` projects the active shell into the current window. In normal
 mode it either draws native shell chrome with `Canvas`, draws the restored
@@ -26,9 +32,9 @@ keypad bounds inside each row group. `r47_texture` uses that map without
 rendered key views, while the native and background-backed modes keep the
 scene-driven key views on top of the same active-cell geometry.
 `ReplicaOverlay` also keeps one shared settings-entry touch strip across all
-chrome modes, and the background mode derives its LCD placement from the
-texture shell coordinates scaled into the shared shell space. In PiP mode the
-overlay draws the LCD bitmap
+chrome modes. All three modes now share one texture-derived LCD placement
+contract, and `full_width` uses one shared visible-frame crop contract across
+the texture, background-backed, and native shells. In PiP mode the overlay draws the LCD bitmap
 full-window and maps horizontal touches across the LCD to the six softkeys.
 
 The overlay exposes two scaling modes:
@@ -46,7 +52,11 @@ The overlay exposes three shell chrome values:
   keeping the scene-driven keypad renderer on the shared touch-cell map and the
   texture-aligned LCD frame
 - `native`: draw the body, bezel, and LCD frame with Android `Canvas` while
-  keeping the same logical keypad geometry and settings-entry touch strip
+  keeping the same logical keypad geometry, settings-entry touch strip, and
+  texture-aligned LCD frame
+
+The native software shell now uses a tighter outer corner radius than the
+older 32-unit round-rect so its silhouette stays closer to the bitmap shells.
 
 The projection is the first place to inspect when the shell or LCD looks
 correctly rendered but globally misplaced.

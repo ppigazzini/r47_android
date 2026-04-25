@@ -39,8 +39,8 @@ engine loop.
   chrome mode, scaling mode, haptics, beeper volume, and touch-zone debugging.
   `chrome_mode` now chooses between the default `r47_texture` shell, the
   `r47_background` background-backed shell, and the native-drawn shell. All
-  three modes share the same logical touch grid, and the background mode
-  inherits the texture-aligned LCD placement.
+  three modes share the same logical touch grid, the same texture-derived LCD
+  placement, and the same adaptive visible-frame crop in `full_width`.
 
 ## Runtime and event flow
 

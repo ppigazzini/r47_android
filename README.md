@@ -6,7 +6,7 @@ This repository provides an Android port of the [SwissMicros C43/C47 project](ht
 - **Scene-Driven Android Keypad**: In `native` and `r47_background` modes, the UI renders all 43 keys, including the stateful F1-F6 softkeys, from one native snapshot instead of relying on per-label JNI polling.
 - **Restored Shell Backgrounds**: Settings expose `r47_texture` as the default shell image, plus `r47_background` and `native` chrome.
 - **Normalized Shared Touch Geometry**: `r47_texture` keeps the image-backed shell with invisible touch zones, and all chrome modes now reuse one normalized touch grid with contiguous cell boundaries, matched outer keypad bounds, and the same active-key layout.
-- **Shell-Mode Parity**: All chrome modes now share the same settings-entry touch strip, and `r47_background` aligns its virtual LCD position to the classic texture shell instead of using the older higher placement.
+- **Shell-Mode Parity**: All three chrome modes now share the same settings-entry touch strip, the same texture-derived LCD position and size, and the same adaptive visible crop. The native software shell also uses a tighter outer corner radius so it stays closer to the bitmap shells.
 - **Native Performance**: Math engine runs in C via JNI for 100% parity with the hardware.
 - **Modern Android Support**: Optimized for high-refresh screens and 16KB page sizes (Android 15+).
 - **SAF Integration**: Full support for Android's Storage Access Framework for programs and state files.
