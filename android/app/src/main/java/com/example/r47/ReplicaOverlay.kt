@@ -42,29 +42,38 @@ class ReplicaOverlay @JvmOverloads constructor(
         val drawNativeChrome: Boolean = false,
     )
 
-    private val shellCorner = 32f
+    private val shellCorner = 24f
     private val lcdCorner = 14f
     private val sharedTextureScaleX = 526f / 537f
     private val sharedTextureScaleY = 980f / 1005f
+    private val sharedAdaptiveTrimLeft = 12f
+    private val sharedAdaptiveTrimTop = 14f
+    private val sharedAdaptiveTrimRight = 12f
+    private val sharedAdaptiveTrimBottom = 16f
     private val sharedSettingsTouchHeight = 67.5f * sharedTextureScaleY
     private val sharedVirtualLcdLeft = 25.5f * sharedTextureScaleX
     private val sharedVirtualLcdTop = 67.5f * sharedTextureScaleY
     private val sharedVirtualLcdWidth = 486f * sharedTextureScaleX
     private val sharedVirtualLcdHeight = 266.7f * sharedTextureScaleY
+    // Keep the adaptive texture crop in the same visible frame as the shared-shell modes.
+    private val textureAdaptiveTrimLeft = sharedAdaptiveTrimLeft / sharedTextureScaleX
+    private val textureAdaptiveTrimTop = sharedAdaptiveTrimTop / sharedTextureScaleY
+    private val textureAdaptiveTrimRight = sharedAdaptiveTrimRight / sharedTextureScaleX
+    private val textureAdaptiveTrimBottom = sharedAdaptiveTrimBottom / sharedTextureScaleY
     private val nativeChromeSpec = ChromeSpec(
         mode = CHROME_MODE_NATIVE,
         shellWidth = 526f,
         shellHeight = 980f,
         bezelHeight = 72f,
         settingsTouchHeight = sharedSettingsTouchHeight,
-        lcdLeft = 43f,
-        lcdTop = 60f,
-        lcdWidth = 440f,
-        lcdHeight = 264f,
-        adaptiveTrimLeft = 12f,
-        adaptiveTrimTop = 14f,
-        adaptiveTrimRight = 12f,
-        adaptiveTrimBottom = 16f,
+        lcdLeft = sharedVirtualLcdLeft,
+        lcdTop = sharedVirtualLcdTop,
+        lcdWidth = sharedVirtualLcdWidth,
+        lcdHeight = sharedVirtualLcdHeight,
+        adaptiveTrimLeft = sharedAdaptiveTrimLeft,
+        adaptiveTrimTop = sharedAdaptiveTrimTop,
+        adaptiveTrimRight = sharedAdaptiveTrimRight,
+        adaptiveTrimBottom = sharedAdaptiveTrimBottom,
         drawNativeChrome = true,
     )
     private val backgroundChromeSpec = ChromeSpec(
@@ -77,10 +86,10 @@ class ReplicaOverlay @JvmOverloads constructor(
         lcdTop = sharedVirtualLcdTop,
         lcdWidth = sharedVirtualLcdWidth,
         lcdHeight = sharedVirtualLcdHeight,
-        adaptiveTrimLeft = 12f,
-        adaptiveTrimTop = 14f,
-        adaptiveTrimRight = 12f,
-        adaptiveTrimBottom = 16f,
+        adaptiveTrimLeft = sharedAdaptiveTrimLeft,
+        adaptiveTrimTop = sharedAdaptiveTrimTop,
+        adaptiveTrimRight = sharedAdaptiveTrimRight,
+        adaptiveTrimBottom = sharedAdaptiveTrimBottom,
         imageResId = R.drawable.r47_background,
     )
     private val textureChromeSpec = ChromeSpec(
@@ -93,6 +102,10 @@ class ReplicaOverlay @JvmOverloads constructor(
         lcdTop = 67.5f,
         lcdWidth = 486f,
         lcdHeight = 266.7f,
+        adaptiveTrimLeft = textureAdaptiveTrimLeft,
+        adaptiveTrimTop = textureAdaptiveTrimTop,
+        adaptiveTrimRight = textureAdaptiveTrimRight,
+        adaptiveTrimBottom = textureAdaptiveTrimBottom,
         imageResId = R.drawable.r47_texture,
     )
     
