@@ -24,6 +24,9 @@ echo "--- Re-applying Android Port Patches ---"
 # Root Infrastructure
 git checkout HEAD -- .gitignore README.md Makefile build_android.sh sync_public.sh dist.sh 2>/dev/null || true
 
+# Local workflow tree
+git checkout HEAD -- .github/ 2>/dev/null || true
+
 # Source Patches
 git checkout HEAD -- src/c47/programming/input.c src/c47/programming/lblGtoXeq.c src/c47/screen.c 2>/dev/null || true
 

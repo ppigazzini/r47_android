@@ -160,9 +160,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          log_file="ci-artifacts/logs/build-windows-${{ matrix.artifact_suffix }}.log"
+          mkdir -p "$(dirname "$log_file")"
+
           make -j "${{ steps.jobs.outputs.jobs }}" \
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
-            dist_windows
+            dist_windows 2>&1 | tee "$log_file"
 
       - name: Bundle stripped runtime and name artifact
         id: bundle
@@ -171,6 +174,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          log_file="ci-artifacts/logs/build-windows-${{ matrix.artifact_suffix }}.log"
+          mkdir -p "$(dirname "$log_file")"
+
+          {
           artifact_dir="artifact-${{ matrix.artifact_suffix }}"
           package_dir="$artifact_dir/c47-windows"
 
@@ -212,6 +219,7 @@ jobs:
           rm -f c47-windows.zip
 
           echo "artifact_path=$package_dir" >> "$GITHUB_OUTPUT"
+          } 2>&1 | tee -a "$log_file"
 
       - name: Upload Windows simulator artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -219,3 +227,13 @@ jobs:
           name: r47-windows-${{ matrix.artifact_suffix }}-${{ needs.resolve-upstream-core.outputs.upstream_short }}
           path: ${{ steps.bundle.outputs.artifact_path }}
           if-no-files-found: error
+
+      - name: Upload Windows build log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: r47-windows-${{ matrix.artifact_suffix }}-${{ needs.resolve-upstream-core.outputs.upstream_short }}-build-log
+          path: ci-artifacts/logs/build-windows-${{ matrix.artifact_suffix }}.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
