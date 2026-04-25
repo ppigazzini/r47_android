@@ -115,61 +115,138 @@ not recreate them from label text.
 This keeps content and state on the native side while Android owns measurement,
 projection, and drawing.
 
-## GTK-derived geometry
+## Measured keypad geometry
 
-`ReplicaKeypadLayout` places all 43 touch cells using fixed logical coordinates
-on the same shell model used by the overlay:
+`ReplicaKeypadLayout` places all 43 keys from one measured reference projection
+in shared-shell space. The live `R47MeasuredGeometry` constants are:
 
-- one softkey row on a shared six-column boundary model
-- two small rows on that same six-column boundary model
-- one enter row where key `13` spans two columns on the shared midline
-  boundaries
-- four large rows on one shared five-column boundary model
+- standard left: `38.727473`
+- standard pitch: `78.610989`
+- standard key body width: `55.490110`
+- matrix first visible left: `134.390110`
+- matrix pitch: `95.662637`
+- matrix key body width: `65.894505`
+- enter width: `133.523077`
+- measured row height: `41.469292`
+- row step: `74.875110`
+- softkey row top: `371.495739`
+- first small-row top: `446.370849`
+- enter-row top: `596.121070`
+- first large-row top: `670.996180`
 
-The layout constants are GTK-derived geometry values expressed in the Android
-logical shell space. The Android side does not recalculate key positions from
-live GTK code. The current touch-cell map is normalized by row template instead
-of older per-row shrink or shift tweaks, so adjacent cells meet at shared
-midlines and row groups keep consistent outer bounds. That map is shared across
-the texture shell and the rendered shells even though the repo still keeps two
-logical shell canvases.
+The row families resolve as:
 
-This is a mapping layer, not a port of the GTK layout engine. When geometry
-parity changes, update the Android logical constants or the native scene data,
-not an imagined GTK runtime dependency.
+```text
+softkey_x(c) = 38.727473 + 78.610989 * c      where c = 0..5
+softkey_y = 371.495739
+
+small_row_x(c) = 38.727473 + 78.610989 * c    where c = 0..5
+small_row_y(r) = 446.370849 + 74.875110 * r   where r = 0..1
+
+enter_key_x = 38.727473
+enter_key_y = 596.121070
+enter_key_width = 133.523077
+enter_row_small_x(c) = 38.727473 + 78.610989 * c   where c = 2..5
+
+large_row_left_x = 38.727473
+large_row_matrix_x(c) = 134.390110 + 95.662637 * c where c = 0..3
+large_row_y(r) = 670.996180 + 74.875110 * r        where r = 0..3
+```
+
+Rendered slot and body rules:
+
+- small-row and enter-row small keys use a `78.610989` slot and a `55.490110`
+  painted dark-key body inside a `68`-unit view height
+- key `13` uses a measured `133.523077` width and is not re-derived from a
+  nominal two-column gap model
+- the lower left column uses a `55.490110` body width and the visible matrix
+  keys use a `65.894505` body width inside `95.662637` slots
+- the softkey row uses `59.490110 x 45.469292` slots, but its `2 px` inset on
+  each side resolves the painted cap back to `55.490110 x 41.469292`, the same
+  painted cap size as the standard dark keys
+
+The touch-cell map follows the same measured geometry. The upper keypad uses a
+`4 x 6` grid with the enter key spanning two columns, the lower keypad uses a
+`4 x 5` grid, all row bands have height `74.875110`, and the texture shell uses
+that same map after scaling from shared-shell space. Android still maps GTK
+font roles and label semantics, but the live coordinates now come from this
+measured projection rather than from a copied GTK screen layout.
 
 ## Per-key renderer
 
-Each key is a `CalculatorKeyView`. The view combines a button surface plus label
-views and custom drawing logic.
+Each key is a `CalculatorKeyView`. The view combines a painted key surface,
+label views, and softkey-specific drawing logic.
 
 It renders:
 
-- primary label inside the button
-- F and G faceplate labels above the button
-- letter label in the right-side spacer
+- primary label inside the painted key body
+- F and G faceplate labels above the painted key body
+- the fourth label from the right edge of the painted key body
 - softkey text, auxiliary text, value text, preview accents, reverse-video
   states, dotted rows, and overlay-state decorations when the scene contract
   asks for them
 
-Main keys and softkeys share one renderer, but not the same drawing path:
+Main keys and softkeys share one view class, but the renderer separates the
+layout slot from the painted cap geometry.
 
-- main keys use a button surface plus positioned text views and measured label
-  offsets
-- function keys use a dedicated softkey drawing path driven by scene flags,
-  overlay state, and preview state
+For main keys, the painted body rectangle is derived from the live measured row
+height and the per-family width bonus:
+
+```text
+button_scale = buttonView.width / design_button_width
+inset = button_scale
+half_width_bonus = (button_visual_width_bonus * button_scale) / 2
+
+mainKeyRect.left = max(buttonView.left + inset - half_width_bonus, inset)
+mainKeyRect.top = buttonView.top + inset
+mainKeyRect.right = min(buttonView.right - inset + half_width_bonus,
+                        view_width - inset)
+mainKeyRect.bottom = buttonView.bottom - inset
+```
+
+That `mainKeyRect` then drives the label placement rules:
+
+```text
+button_center_x = mainKeyRect.centerX()
+raw_button_center_x = buttonView.left + buttonView.width / 2
+primary_translation_x = button_center_x - raw_button_center_x
+
+gap = 3 * cell_scale
+group_width = measured_f_width + gap + measured_g_width
+group_left = mainKeyRect.centerX() - group_width / 2
+
+letter_left = mainKeyRect.right + 3 * cell_scale
+            + 0.2 * measured_letter_width
+letter_top = 18 * cell_scale
+           + 0.25 * measured_letter_height
+```
+
+The primary label is centered on the painted body, the `f` plus `g` pair is
+centered as one group on that same body centerline, and the fourth label is
+anchored from the painted body right edge rather than from the middle of the
+spare lane.
+
+For softkeys, the slot is intentionally larger than the painted cap:
+
+```text
+softkey_view_width = STANDARD_KEY_WIDTH + 4
+softkey_view_height = ROW_HEIGHT + 4
+softkey_rect = [2, 2, width - 2, height - 2]
+
+painted_softkey_width = STANDARD_KEY_WIDTH
+painted_softkey_height = ROW_HEIGHT
+```
+
+Softkeys therefore keep the same painted cap width and height as the standard
+dark keys while using a dedicated interior drawing path for text, value fields,
+pagination dots, overlays, and reverse-video states.
 
 Typography and style come from scene data plus staged calculator fonts. Android
 chooses how to measure and draw those roles; native code chooses which roles are
 active.
 
-For non-softkeys, the faceplate labels are positioned from the actual button
-geometry inside the cell, not from the whole cell bounds. This is the place to
-check when label centering diverges from GTK.
-
-The faceplate group is centered from measured label widths and the actual button
-center, not from hardcoded left and right split positions. That distinction is
-important when one legend is empty, hidden, or visually narrow.
+For non-softkeys, inspect `CalculatorKeyView` first when label centering
+diverges from the measured key body rather than from the full cell bounds.
 
 ## Softkey scene states
 
