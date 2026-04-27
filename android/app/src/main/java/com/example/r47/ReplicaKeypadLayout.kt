@@ -95,6 +95,13 @@ internal object ReplicaKeypadLayout {
         val cells: List<TouchCellSpec>,
     )
 
+    private data class KeyPlacementSpec(
+        val x: Float,
+        val y: Float,
+        val width: Float,
+        val height: Float,
+    )
+
     private val baseTouchZones = buildBaseTouchZones()
     private val baseTouchZonesByCode = baseTouchZones.associateBy { it.code }
 
@@ -183,90 +190,76 @@ internal object ReplicaKeypadLayout {
             it.sceneContractVersion > 0
         }
 
-        addKey(
-            activity = activity,
-            overlay = overlay,
-            fonts = fonts,
-            initialSnapshot = initialSnapshot,
-            code = 38,
-            isFunctionKey = true,
-            chromeMode = chromeMode,
-            x = grid.softkeyStartX,
-            y = grid.softkeyTopY,
-            width = grid.softkeyWidth,
-            height = grid.softkeyHeight,
-            performHapticClick = performHapticClick,
-            dispatchKey = dispatchKey,
-        )
-        addKey(activity, overlay, fonts, initialSnapshot, 39, true, chromeMode, grid.softkeyStartX + grid.softkeyStepX, grid.softkeyTopY, grid.softkeyWidth, grid.softkeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, 40, true, chromeMode, grid.softkeyStartX + grid.softkeyStepX * 2f, grid.softkeyTopY, grid.softkeyWidth, grid.softkeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, 41, true, chromeMode, grid.softkeyStartX + grid.softkeyStepX * 3f, grid.softkeyTopY, grid.softkeyWidth, grid.softkeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, 42, true, chromeMode, grid.softkeyStartX + grid.softkeyStepX * 4f, grid.softkeyTopY, grid.softkeyWidth, grid.softkeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, 43, true, chromeMode, grid.softkeyStartX + grid.softkeyStepX * 5f, grid.softkeyTopY, grid.softkeyWidth, grid.softkeyHeight, performHapticClick, dispatchKey)
-
-        addSmallRow(activity, overlay, fonts, initialSnapshot, chromeMode, grid, 1, grid.firstSmallRowY, performHapticClick, dispatchKey)
-        addSmallRow(activity, overlay, fonts, initialSnapshot, chromeMode, grid, 7, grid.firstSmallRowY + grid.mainRowStepY, performHapticClick, dispatchKey)
-
-        addKey(activity, overlay, fonts, initialSnapshot, 13, false, chromeMode, grid.smallRowStartX, grid.enterRowY, grid.enterWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, 14, false, chromeMode, grid.smallRowStartX + grid.smallRowCellWidth * 2f, grid.enterRowY, grid.smallRowCellWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, 15, false, chromeMode, grid.smallRowStartX + grid.smallRowCellWidth * 3f, grid.enterRowY, grid.smallRowCellWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, 16, false, chromeMode, grid.smallRowStartX + grid.smallRowCellWidth * 4f, grid.enterRowY, grid.smallRowCellWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, 17, false, chromeMode, grid.smallRowStartX + grid.smallRowCellWidth * 5f, grid.enterRowY, grid.smallRowCellWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-
-        addLargeRow(activity, overlay, fonts, initialSnapshot, chromeMode, grid, 18, grid.firstLargeRowY, performHapticClick, dispatchKey)
-        addLargeRow(activity, overlay, fonts, initialSnapshot, chromeMode, grid, 23, grid.firstLargeRowY + grid.largeRowStepY, performHapticClick, dispatchKey)
-        addLargeRow(activity, overlay, fonts, initialSnapshot, chromeMode, grid, 28, grid.firstLargeRowY + grid.largeRowStepY * 2f, performHapticClick, dispatchKey)
-        addLargeRow(activity, overlay, fonts, initialSnapshot, chromeMode, grid, 33, grid.firstLargeRowY + grid.largeRowStepY * 3f, performHapticClick, dispatchKey)
-    }
-
-    private fun addSmallRow(
-        activity: MainActivity,
-        overlay: ReplicaOverlay,
-        fonts: KeypadFontSet,
-        initialSnapshot: KeypadSnapshot?,
-        chromeMode: String,
-        grid: DynamicGridSpec,
-        codeStart: Int,
-        y: Float,
-        performHapticClick: () -> Unit,
-        dispatchKey: (Int) -> Unit,
-    ) {
-        for (column in 0 until 6) {
+        KeypadTopology.orderedSlots().forEach { slot ->
+            val placement = keyPlacementFor(slot, grid)
             addKey(
                 activity = activity,
                 overlay = overlay,
                 fonts = fonts,
                 initialSnapshot = initialSnapshot,
+                slot = slot,
                 chromeMode = chromeMode,
-                code = codeStart + column,
-                isFunctionKey = false,
-                x = grid.smallRowStartX + grid.smallRowCellWidth * column,
-                y = y,
-                width = grid.smallRowCellWidth,
-                height = grid.mainKeyHeight,
+                x = placement.x,
+                y = placement.y,
+                width = placement.width,
+                height = placement.height,
                 performHapticClick = performHapticClick,
                 dispatchKey = dispatchKey,
             )
         }
     }
 
-    private fun addLargeRow(
-        activity: MainActivity,
-        overlay: ReplicaOverlay,
-        fonts: KeypadFontSet,
-        initialSnapshot: KeypadSnapshot?,
-        chromeMode: String,
+    private fun keyPlacementFor(
+        slot: KeypadSlotSpec,
         grid: DynamicGridSpec,
-        codeStart: Int,
-        y: Float,
-        performHapticClick: () -> Unit,
-        dispatchKey: (Int) -> Unit,
-    ) {
-        addKey(activity, overlay, fonts, initialSnapshot, codeStart, false, chromeMode, grid.largeRowFirstX, y, grid.largeRowFirstWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, codeStart + 1, false, chromeMode, grid.largeRowWideStartX, y, grid.largeRowWideCellWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, codeStart + 2, false, chromeMode, grid.largeRowWideStartX + grid.largeRowWideCellWidth, y, grid.largeRowWideCellWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, codeStart + 3, false, chromeMode, grid.largeRowWideStartX + grid.largeRowWideCellWidth * 2f, y, grid.largeRowWideCellWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
-        addKey(activity, overlay, fonts, initialSnapshot, codeStart + 4, false, chromeMode, grid.largeRowWideStartX + grid.largeRowWideCellWidth * 3f, y, grid.largeRowWideCellWidth, grid.mainKeyHeight, performHapticClick, dispatchKey)
+    ): KeyPlacementSpec {
+        val y = when (slot.lane) {
+            KeypadLane.SOFTKEY_ROW -> grid.softkeyTopY
+            KeypadLane.SMALL_ROW_1 -> grid.firstSmallRowY
+            KeypadLane.SMALL_ROW_2 -> grid.firstSmallRowY + grid.mainRowStepY
+            KeypadLane.ENTER_ROW -> grid.enterRowY
+            KeypadLane.MATRIX_ROW_1 -> grid.firstLargeRowY
+            KeypadLane.MATRIX_ROW_2 -> grid.firstLargeRowY + grid.largeRowStepY
+            KeypadLane.MATRIX_ROW_3 -> grid.firstLargeRowY + grid.largeRowStepY * 2f
+            KeypadLane.MATRIX_ROW_4 -> grid.firstLargeRowY + grid.largeRowStepY * 3f
+        }
+
+        return when (slot.family) {
+            KeypadKeyFamily.SOFTKEY -> KeyPlacementSpec(
+                x = grid.softkeyStartX + grid.softkeyStepX * slot.column,
+                y = y,
+                width = grid.softkeyWidth,
+                height = grid.softkeyHeight,
+            )
+
+            KeypadKeyFamily.STANDARD -> KeyPlacementSpec(
+                x = grid.smallRowStartX + grid.smallRowCellWidth * slot.column,
+                y = y,
+                width = grid.smallRowCellWidth,
+                height = grid.mainKeyHeight,
+            )
+
+            KeypadKeyFamily.ENTER -> KeyPlacementSpec(
+                x = grid.smallRowStartX,
+                y = y,
+                width = grid.enterWidth,
+                height = grid.mainKeyHeight,
+            )
+
+            KeypadKeyFamily.BASE_OPERATOR -> KeyPlacementSpec(
+                x = grid.largeRowFirstX,
+                y = y,
+                width = grid.largeRowFirstWidth,
+                height = grid.mainKeyHeight,
+            )
+
+            KeypadKeyFamily.NUMERIC_MATRIX -> KeyPlacementSpec(
+                x = grid.largeRowWideStartX + grid.largeRowWideCellWidth * (slot.column - 1),
+                y = y,
+                width = grid.largeRowWideCellWidth,
+                height = grid.mainKeyHeight,
+            )
+        }
     }
 
     private fun addKey(
@@ -274,8 +267,7 @@ internal object ReplicaKeypadLayout {
         overlay: ReplicaOverlay,
         fonts: KeypadFontSet,
         initialSnapshot: KeypadSnapshot?,
-        code: Int,
-        isFunctionKey: Boolean,
+        slot: KeypadSlotSpec,
         chromeMode: String,
         x: Float,
         y: Float,
@@ -285,21 +277,21 @@ internal object ReplicaKeypadLayout {
         dispatchKey: (Int) -> Unit,
     ) {
         val keyView = CalculatorKeyView(activity)
-        keyView.setKey(code, isFunctionKey, fonts)
+        keyView.setKey(slot, fonts)
         keyView.setDrawKeySurfaces(chromeMode != ReplicaOverlay.CHROME_MODE_BACKGROUND)
         initialSnapshot?.let { keyView.updateLabels(it) }
         addTouchZone(
             activity = activity,
             overlay = overlay,
             chromeMode = chromeMode,
-            code = code,
+            code = slot.code,
             performHapticClick = performHapticClick,
             dispatchKey = dispatchKey,
             pressedView = keyView,
         )
         keyView.setOnTouchListener(
             createTouchListener(
-                code = code,
+                code = slot.code,
                 performHapticClick = performHapticClick,
                 dispatchKey = dispatchKey,
                 pressedView = keyView,
@@ -429,84 +421,22 @@ internal object ReplicaKeypadLayout {
         )
         val upperColumnWidth = upperColumnBounds[1] - upperColumnBounds[0]
         val lowerColumnWidth = lowerColumnBounds[1] - lowerColumnBounds[0]
-        val rows = listOf(
+        val rows = KeypadLane.values().map { lane ->
+            val rowBounds = if (lane.usesUpperTouchGrid) upperRowBounds else lowerRowBounds
             TouchRowSpec(
-                top = upperRowBounds[0],
-                bottom = upperRowBounds[1],
-                startX = upperColumnBounds[0],
-                columnWidth = upperColumnWidth,
-                cells = (38..43).mapIndexed { index, code ->
-                    TouchCellSpec(code = code, startColumn = index)
+                top = rowBounds[lane.touchRowIndex],
+                bottom = rowBounds[lane.touchRowIndex + 1],
+                startX = if (lane.usesUpperTouchGrid) upperColumnBounds[0] else lowerColumnBounds[0],
+                columnWidth = if (lane.usesUpperTouchGrid) upperColumnWidth else lowerColumnWidth,
+                cells = KeypadTopology.slotsForLane(lane).map { slot ->
+                    TouchCellSpec(
+                        code = slot.code,
+                        startColumn = slot.column,
+                        columnSpan = slot.columnSpan,
+                    )
                 },
-            ),
-            TouchRowSpec(
-                top = upperRowBounds[1],
-                bottom = upperRowBounds[2],
-                startX = upperColumnBounds[0],
-                columnWidth = upperColumnWidth,
-                cells = (1..6).mapIndexed { index, code ->
-                    TouchCellSpec(code = code, startColumn = index)
-                },
-            ),
-            TouchRowSpec(
-                top = upperRowBounds[2],
-                bottom = upperRowBounds[3],
-                startX = upperColumnBounds[0],
-                columnWidth = upperColumnWidth,
-                cells = (7..12).mapIndexed { index, code ->
-                    TouchCellSpec(code = code, startColumn = index)
-                },
-            ),
-            TouchRowSpec(
-                top = upperRowBounds[3],
-                bottom = upperRowBounds[4],
-                startX = upperColumnBounds[0],
-                columnWidth = upperColumnWidth,
-                cells = listOf(
-                    TouchCellSpec(code = 13, startColumn = 0, columnSpan = 2),
-                    TouchCellSpec(code = 14, startColumn = 2),
-                    TouchCellSpec(code = 15, startColumn = 3),
-                    TouchCellSpec(code = 16, startColumn = 4),
-                    TouchCellSpec(code = 17, startColumn = 5),
-                ),
-            ),
-            TouchRowSpec(
-                top = lowerRowBounds[0],
-                bottom = lowerRowBounds[1],
-                startX = lowerColumnBounds[0],
-                columnWidth = lowerColumnWidth,
-                cells = (18..22).mapIndexed { index, code ->
-                    TouchCellSpec(code = code, startColumn = index)
-                },
-            ),
-            TouchRowSpec(
-                top = lowerRowBounds[1],
-                bottom = lowerRowBounds[2],
-                startX = lowerColumnBounds[0],
-                columnWidth = lowerColumnWidth,
-                cells = (23..27).mapIndexed { index, code ->
-                    TouchCellSpec(code = code, startColumn = index)
-                },
-            ),
-            TouchRowSpec(
-                top = lowerRowBounds[2],
-                bottom = lowerRowBounds[3],
-                startX = lowerColumnBounds[0],
-                columnWidth = lowerColumnWidth,
-                cells = (28..32).mapIndexed { index, code ->
-                    TouchCellSpec(code = code, startColumn = index)
-                },
-            ),
-            TouchRowSpec(
-                top = lowerRowBounds[3],
-                bottom = lowerRowBounds[4],
-                startX = lowerColumnBounds[0],
-                columnWidth = lowerColumnWidth,
-                cells = (33..37).mapIndexed { index, code ->
-                    TouchCellSpec(code = code, startColumn = index)
-                },
-            ),
-        )
+            )
+        }
 
         return rows.flatMap(::buildRowTouchZones)
     }

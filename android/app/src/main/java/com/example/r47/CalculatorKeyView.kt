@@ -422,16 +422,16 @@ class CalculatorKeyView @JvmOverloads constructor(
         scheduleFaceplateOffsetUpdate()
     }
 
-    internal fun setKey(code: Int, isFn: Boolean, fonts: KeypadFontSet) {
-        this.keyCode = code
-        this.isFnKey = isFn
+    internal fun setKey(slot: KeypadSlotSpec, fonts: KeypadFontSet) {
+        this.keyCode = slot.code
+        this.isFnKey = slot.isFunctionKey
         this.fontSet = fonts
         primaryLabel.typeface = fonts.standard
         fLabel.typeface = fonts.standard
         gLabel.typeface = fonts.standard
         letterLabel.typeface = fonts.standard
         
-        if (isFn) {
+        if (slot.isFunctionKey) {
             softkeyState = KeypadKeySnapshot.EMPTY
             mainKeyState = KeypadKeySnapshot.EMPTY
             fLabel.visibility = View.GONE
@@ -449,21 +449,21 @@ class CalculatorKeyView @JvmOverloads constructor(
 
             lastLayoutClass = null
             resetLabelLayout()
-            configureMainKeySurface(code)
+            configureMainKeySurface(slot.family)
+            usesLetterSpacer = slot.usesLetterSpacer
+            keepLetterSpacerInvisible = slot.keepLetterSpacerInvisible
 
-            if (code == 13 || code == 18 || code == 23 || code == 28 || code == 33) {
-                usesLetterSpacer = false
-                keepLetterSpacerInvisible = false
+            if (!slot.usesLetterSpacer) {
                 letterLabel.visibility = View.GONE
                 val lp = buttonView.layoutParams as LayoutParams
+                lp.endToStart = LayoutParams.UNSET
                 lp.endToEnd = LayoutParams.PARENT_ID
                 buttonView.layoutParams = lp
             } else {
-                usesLetterSpacer = true
                 val lp = buttonView.layoutParams as LayoutParams
                 lp.endToStart = letterLabel.id
+                lp.endToEnd = LayoutParams.UNSET
                 buttonView.layoutParams = lp
-                keepLetterSpacerInvisible = code == 17
                 letterLabel.visibility = if (keepLetterSpacerInvisible) View.INVISIBLE else View.VISIBLE
             }
 
@@ -500,37 +500,37 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
     }
 
-    private fun configureMainKeySurface(code: Int) {
-        val surfaceSpec = when {
-            code in 1..12 || code in 14..17 -> MainKeySurfaceSpec(
+    private fun configureMainKeySurface(family: KeypadKeyFamily) {
+        val surfaceSpec = when (family) {
+            KeypadKeyFamily.STANDARD -> MainKeySurfaceSpec(
                 cellWidth = SMALL_KEY_CELL_WIDTH,
                 buttonWidth = SMALL_KEY_BUTTON_WIDTH,
                 letterRatio = SMALL_KEY_LETTER_RATIO,
                 visualWidthBonus = SMALL_KEY_VISUAL_WIDTH_BONUS,
             )
 
-            code == 13 -> MainKeySurfaceSpec(
+            KeypadKeyFamily.ENTER -> MainKeySurfaceSpec(
                 cellWidth = WIDE_KEY_BUTTON_WIDTH,
                 buttonWidth = WIDE_KEY_BUTTON_WIDTH,
                 letterRatio = 0f,
                 visualWidthBonus = WIDE_KEY_VISUAL_WIDTH_BONUS,
             )
 
-            code in 19..22 || code in 24..27 || code in 29..32 || code in 34..37 -> MainKeySurfaceSpec(
+            KeypadKeyFamily.NUMERIC_MATRIX -> MainKeySurfaceSpec(
                 cellWidth = LARGE_KEY_CELL_WIDTH,
                 buttonWidth = LARGE_KEY_BUTTON_WIDTH,
                 letterRatio = LARGE_KEY_LETTER_RATIO,
                 visualWidthBonus = LARGE_KEY_VISUAL_WIDTH_BONUS,
             )
 
-            code == 18 || code == 23 || code == 28 || code == 33 -> MainKeySurfaceSpec(
+            KeypadKeyFamily.BASE_OPERATOR -> MainKeySurfaceSpec(
                 cellWidth = SMALL_KEY_BUTTON_WIDTH,
                 buttonWidth = SMALL_KEY_BUTTON_WIDTH,
                 letterRatio = 0f,
                 visualWidthBonus = SMALL_KEY_VISUAL_WIDTH_BONUS,
             )
 
-            else -> MainKeySurfaceSpec(
+            KeypadKeyFamily.SOFTKEY -> MainKeySurfaceSpec(
                 cellWidth = SMALL_KEY_CELL_WIDTH,
                 buttonWidth = SMALL_KEY_BUTTON_WIDTH,
                 letterRatio = SMALL_KEY_LETTER_RATIO,
