@@ -116,6 +116,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     private var designCellWidth = SMALL_KEY_CELL_WIDTH
     private var designButtonWidth = SMALL_KEY_BUTTON_WIDTH
     private var buttonVisualWidthBonus = 0f
+    private var drawKeySurfaces = true
     private val softkeyRect = RectF()
     private val mainKeyRect = RectF()
     private val mainKeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -471,6 +472,14 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
     }
 
+    internal fun setDrawKeySurfaces(draw: Boolean) {
+        if (drawKeySurfaces == draw) {
+            return
+        }
+        drawKeySurfaces = draw
+        invalidate()
+    }
+
     private fun applyStyleRole(styleRole: Int) {
         when (styleRole) {
             KeypadSceneContract.STYLE_SHIFT_F -> {
@@ -679,7 +688,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun drawMainKey(canvas: Canvas) {
-        if (buttonView.width <= 0 || buttonView.height <= 0) {
+        if (!drawKeySurfaces || buttonView.width <= 0 || buttonView.height <= 0) {
             return
         }
 
@@ -739,15 +748,17 @@ class CalculatorKeyView @JvmOverloads constructor(
         softkeyDotPaint.color = decorColor
 
         val cornerRadius = 8f
-        canvas.drawRoundRect(softkeyRect, cornerRadius, cornerRadius, softkeyFillPaint)
-        canvas.drawRoundRect(softkeyRect, cornerRadius, cornerRadius, softkeyStrokePaint)
-        drawSurfaceHighlight(
-            canvas,
-            softkeyRect,
-            width / SMALL_KEY_BUTTON_WIDTH,
-            cornerRadius,
-            darkSurface = true,
-        )
+        if (drawKeySurfaces) {
+            canvas.drawRoundRect(softkeyRect, cornerRadius, cornerRadius, softkeyFillPaint)
+            canvas.drawRoundRect(softkeyRect, cornerRadius, cornerRadius, softkeyStrokePaint)
+            drawSurfaceHighlight(
+                canvas,
+                softkeyRect,
+                width / SMALL_KEY_BUTTON_WIDTH,
+                cornerRadius,
+                darkSurface = true,
+            )
+        }
         if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_DOTTED_ROW)) {
             drawSoftkeyDots(canvas, decorColor)
         }

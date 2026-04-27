@@ -24,13 +24,15 @@ the LCD window and the shell crop land at the same on-screen position.
 
 `ReplicaOverlay` projects the active shell into the current window. In normal
 mode it either draws native shell chrome with `Canvas`, draws the restored
-`r47_background` background shell image behind the scene-driven keypad, or
+`r47_background` background shell image behind the scene-driven keypad labels
+and softkey state text, or
 draws the restored `r47_texture` classic image shell. `ReplicaKeypadLayout`
 now owns one normalized shared touch-cell map across all chrome modes. The
 grid uses contiguous row bands, shared midline boundaries, and consistent outer
 keypad bounds inside each row group. `r47_texture` uses that map without
-rendered key views, while the native and background-backed modes keep the
-scene-driven key views on top of the same active-cell geometry.
+rendered key views, `native` keeps the full scene-driven key views, and
+`r47_background` keeps the scene-driven labels and softkey state text without
+Android-painted key surfaces on top of the same active-cell geometry.
 `ReplicaOverlay` also keeps one shared settings-entry touch strip across all
 chrome modes. All three modes now share one texture-derived LCD placement
 contract, and `full_width` uses one shared visible-frame crop contract across
@@ -49,8 +51,8 @@ The overlay exposes three shell chrome values:
   invisible touch-cell map plus the same settings-entry touch strip as the
   other modes
 - `r47_background`: draw the density-qualified background shell while
-  keeping the scene-driven keypad renderer on the shared touch-cell map and the
-  texture-aligned LCD frame
+  keeping the scene-driven label and softkey-state overlay on the shared
+  touch-cell map and the texture-aligned LCD frame
 - `native`: draw the body, bezel, and LCD frame with Android `Canvas` while
   keeping the same logical keypad geometry, settings-entry touch strip, and
   texture-aligned LCD frame

@@ -24,9 +24,9 @@ engine loop.
   register, paste number, and entry into Picture-in-Picture.
 - `ReplicaOverlay` and `ReplicaKeypadLayout`: host the shell chrome modes, the
   normalized shared keypad touch grid, LCD projection, the classic
-  `r47_texture` image-backed shell, the scene-driven key views used by
-  `native` and the background-only shells, the shared settings-entry strip,
-  and the PiP interaction surface.
+  `r47_texture` image-backed shell, the full scene-driven key views used by
+  `native`, the scene-driven label overlay used by `r47_background`, the
+  shared settings-entry strip, and the PiP interaction surface.
 - `SettingsActivity`: owns the settings UI and preference-driven Android shell
   options.
 

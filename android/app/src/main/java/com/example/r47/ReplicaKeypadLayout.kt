@@ -286,6 +286,7 @@ internal object ReplicaKeypadLayout {
     ) {
         val keyView = CalculatorKeyView(activity)
         keyView.setKey(code, isFunctionKey, fonts)
+        keyView.setDrawKeySurfaces(chromeMode != ReplicaOverlay.CHROME_MODE_BACKGROUND)
         initialSnapshot?.let { keyView.updateLabels(it) }
         addTouchZone(
             activity = activity,
