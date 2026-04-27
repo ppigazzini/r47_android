@@ -27,6 +27,13 @@ private data class MainKeySurfaceSpec(
     val visualWidthBonus: Float,
 )
 
+private data class MainKeyStyleSpec(
+    val fontSize: Float,
+    val primaryTextColor: Int,
+    val idleFillColor: Int,
+    val pressedFillColor: Int,
+)
+
 class CalculatorKeyView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : ConstraintLayout(context, attrs, defStyleAttr) {
@@ -279,13 +286,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
 
         val cellScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
-        var primarySize = when (mainKeyState.styleRole) {
-            KeypadSceneContract.STYLE_NUMERIC -> NUMERIC_KEY_FONT_SIZE
-            KeypadSceneContract.STYLE_SHIFT_F,
-            KeypadSceneContract.STYLE_SHIFT_G,
-            KeypadSceneContract.STYLE_SHIFT_FG -> SHIFT_KEY_FONT_SIZE
-            else -> STANDARD_KEY_FONT_SIZE
-        } * cellScale
+        val primarySize = mainKeyStyleSpec(mainKeyState.styleRole).fontSize * cellScale
 
         primaryLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, primarySize)
         primaryLabel.textScaleX = 1f
@@ -480,23 +481,49 @@ class CalculatorKeyView @JvmOverloads constructor(
         invalidate()
     }
 
-    private fun applyStyleRole(styleRole: Int) {
-        when (styleRole) {
-            KeypadSceneContract.STYLE_SHIFT_F -> {
-                primaryLabel.setTextColor(defaultPrimaryDarkColor)
-            }
-            KeypadSceneContract.STYLE_SHIFT_G -> {
-                primaryLabel.setTextColor(defaultPrimaryDarkColor)
-            }
-            KeypadSceneContract.STYLE_SHIFT_FG -> {
-                primaryLabel.setTextColor(defaultPrimaryDarkColor)
-            }
-            KeypadSceneContract.STYLE_ALPHA -> {
-                primaryLabel.setTextColor(defaultPrimaryDarkColor)
-            }
-            else -> {
-                primaryLabel.setTextColor(defaultPrimaryColor)
-            }
+    private fun mainKeyStyleSpec(styleRole: Int): MainKeyStyleSpec {
+        return when (styleRole) {
+            KeypadSceneContract.STYLE_SHIFT_F -> MainKeyStyleSpec(
+                fontSize = SHIFT_KEY_FONT_SIZE,
+                primaryTextColor = defaultPrimaryDarkColor,
+                idleFillColor = fAccentColor,
+                pressedFillColor = fHoverColor,
+            )
+
+            KeypadSceneContract.STYLE_SHIFT_G -> MainKeyStyleSpec(
+                fontSize = SHIFT_KEY_FONT_SIZE,
+                primaryTextColor = defaultPrimaryDarkColor,
+                idleFillColor = gAccentColor,
+                pressedFillColor = gHoverColor,
+            )
+
+            KeypadSceneContract.STYLE_SHIFT_FG -> MainKeyStyleSpec(
+                fontSize = SHIFT_KEY_FONT_SIZE,
+                primaryTextColor = defaultPrimaryDarkColor,
+                idleFillColor = fgAccentColor,
+                pressedFillColor = fgHoverColor,
+            )
+
+            KeypadSceneContract.STYLE_ALPHA -> MainKeyStyleSpec(
+                fontSize = STANDARD_KEY_FONT_SIZE,
+                primaryTextColor = defaultPrimaryDarkColor,
+                idleFillColor = alphaAccentColor,
+                pressedFillColor = alphaHoverColor,
+            )
+
+            KeypadSceneContract.STYLE_NUMERIC -> MainKeyStyleSpec(
+                fontSize = NUMERIC_KEY_FONT_SIZE,
+                primaryTextColor = defaultPrimaryColor,
+                idleFillColor = mainKeyFillColor,
+                pressedFillColor = mainKeyPressedColor,
+            )
+
+            else -> MainKeyStyleSpec(
+                fontSize = STANDARD_KEY_FONT_SIZE,
+                primaryTextColor = defaultPrimaryColor,
+                idleFillColor = mainKeyFillColor,
+                pressedFillColor = mainKeyPressedColor,
+            )
         }
     }
 
@@ -589,7 +616,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun applySceneStyling(keyState: KeypadKeySnapshot) {
-        applyStyleRole(keyState.styleRole)
+        primaryLabel.setTextColor(mainKeyStyleSpec(keyState.styleRole).primaryTextColor)
         primaryLabel.typeface = primaryTypefaceFor()
         applyLabelRole(
             fLabel,
@@ -702,13 +729,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         mainKeyStrokePaint.strokeWidth = 2f * buttonScale
         updateMainKeySurfaceRect(mainKeyRect, buttonScale)
 
-        val fillColor = when (keyState.styleRole) {
-            KeypadSceneContract.STYLE_SHIFT_F -> if (isPressed) fHoverColor else fAccentColor
-            KeypadSceneContract.STYLE_SHIFT_G -> if (isPressed) gHoverColor else gAccentColor
-            KeypadSceneContract.STYLE_SHIFT_FG -> if (isPressed) fgHoverColor else fgAccentColor
-            KeypadSceneContract.STYLE_ALPHA -> if (isPressed) alphaHoverColor else alphaAccentColor
-            else -> if (isPressed) mainKeyPressedColor else mainKeyFillColor
-        }
+        val styleSpec = mainKeyStyleSpec(keyState.styleRole)
+        val fillColor = if (isPressed) styleSpec.pressedFillColor else styleSpec.idleFillColor
 
         mainKeyFillPaint.color = fillColor
         mainKeyStrokePaint.color = mainKeyStrokeColor
