@@ -27,12 +27,19 @@ engine loop.
   `r47_texture` image-backed shell, the full scene-driven key views used by
   `native`, the scene-driven label overlay used by `r47_background`, the
   shared settings-entry strip, and the PiP interaction surface.
+- `KeypadTopology`: owns the Android-local 43-key row, lane, and family
+  contract used by layout, touch-grid row membership, and per-key family
+  policy.
 - `SettingsActivity`: owns the settings UI and preference-driven Android shell
   options.
 
 ## Model boundary
 
 - `KeypadSnapshot` is the Kotlin-side projection of the native keypad scene.
+- `KeypadTopology` is the Android-local keypad topology contract for key-code
+  row order, family, and touch-grid lane membership. It is consumed by
+  `ReplicaKeypadLayout` and `CalculatorKeyView`, not exported by the native
+  calculator core.
 - slot metadata is an Android model owned by `SlotStore`, not by the native
   calculator core.
 - preference state controls Android shell behavior such as fullscreen mode,
