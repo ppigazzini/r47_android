@@ -120,7 +120,10 @@ projection, and drawing.
 ## Measured keypad geometry
 
 `ReplicaKeypadLayout` places all 43 keys from one measured reference projection
-in shared-shell space. The live `R47MeasuredGeometry` constants are:
+in shared-shell space. `KeypadTopology` owns the Android-local 43-key lane,
+family, and column map that this measured projection consumes for view
+construction and touch-row membership. The live `R47MeasuredGeometry`
+constants are:
 
 - standard left: `38.727473`
 - standard pitch: `78.610989`
@@ -178,6 +181,10 @@ measured projection rather than from a copied GTK screen layout.
 
 Each key is a `CalculatorKeyView`. The view combines a painted key surface,
 label views, and softkey-specific drawing logic.
+
+Softkeys stay on a dedicated function-key renderer path because the native
+scene contract carries reverse-video, overlay, preview, and value-state rules
+that the main-key path does not.
 
 It renders:
 
@@ -300,9 +307,11 @@ in the overlay, layout, or key renderer.
 Use this split:
 
 1. native scene data decides what a key means and which state is visible
-2. `ReplicaKeypadLayout` decides where the key lives in logical space
-3. `ReplicaOverlay` decides how logical space maps into the current window
-4. `CalculatorKeyView` decides how one key is measured and drawn
+2. `KeypadTopology` decides the Android-local row, family, and column contract
+  for each key code
+3. `ReplicaKeypadLayout` decides where the key lives in logical space
+4. `ReplicaOverlay` decides how logical space maps into the current window
+5. `CalculatorKeyView` decides how one key is measured and drawn
 
 When a change touches more than one layer, prefer fixing the highest true owner
 first.
