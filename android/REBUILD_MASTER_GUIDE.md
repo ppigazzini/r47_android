@@ -81,7 +81,7 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 
 - **Logical Canvases**: `r47_texture` uses `537 x 1005`; `native` and `r47_background` use `526 x 980`.
 - **Scaling Rule**: `ReplicaOverlay` fits the active shell contract inside the available window. `physical` mode caps that fit scale by the calculator's physical-width target derived from display DPI.
-- **Chrome Contract**: `chrome_mode` selects between the default `r47_texture` classic shell with hidden touch zones, the background-backed `r47_background` scene-driven shell, and the native-drawn chrome mode.
+- **Chrome Contract**: `chrome_mode` selects between the default `r47_texture` classic shell with hidden touch zones, the background-backed `r47_background` shell that keeps scene-driven labels and softkey text without Android-painted key surfaces, and the native-drawn chrome mode.
 - **Positioning**: The active shell is centered inside the view. Areas above and below the shell remain filled by the activity background.
 
 ### 2.2. LCD Calibration
