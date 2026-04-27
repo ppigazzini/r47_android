@@ -557,12 +557,7 @@ class CalculatorKeyView @JvmOverloads constructor(
                 visualWidthBonus = SMALL_KEY_VISUAL_WIDTH_BONUS,
             )
 
-            KeypadKeyFamily.SOFTKEY -> MainKeySurfaceSpec(
-                cellWidth = SMALL_KEY_CELL_WIDTH,
-                buttonWidth = SMALL_KEY_BUTTON_WIDTH,
-                letterRatio = SMALL_KEY_LETTER_RATIO,
-                visualWidthBonus = SMALL_KEY_VISUAL_WIDTH_BONUS,
-            )
+            KeypadKeyFamily.SOFTKEY -> error("Softkeys use the dedicated function-key drawing path")
         }
 
         designCellWidth = surfaceSpec.cellWidth
