@@ -57,9 +57,10 @@ The overlay exposes three shell chrome values:
   keeping the same logical keypad geometry, settings-entry touch strip, and
   texture-aligned LCD frame
 
-The native software shell now fills the calculator body with pure black,
-draws only top and bottom bars, sizes those bars from `6 dp`, and uses a
-`48`-unit shared-shell corner radius before projection.
+The native software shell now fills the rounded calculator body with
+`RGB(31, 31, 31)`, drops the separate top and bottom bar pass, and keeps the
+`48`-unit shared-shell corner radius before projection. The view background
+outside that rounded silhouette stays black.
 
 The projection is the first place to inspect when the shell or LCD looks
 correctly rendered but globally misplaced.
@@ -202,11 +203,15 @@ layout slot from the painted body geometry.
 Current native key-surface contract:
 
 - default dark key fill is `RGB(63, 63, 63)`
-- F accents use `RGB(238, 147, 47)` for faceplate labels, F-shift key fills,
+- F accents use `RGB(242, 171, 94)` for faceplate labels, F-shift key fills,
   and the combined FG shift fill
-- G accents use `RGB(90, 160, 213)` for faceplate labels and G-shift key fills
-- the Android touch path keeps no separate hover palette for the F/G/FG/alpha
-  styles; their pressed fills reuse the same accent fills
+- G accents use `RGB(131, 183, 223)` for faceplate labels and G-shift key
+  fills
+- those accent values come from the standard HSL lightness adjustment path:
+  keep hue and saturation, then raise lightness by `10` points
+- the Android touch path keeps no separate hover palette; F/G/FG styles use
+  dedicated brighter pressed fills for touch feedback, while alpha keeps its
+  base accent fill
 - reverse-video states keep their state-specific fill colors
 - main keys draw as plain rounded fills with no extra border, top bar, or
   bottom bar
@@ -269,8 +274,8 @@ When auxiliary text is visible, the softkey primary legend anchors in the upper
 band at `softkeyRect.top + 0.28 * softkeyRect.height()` instead of using the
 lower centered baseline.
 
-The Android settings theme reuses the same hardware F/G palette through
-`colorPrimary = RGB(238, 147, 47)` and `colorSecondary = RGB(90, 160, 213)`.
+The Android settings theme reuses the same lifted F/G palette through
+`colorPrimary = RGB(242, 171, 94)` and `colorSecondary = RGB(131, 183, 223)`.
 It also keeps the upstream role split between `colorPrimary` and the blue
 container or activated roles so the slider does not collapse to one color.
 
