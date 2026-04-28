@@ -43,7 +43,6 @@ class ReplicaOverlay @JvmOverloads constructor(
     )
 
     private val shellCorner = 48f
-    private val shellBarThicknessDp = 6f
     private val lcdCorner = 14f
     private val sharedTextureScaleX = 526f / 537f
     private val sharedTextureScaleY = 980f / 1005f
@@ -102,7 +101,7 @@ class ReplicaOverlay @JvmOverloads constructor(
         mode = CHROME_MODE_BACKGROUND,
         imageResId = R.drawable.r47_background,
     )
-    
+
     private var isPiPMode = false
     private var chromeMode = CHROME_MODE_NATIVE
     private var scalingMode = "full_width"
@@ -117,15 +116,8 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val shellRect = RectF()
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.BLACK
-    }
-    private val shellBarPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(31, 31, 31)
-        style = Paint.Style.FILL
     }
-    private val shellBodyPath = Path()
-    private val shellBarRectPath = Path()
-    private val shellBarPath = Path()
     private val lcdFramePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.BLACK
     }
@@ -289,22 +281,22 @@ class ReplicaOverlay @JvmOverloads constructor(
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (isPiPMode) return false
         gestureDetector.onTouchEvent(ev)
-        
+
         val projection = createProjection(width.toFloat(), height.toFloat())
         val lY = (ev.y - projection.offsetY) / projection.scale
         val spec = currentChromeSpec()
-        
+
         // Intercept touches in the settings area (top bezel)
         if (lY < spec.settingsTouchHeight && lY > 0) {
             return true
         }
-        
-        return false 
+
+        return false
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         gestureDetector.onTouchEvent(event)
-        
+
         if (isPiPMode) {
             val fKey = (event.x / width * 6).toInt() + 38
             if (event.action == MotionEvent.ACTION_DOWN) {
@@ -314,20 +306,20 @@ class ReplicaOverlay @JvmOverloads constructor(
             }
             return true
         }
-        
+
         val projection = createProjection(width.toFloat(), height.toFloat())
         val lY = (event.y - projection.offsetY) / projection.scale
         val spec = currentChromeSpec()
-        
+
         // If we intercepted this (or no one else took it), and it's in the bezel area
         if (lY < spec.settingsTouchHeight && lY > 0) {
             if (event.action == MotionEvent.ACTION_UP) {
                 Log.i("ReplicaOverlay", "Settings area tap received")
                 onSettingsTapListener?.invoke()
             }
-            return true // Always consume touches in the intercept zone
+            return true
         }
-        
+
         return super.onTouchEvent(event)
     }
 
@@ -388,55 +380,6 @@ class ReplicaOverlay @JvmOverloads constructor(
         cornerRadius: Float,
     ) {
         canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bodyPaint)
-        drawShellBars(canvas, rect, cornerRadius)
-    }
-
-    private fun drawShellBars(canvas: Canvas, rect: RectF, cornerRadius: Float) {
-        // Bar thickness tracks display density, not projection scale.
-        val barThickness = dp(shellBarThicknessDp).coerceAtMost(rect.height() / 2f)
-        if (barThickness <= 0f) {
-            return
-        }
-        buildRoundedRectPath(shellBodyPath, rect, cornerRadius)
-        drawShellBarCap(
-            canvas = canvas,
-            bodyPath = shellBodyPath,
-            rect = rect,
-            top = rect.top,
-            bottom = rect.top + barThickness,
-        )
-        drawShellBarCap(
-            canvas = canvas,
-            bodyPath = shellBodyPath,
-            rect = rect,
-            top = rect.bottom - barThickness,
-            bottom = rect.bottom,
-        )
-    }
-
-    private fun buildRoundedRectPath(path: Path, rect: RectF, cornerRadius: Float) {
-        path.rewind()
-        path.addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
-    }
-
-    private fun drawShellBarCap(
-        canvas: Canvas,
-        bodyPath: Path,
-        rect: RectF,
-        top: Float,
-        bottom: Float,
-    ) {
-        if (bottom <= top) {
-            return
-        }
-
-        shellBarRectPath.rewind()
-        shellBarRectPath.addRect(rect.left, top, rect.right, bottom, Path.Direction.CW)
-        shellBarPath.rewind()
-        if (!shellBarPath.op(bodyPath, shellBarRectPath, Path.Op.INTERSECT)) {
-            return
-        }
-        canvas.drawPath(shellBarPath, shellBarPaint)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

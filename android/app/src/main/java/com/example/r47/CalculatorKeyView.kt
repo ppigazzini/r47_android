@@ -41,9 +41,12 @@ class CalculatorKeyView @JvmOverloads constructor(
     companion object {
         private val defaultPrimaryColor = Color.WHITE
         private val defaultPrimaryDarkColor = Color.BLACK
-        private val fAccentColor = Color.rgb(238, 147, 47)
-        private val gAccentColor = Color.rgb(90, 160, 213)
+        private val fAccentColor = Color.rgb(242, 171, 94)
+        private val fPressedColor = Color.rgb(246, 196, 141)
+        private val gAccentColor = Color.rgb(131, 183, 223)
+        private val gPressedColor = Color.rgb(171, 207, 234)
         private val fgAccentColor = fAccentColor
+        private val fgPressedColor = fPressedColor
         private val alphaAccentColor = Color.parseColor("#E36C50")
         private val letterColor = Color.parseColor("#A5A5A5")
         private val fourthLabelColor = Color.rgb(223, 223, 223)
@@ -466,21 +469,21 @@ class CalculatorKeyView @JvmOverloads constructor(
                 fontSize = SHIFT_KEY_FONT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = fAccentColor,
-                pressedFillColor = fAccentColor,
+                pressedFillColor = fPressedColor,
             )
 
             KeypadSceneContract.STYLE_SHIFT_G -> MainKeyStyleSpec(
                 fontSize = SHIFT_KEY_FONT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = gAccentColor,
-                pressedFillColor = gAccentColor,
+                pressedFillColor = gPressedColor,
             )
 
             KeypadSceneContract.STYLE_SHIFT_FG -> MainKeyStyleSpec(
                 fontSize = SHIFT_KEY_FONT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = fgAccentColor,
-                pressedFillColor = fgAccentColor,
+                pressedFillColor = fgPressedColor,
             )
 
             KeypadSceneContract.STYLE_ALPHA -> MainKeyStyleSpec(
@@ -628,7 +631,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
     private fun applyEnabledState(enabled: Boolean) {
         isEnabled = enabled
-        alpha = if (enabled) 1f else 0.45f
+        alpha = if (isFnKey || enabled) 1f else 0.45f
         if (!isFnKey) {
             buttonView.alpha = if (enabled) 1f else 0.45f
             primaryLabel.alpha = if (enabled) 1f else 0.6f
