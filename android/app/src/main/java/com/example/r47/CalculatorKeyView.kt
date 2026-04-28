@@ -52,9 +52,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val letterColor = Color.parseColor("#A5A5A5")
         private val fourthLabelColor = Color.rgb(223, 223, 223)
         private val longPressColor = Color.parseColor("#D4D8DD")
-        private val mainKeyFillColor = Color.rgb(31, 31, 31)
+        private val mainKeyFillColor = Color.rgb(63, 63, 63)
         private val mainKeyPressedColor = Color.parseColor("#744A2E")
-        private val mainKeyStrokeColor = Color.parseColor("#25292F")
         private val softkeyFillColor = Color.parseColor("#D7DDE2")
         private val softkeyPressedColor = Color.parseColor("#C8D0D7")
         private val softkeyDisabledColor = Color.parseColor("#BCC5CD")
@@ -67,8 +66,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val softkeyValueDarkColor = Color.parseColor("#71451D")
         private val softkeyValueLightColor = Color.parseColor("#F0C77A")
         private val softkeyPreviewColor = Color.parseColor("#E5AE5A")
-        private val surfaceHighlightColor = Color.argb(136, 255, 255, 255)
-        private val lightSurfaceHighlightColor = Color.argb(92, 255, 255, 255)
         private const val MAIN_KEY_VIEW_HEIGHT = 68f
         private val MAIN_KEY_BUTTON_HEIGHT_RATIO =
             R47MeasuredGeometry.ROW_HEIGHT / MAIN_KEY_VIEW_HEIGHT
@@ -77,6 +74,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val LARGE_KEY_CELL_WIDTH = R47MeasuredGeometry.MATRIX_PITCH
         private val LARGE_KEY_BUTTON_WIDTH = R47MeasuredGeometry.MATRIX_KEY_WIDTH
         private val WIDE_KEY_BUTTON_WIDTH = R47MeasuredGeometry.ENTER_WIDTH
+        private const val MAIN_KEY_CORNER_RADIUS = 6f
+        private const val SOFTKEY_CORNER_RADIUS = 16f
         private const val STANDARD_KEY_FONT_SIZE = 22f
         private const val NUMERIC_KEY_FONT_SIZE = 33f
         private const val SHIFT_KEY_FONT_SIZE = 27f
@@ -129,16 +128,8 @@ class CalculatorKeyView @JvmOverloads constructor(
     private val mainKeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
-    private val mainKeyStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 1.5f
-    }
     private val softkeyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-    }
-    private val softkeyStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 1.5f
     }
     private val softkeyTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
@@ -165,14 +156,6 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
     private val softkeyDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-    }
-    private val surfaceHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-    }
-    private val surfaceShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
     }
     private val faceplateOffsetUpdater = Runnable { updateFaceplateOffsets() }
 
@@ -720,19 +703,19 @@ class CalculatorKeyView @JvmOverloads constructor(
         } else {
             1f
         }
-        val cornerRadius = 3f * buttonScale
-        mainKeyStrokePaint.strokeWidth = 2f * buttonScale
+        val cornerRadius = MAIN_KEY_CORNER_RADIUS * buttonScale
         updateMainKeySurfaceRect(mainKeyRect, buttonScale)
 
         val styleSpec = mainKeyStyleSpec(keyState.styleRole)
         val fillColor = if (isPressed) styleSpec.pressedFillColor else styleSpec.idleFillColor
 
-        mainKeyFillPaint.color = fillColor
-        mainKeyStrokePaint.color = mainKeyStrokeColor
-
-        canvas.drawRoundRect(mainKeyRect, cornerRadius, cornerRadius, mainKeyFillPaint)
-        canvas.drawRoundRect(mainKeyRect, cornerRadius, cornerRadius, mainKeyStrokePaint)
-        drawSurfaceHighlight(canvas, mainKeyRect, buttonScale, cornerRadius, darkSurface = true)
+        drawKeyChrome(
+            canvas = canvas,
+            rect = mainKeyRect,
+            fillPaint = mainKeyFillPaint,
+            fillColor = fillColor,
+            cornerRadius = cornerRadius,
+        )
     }
 
     private fun drawSoftkey(canvas: Canvas) {
@@ -753,27 +736,23 @@ class CalculatorKeyView @JvmOverloads constructor(
             isPressed -> mainKeyPressedColor
             else -> mainKeyFillColor
         }
-        val strokeColor = mainKeyStrokeColor
         val decorColor = if (reverseVideo) softkeyLightTextColor else defaultPrimaryColor
         val primaryTextColor = if (reverseVideo) softkeyLightTextColor else defaultPrimaryColor
         val metaTextColor = if (reverseVideo) softkeyMetaLightColor else letterColor
         val valueTextColor = softkeyValueLightColor
 
-        softkeyFillPaint.color = fillColor
-        softkeyStrokePaint.color = strokeColor
         softkeyDecorPaint.color = decorColor
         softkeyDotPaint.color = decorColor
 
-        val cornerRadius = 8f
+        val cornerRadius = SOFTKEY_CORNER_RADIUS
+        val softkeySurfaceScale = width / SMALL_KEY_BUTTON_WIDTH
         if (drawKeySurfaces) {
-            canvas.drawRoundRect(softkeyRect, cornerRadius, cornerRadius, softkeyFillPaint)
-            canvas.drawRoundRect(softkeyRect, cornerRadius, cornerRadius, softkeyStrokePaint)
-            drawSurfaceHighlight(
-                canvas,
-                softkeyRect,
-                width / SMALL_KEY_BUTTON_WIDTH,
-                cornerRadius,
-                darkSurface = true,
+            drawKeyChrome(
+                canvas = canvas,
+                rect = softkeyRect,
+                fillPaint = softkeyFillPaint,
+                fillColor = fillColor,
+                cornerRadius = cornerRadius,
             )
         }
         if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_DOTTED_ROW)) {
@@ -821,18 +800,21 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
 
         if (keyState.primaryLabel.isNotBlank()) {
-            val primaryCenterY = if (showText) softkeyRect.centerY() - 6f else softkeyRect.centerY()
+            val primaryCenterY = if (showText) {
+                softkeyRect.top + (softkeyRect.height() * 0.28f)
+            } else {
+                softkeyRect.centerY()
+            }
             val reservedRight = when {
                 showOverlay -> 16f
                 else -> 8f
             }
-            val softkeyPrimaryScale = softkeyRect.width() / SMALL_KEY_BUTTON_WIDTH
             drawFittedText(
                 canvas = canvas,
                 text = keyState.primaryLabel,
                 paint = softkeyTextPaint,
                 typeface = fontSet.standard,
-                baseSize = STANDARD_KEY_FONT_SIZE * softkeyPrimaryScale,
+                baseSize = STANDARD_KEY_FONT_SIZE * softkeySurfaceScale,
                 maxWidth = softkeyRect.width() - reservedRight - 8f,
                 x = softkeyRect.centerX(),
                 anchorY = primaryCenterY,
@@ -875,55 +857,15 @@ class CalculatorKeyView @JvmOverloads constructor(
         }
     }
 
-    private fun drawSurfaceHighlight(
+    private fun drawKeyChrome(
         canvas: Canvas,
         rect: RectF,
-        scale: Float,
+        fillPaint: Paint,
+        fillColor: Int,
         cornerRadius: Float,
-        darkSurface: Boolean,
     ) {
-        val resolvedScale = scale.coerceAtLeast(0.8f)
-        val strokeWidth = 1.35f * resolvedScale
-        val inset = 1.2f * resolvedScale
-        val left = rect.left + inset
-        val top = rect.top + inset
-        val right = rect.right - inset
-        val bottom = rect.bottom - inset
-        if (right <= left || bottom <= top) {
-            return
-        }
-        val innerRadius = (cornerRadius - inset).coerceAtLeast(0f)
-        surfaceHighlightPaint.strokeWidth = strokeWidth
-        surfaceHighlightPaint.color = if (darkSurface) {
-            surfaceHighlightColor
-        } else {
-            lightSurfaceHighlightColor
-        }
-        surfaceShadowPaint.strokeWidth = strokeWidth
-        surfaceShadowPaint.color = Color.BLACK
-
-        if (innerRadius <= 0f) {
-            canvas.drawLine(left, top, right, top, surfaceHighlightPaint)
-            canvas.drawLine(left, top, left, bottom, surfaceShadowPaint)
-            canvas.drawLine(left, bottom, right, bottom, surfaceShadowPaint)
-            canvas.drawLine(right, top, right, bottom, surfaceShadowPaint)
-            return
-        }
-
-        val topLeftOval = RectF(left, top, left + 2f * innerRadius, top + 2f * innerRadius)
-        val topRightOval = RectF(right - 2f * innerRadius, top, right, top + 2f * innerRadius)
-        val bottomLeftOval = RectF(left, bottom - 2f * innerRadius, left + 2f * innerRadius, bottom)
-        val bottomRightOval = RectF(right - 2f * innerRadius, bottom - 2f * innerRadius, right, bottom)
-
-        canvas.drawArc(topLeftOval, 180f, 90f, false, surfaceHighlightPaint)
-        canvas.drawLine(left + innerRadius, top, right - innerRadius, top, surfaceHighlightPaint)
-        canvas.drawArc(topRightOval, 270f, 90f, false, surfaceHighlightPaint)
-
-        canvas.drawLine(left, top + innerRadius, left, bottom - innerRadius, surfaceShadowPaint)
-        canvas.drawArc(bottomLeftOval, 90f, 90f, false, surfaceShadowPaint)
-        canvas.drawLine(left + innerRadius, bottom, right - innerRadius, bottom, surfaceShadowPaint)
-        canvas.drawArc(bottomRightOval, 0f, 90f, false, surfaceShadowPaint)
-        canvas.drawLine(right, top + innerRadius, right, bottom - innerRadius, surfaceShadowPaint)
+        fillPaint.color = fillColor
+        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, fillPaint)
     }
 
     private fun drawSoftkeyDots(canvas: Canvas, color: Int) {
