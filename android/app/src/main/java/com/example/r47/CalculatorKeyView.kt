@@ -41,14 +41,10 @@ class CalculatorKeyView @JvmOverloads constructor(
     companion object {
         private val defaultPrimaryColor = Color.WHITE
         private val defaultPrimaryDarkColor = Color.BLACK
-        private val fAccentColor = Color.parseColor("#F2A33D")
-        private val fHoverColor = Color.parseColor("#FFC24A")
-        private val gAccentColor = Color.parseColor("#63ABD9")
-        private val gHoverColor = Color.parseColor("#74C7F2")
-        private val fgAccentColor = Color.parseColor("#E8B14A")
-        private val fgHoverColor = Color.parseColor("#F1D28D")
+        private val fAccentColor = Color.rgb(238, 147, 47)
+        private val gAccentColor = Color.rgb(90, 160, 213)
+        private val fgAccentColor = fAccentColor
         private val alphaAccentColor = Color.parseColor("#E36C50")
-        private val alphaHoverColor = Color.parseColor("#FF8669")
         private val letterColor = Color.parseColor("#A5A5A5")
         private val fourthLabelColor = Color.rgb(223, 223, 223)
         private val longPressColor = Color.parseColor("#D4D8DD")
@@ -470,28 +466,28 @@ class CalculatorKeyView @JvmOverloads constructor(
                 fontSize = SHIFT_KEY_FONT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = fAccentColor,
-                pressedFillColor = fHoverColor,
+                pressedFillColor = fAccentColor,
             )
 
             KeypadSceneContract.STYLE_SHIFT_G -> MainKeyStyleSpec(
                 fontSize = SHIFT_KEY_FONT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = gAccentColor,
-                pressedFillColor = gHoverColor,
+                pressedFillColor = gAccentColor,
             )
 
             KeypadSceneContract.STYLE_SHIFT_FG -> MainKeyStyleSpec(
                 fontSize = SHIFT_KEY_FONT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = fgAccentColor,
-                pressedFillColor = fgHoverColor,
+                pressedFillColor = fgAccentColor,
             )
 
             KeypadSceneContract.STYLE_ALPHA -> MainKeyStyleSpec(
                 fontSize = STANDARD_KEY_FONT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = alphaAccentColor,
-                pressedFillColor = alphaHoverColor,
+                pressedFillColor = alphaAccentColor,
             )
 
             KeypadSceneContract.STYLE_NUMERIC -> MainKeyStyleSpec(
