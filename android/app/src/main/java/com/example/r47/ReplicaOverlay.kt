@@ -42,7 +42,8 @@ class ReplicaOverlay @JvmOverloads constructor(
         val drawNativeChrome: Boolean = false,
     )
 
-    private val shellCorner = 24f
+    private val shellCorner = 48f
+    private val shellBarThicknessDp = 6f
     private val lcdCorner = 14f
     private val sharedTextureScaleX = 526f / 537f
     private val sharedTextureScaleY = 980f / 1005f
@@ -115,18 +116,16 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val dirtyRect = Rect()
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val shellRect = RectF()
-    private val bezelRect = RectF()
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(15, 15, 15)
+        color = Color.BLACK
     }
-    private val bezelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(15, 15, 15)
-    }
-    private val shellStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val shellBarPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(31, 31, 31)
-        style = Paint.Style.STROKE
-        strokeWidth = dp(1.5f)
+        style = Paint.Style.FILL
     }
+    private val shellBodyPath = Path()
+    private val shellBarRectPath = Path()
+    private val shellBarPath = Path()
     private val lcdFramePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.BLACK
     }
@@ -149,7 +148,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val gestureDetector: GestureDetector
 
     init {
-        setBackgroundColor(Color.rgb(15, 15, 15))
+        setBackgroundColor(Color.BLACK)
         // Allow drawing outside individual key boundaries
         clipChildren = false
         clipToPadding = false
@@ -383,6 +382,63 @@ class ReplicaOverlay @JvmOverloads constructor(
         return createProjection(currentChromeSpec(), availableWidth, availableHeight)
     }
 
+    private fun drawNativeShellChrome(
+        canvas: Canvas,
+        rect: RectF,
+        cornerRadius: Float,
+    ) {
+        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bodyPaint)
+        drawShellBars(canvas, rect, cornerRadius)
+    }
+
+    private fun drawShellBars(canvas: Canvas, rect: RectF, cornerRadius: Float) {
+        // Bar thickness tracks display density, not projection scale.
+        val barThickness = dp(shellBarThicknessDp).coerceAtMost(rect.height() / 2f)
+        if (barThickness <= 0f) {
+            return
+        }
+        buildRoundedRectPath(shellBodyPath, rect, cornerRadius)
+        drawShellBarCap(
+            canvas = canvas,
+            bodyPath = shellBodyPath,
+            rect = rect,
+            top = rect.top,
+            bottom = rect.top + barThickness,
+        )
+        drawShellBarCap(
+            canvas = canvas,
+            bodyPath = shellBodyPath,
+            rect = rect,
+            top = rect.bottom - barThickness,
+            bottom = rect.bottom,
+        )
+    }
+
+    private fun buildRoundedRectPath(path: Path, rect: RectF, cornerRadius: Float) {
+        path.rewind()
+        path.addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
+    }
+
+    private fun drawShellBarCap(
+        canvas: Canvas,
+        bodyPath: Path,
+        rect: RectF,
+        top: Float,
+        bottom: Float,
+    ) {
+        if (bottom <= top) {
+            return
+        }
+
+        shellBarRectPath.rewind()
+        shellBarRectPath.addRect(rect.left, top, rect.right, bottom, Path.Direction.CW)
+        shellBarPath.rewind()
+        if (!shellBarPath.op(bodyPath, shellBarRectPath, Path.Op.INTERSECT)) {
+            return
+        }
+        canvas.drawPath(shellBarPath, shellBarPaint)
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec)
         val h = MeasureSpec.getSize(heightMeasureSpec)
@@ -447,19 +503,15 @@ class ReplicaOverlay @JvmOverloads constructor(
             visualProjection.offsetX + visualSpec.shellWidth * visualProjection.scale,
             visualProjection.offsetY + visualSpec.shellHeight * visualProjection.scale,
         )
-        bezelRect.set(
-            visualProjection.offsetX,
-            visualProjection.offsetY,
-            visualProjection.offsetX + visualSpec.shellWidth * visualProjection.scale,
-            visualProjection.offsetY + visualSpec.bezelHeight * visualProjection.scale,
-        )
         val backgroundBitmap = chromeBitmapFor(visualSpec)
         if (backgroundBitmap != null) {
             canvas.drawBitmap(backgroundBitmap, null, shellRect, paint)
         } else {
-            canvas.drawRoundRect(shellRect, shellCorner * visualProjection.scale, shellCorner * visualProjection.scale, bodyPaint)
-            canvas.drawRoundRect(bezelRect, shellCorner * visualProjection.scale, shellCorner * visualProjection.scale, bezelPaint)
-            canvas.drawRoundRect(shellRect, shellCorner * visualProjection.scale, shellCorner * visualProjection.scale, shellStrokePaint)
+            drawNativeShellChrome(
+                canvas = canvas,
+                rect = shellRect,
+                cornerRadius = shellCorner * visualProjection.scale,
+            )
         }
 
         lcdDestRect.set(

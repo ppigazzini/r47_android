@@ -57,8 +57,9 @@ The overlay exposes three shell chrome values:
   keeping the same logical keypad geometry, settings-entry touch strip, and
   texture-aligned LCD frame
 
-The native software shell now uses a tighter outer corner radius than the
-older 32-unit round-rect so its silhouette stays closer to the bitmap shells.
+The native software shell now fills the calculator body with pure black,
+draws only top and bottom bars, sizes those bars from `6 dp`, and uses a
+`48`-unit shared-shell corner radius before projection.
 
 The projection is the first place to inspect when the shell or LCD looks
 correctly rendered but globally misplaced.
@@ -196,7 +197,16 @@ It renders:
   asks for them
 
 Main keys and softkeys share one view class, but the renderer separates the
-layout slot from the painted cap geometry.
+layout slot from the painted body geometry.
+
+Current native key-surface contract:
+
+- default dark key fill is `RGB(63, 63, 63)`
+- shift and reverse-video states keep their state-specific fill colors
+- main keys draw as plain rounded fills with no extra border, top bar, or
+  bottom bar
+- main-key corner radius is `6 * button_scale`
+- softkey corner radius is `16 px`
 
 For main keys, the painted body rectangle is derived from the live measured row
 height and the per-family width bonus:
@@ -235,7 +245,7 @@ centered as one group on that same body centerline, and the fourth label is
 anchored from the painted body right edge rather than from the middle of the
 spare lane.
 
-For softkeys, the slot is intentionally larger than the painted cap:
+For softkeys, the slot is intentionally larger than the painted body:
 
 ```text
 softkey_view_width = STANDARD_KEY_WIDTH + 4
@@ -249,6 +259,10 @@ painted_softkey_height = ROW_HEIGHT
 Softkeys therefore keep the same painted cap width and height as the standard
 dark keys while using a dedicated interior drawing path for text, value fields,
 pagination dots, overlays, and reverse-video states.
+
+When auxiliary text is visible, the softkey primary legend anchors in the upper
+band at `softkeyRect.top + 0.28 * softkeyRect.height()` instead of using the
+lower centered baseline.
 
 Typography and style come from scene data plus staged calculator fonts. Android
 chooses how to measure and draw those roles; native code chooses which roles are
