@@ -202,7 +202,12 @@ layout slot from the painted body geometry.
 Current native key-surface contract:
 
 - default dark key fill is `RGB(63, 63, 63)`
-- shift and reverse-video states keep their state-specific fill colors
+- F accents use `RGB(238, 147, 47)` for faceplate labels, F-shift key fills,
+  and the combined FG shift fill
+- G accents use `RGB(90, 160, 213)` for faceplate labels and G-shift key fills
+- the Android touch path keeps no separate hover palette for the F/G/FG/alpha
+  styles; their pressed fills reuse the same accent fills
+- reverse-video states keep their state-specific fill colors
 - main keys draw as plain rounded fills with no extra border, top bar, or
   bottom bar
 - main-key corner radius is `6 * button_scale`
@@ -263,6 +268,11 @@ pagination dots, overlays, and reverse-video states.
 When auxiliary text is visible, the softkey primary legend anchors in the upper
 band at `softkeyRect.top + 0.28 * softkeyRect.height()` instead of using the
 lower centered baseline.
+
+The Android settings theme reuses the same hardware F/G palette through
+`colorPrimary = RGB(238, 147, 47)` and `colorSecondary = RGB(90, 160, 213)`.
+It also keeps the upstream role split between `colorPrimary` and the blue
+container or activated roles so the slider does not collapse to one color.
 
 Typography and style come from scene data plus staged calculator fonts. Android
 chooses how to measure and draw those roles; native code chooses which roles are
