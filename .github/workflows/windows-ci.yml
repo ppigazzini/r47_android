@@ -57,11 +57,6 @@ jobs:
             package_prefix: mingw-w64-ucrt-x86_64
             compiler_check: gcc --version
             artifact_suffix: ucrt64
-          - label: CLANG64
-            msystem: CLANG64
-            package_prefix: mingw-w64-clang-x86_64
-            compiler_check: clang --version
-            artifact_suffix: clang64
     defaults:
       run:
         shell: msys2 {0}
