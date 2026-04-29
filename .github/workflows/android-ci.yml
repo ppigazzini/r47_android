@@ -474,6 +474,10 @@ jobs:
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
           R47_GRADLE_ARGS: '--no-daemon --stacktrace --console=plain'
+          R47_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          R47_SOURCE_COMMIT: ${{ github.sha }}
+          R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
+          R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
           GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
@@ -567,6 +571,8 @@ jobs:
           run_attempt=${GITHUB_RUN_ATTEMPT}
           upstream_url=${{ steps.upstream.outputs.upstream_url }}
           upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
+          android_source_repository_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
+          android_source_commit=${GITHUB_SHA}
           xlsxio_url=${{ steps.xlsxio.outputs.xlsxio_url }}
           xlsxio_commit=${{ steps.xlsxio.outputs.xlsxio_commit }}
           compile_sdk=${{ steps.versions.outputs.compile_sdk }}

@@ -99,8 +99,16 @@
             app:title="Version"
             app:summary="@string/about_version_summary" />
         <Preference
+            app:key="view_gpl_license"
+            app:title="@string/about_gpl_license_title"
+            app:summary="@string/about_gpl_license_summary" />
+        <Preference
+            app:key="view_android_source"
+            app:title="@string/about_android_source_title"
+            app:summary="@string/about_android_source_summary" />
+        <Preference
             app:key="visit_gitlab"
-            app:title="Visit Project Page (GitLab)" />
+            app:title="@string/about_upstream_project_title" />
         <Preference
             app:key="view_wiki"
             app:title="View R47 Wiki" />
