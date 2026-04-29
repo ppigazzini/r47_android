@@ -20,19 +20,64 @@ internal data class KeypadFontSet(
     val tiny: Typeface?,
 )
 
-private data class MainKeySurfaceSpec(
-    val cellWidth: Float,
-    val buttonWidth: Float,
-    val letterRatio: Float,
-    val visualWidthBonus: Float,
-)
-
 private data class MainKeyStyleSpec(
     val fontSize: Float,
     val primaryTextColor: Int,
     val idleFillColor: Int,
     val pressedFillColor: Int,
 )
+
+private object KeyVisualPolicy {
+    // Android presentation tuning values. These are UI policy, not measured hardware geometry.
+    const val MAIN_KEY_DRAW_CORNER_RADIUS = 20f
+    const val SOFTKEY_DRAW_CORNER_RADIUS = MAIN_KEY_DRAW_CORNER_RADIUS
+    const val MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA = 6f
+    const val FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT = 16f
+    const val FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP = 80f
+    const val DEFAULT_PRIMARY_LEGEND_TEXT_SIZE = 76f
+    const val NUMERIC_PRIMARY_LEGEND_TEXT_SIZE = 114f
+    const val SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE = 94f
+    const val TOP_F_G_LABEL_TEXT_SIZE = 64f
+    const val FOURTH_LABEL_TEXT_SIZE = 66f
+    const val TOP_F_G_LABEL_HORIZONTAL_GAP = 10f
+    const val TOP_F_G_LABEL_VERTICAL_LIFT = 86f
+    const val SOFTKEY_DECOR_STROKE_WIDTH = 2f
+    const val SOFTKEY_OUTER_INSET = 2f
+    const val SOFTKEY_PREVIEW_LINE_SIDE_INSET = 10f
+    const val SOFTKEY_PREVIEW_LINE_BOTTOM_INSET = 4f
+    const val SOFTKEY_VALUE_TEXT_SIZE_RATIO = 0.18f
+    const val SOFTKEY_VALUE_WIDTH_RATIO = 0.34f
+    const val SOFTKEY_VALUE_RIGHT_INSET = 7f
+    const val SOFTKEY_VALUE_TOP_INSET = 6f
+    const val SOFTKEY_OVERLAY_CENTER_RIGHT_INSET = 10f
+    const val SOFTKEY_OVERLAY_CENTER_BOTTOM_INSET = 12f
+    const val SOFTKEY_PRIMARY_TOP_RATIO = 0.28f
+    const val SOFTKEY_PRIMARY_SIDE_INSET = 8f
+    const val SOFTKEY_PRIMARY_RIGHT_RESERVE_WITH_OVERLAY = 16f
+    const val SOFTKEY_AUX_TEXT_SIZE_RATIO = 0.16f
+    const val SOFTKEY_AUX_SIDE_INSET = 12f
+    const val SOFTKEY_AUX_BOTTOM_INSET = 11f
+    const val SOFTKEY_STRIKE_SIDE_INSET = 8f
+    const val SOFTKEY_STRIKE_OUT_SIDE_INSET = 7f
+    const val SOFTKEY_STRIKE_OUT_VERTICAL_INSET = 10f
+    const val SOFTKEY_OVERLAY_SIZE = 7f
+    const val SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO = 0.7f
+    const val SOFTKEY_OVERLAY_MARK_DOT_RATIO = 0.28f
+    const val SOFTKEY_OVERLAY_CHECK_LEFT_X = 3f
+    const val SOFTKEY_OVERLAY_CHECK_MID_X = 1f
+    const val SOFTKEY_OVERLAY_CHECK_DELTA_Y = 3f
+    const val SOFTKEY_OVERLAY_CHECK_RIGHT_X = 4f
+    const val SOFTKEY_OVERLAY_MB_HALF_WIDTH = 6.5f
+    const val SOFTKEY_OVERLAY_MB_HALF_HEIGHT = 5.2f
+    const val SOFTKEY_OVERLAY_MB_CORNER_RADIUS = 3f
+    const val SOFTKEY_OVERLAY_MB_TEXT_SIZE_RATIO = 0.12f
+    const val SOFTKEY_OVERLAY_MB_TEXT_MAX_WIDTH = 9f
+    const val SOFTKEY_OVERLAY_MB_TEXT_BASELINE_OFFSET = 0.5f
+    const val SOFTKEY_OVERLAY_MB_UNDERLINE_START_X = 1f
+    const val SOFTKEY_OVERLAY_MB_UNDERLINE_END_X = 6f
+    const val SOFTKEY_OVERLAY_MB_UNDERLINE_Y = 4f
+    const val FITTED_TEXT_MIN_SCALE = 0.58f
+}
 
 class CalculatorKeyView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -53,49 +98,15 @@ class CalculatorKeyView @JvmOverloads constructor(
         private val longPressColor = Color.parseColor("#D4D8DD")
         private val mainKeyFillColor = Color.rgb(64, 64, 64)
         private val mainKeyPressedColor = Color.parseColor("#744A2E")
-        private val softkeyFillColor = Color.parseColor("#D7DDE2")
-        private val softkeyPressedColor = Color.parseColor("#C8D0D7")
-        private val softkeyDisabledColor = Color.parseColor("#BCC5CD")
         private val softkeyReverseColor = Color.rgb(96, 96, 96)
         private val softkeyReversePressedColor = mainKeyPressedColor
-        private val softkeyDarkTextColor = Color.parseColor("#151B20")
         private val softkeyLightTextColor = Color.parseColor("#F4F7F9")
-        private val softkeyMetaDarkColor = Color.parseColor("#5A6670")
         private val softkeyMetaLightColor = Color.parseColor("#C9D0D6")
-        private val softkeyValueDarkColor = Color.parseColor("#71451D")
         private val softkeyValueLightColor = Color.parseColor("#F0C77A")
         private val softkeyPreviewColor = Color.parseColor("#E5AE5A")
-        private const val MAIN_KEY_VIEW_HEIGHT = 68f
-        private val MAIN_KEY_BUTTON_HEIGHT_RATIO =
-            R47MeasuredGeometry.ROW_HEIGHT / MAIN_KEY_VIEW_HEIGHT
-        private val SMALL_KEY_CELL_WIDTH = R47MeasuredGeometry.STANDARD_PITCH
-        private val SMALL_KEY_BUTTON_WIDTH = R47MeasuredGeometry.STANDARD_KEY_WIDTH
-        private val LARGE_KEY_CELL_WIDTH = R47MeasuredGeometry.MATRIX_PITCH
-        private val LARGE_KEY_BUTTON_WIDTH = R47MeasuredGeometry.MATRIX_KEY_WIDTH
-        private val WIDE_KEY_BUTTON_WIDTH = R47MeasuredGeometry.ENTER_WIDTH
-        private const val MAIN_KEY_CORNER_RADIUS = 6f
-        private const val SOFTKEY_CORNER_RADIUS = 16f
-        private const val STANDARD_KEY_FONT_SIZE = 22f
-        private const val NUMERIC_KEY_FONT_SIZE = 33f
-        private const val SHIFT_KEY_FONT_SIZE = 27f
-        private const val SHIFT_LABEL_FONT_SIZE = 18f
-        private const val LETTER_LABEL_FONT_SIZE = 19f
-        private const val PRIMARY_TEXT_HEIGHT_BOOST = 1.06f
-        private const val PRIMARY_TEXT_WIDTH_COMPENSATION = 0.96f
-        private const val NUMERIC_TEXT_WIDTH_COMPENSATION = 0.94f
-        private const val FACEPLATE_GAP = 3f
-        private const val FACEPLATE_LABEL_OFFSET = 25f
-        private const val LETTER_X_OFFSET = 3f
-        private const val LETTER_Y_OFFSET = 18f
-        private const val LETTER_SHIFT_X_FRACTION = 0.2f
-        private const val LETTER_SHIFT_Y_FRACTION = 0.25f
-        private const val SMALL_KEY_VISUAL_WIDTH_BONUS = 2f
-        private const val LARGE_KEY_VISUAL_WIDTH_BONUS = 2f
-        private const val WIDE_KEY_VISUAL_WIDTH_BONUS = 2f
-        private val SMALL_KEY_LETTER_RATIO =
-            (SMALL_KEY_CELL_WIDTH - SMALL_KEY_BUTTON_WIDTH) / SMALL_KEY_CELL_WIDTH
-        private val LARGE_KEY_LETTER_RATIO =
-            (LARGE_KEY_CELL_WIDTH - LARGE_KEY_BUTTON_WIDTH) / LARGE_KEY_CELL_WIDTH
+        private const val MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW = 0.610169f
+        private const val STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION = 0.294118f
+        private const val MATRIX_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION = 0.311178f
         private const val TEXT_ANCHOR_CENTER = 0
         private const val TEXT_ANCHOR_TOP = 1
         private const val TEXT_ANCHOR_BOTTOM = 2
@@ -118,9 +129,8 @@ class CalculatorKeyView @JvmOverloads constructor(
     private var mainKeyState = KeypadKeySnapshot.EMPTY
     private var currentShiftFOn = false
     private var currentShiftGOn = false
-    private var designCellWidth = SMALL_KEY_CELL_WIDTH
-    private var designButtonWidth = SMALL_KEY_BUTTON_WIDTH
-    private var buttonVisualWidthBonus = 0f
+    private var designCellWidth = R47ReferenceGeometry.STANDARD_PITCH
+    private var designButtonWidth = R47ReferenceGeometry.STANDARD_KEY_WIDTH
     private var drawKeySurfaces = true
     private val softkeyRect = RectF()
     private val mainKeyRect = RectF()
@@ -132,26 +142,17 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
     private val softkeyTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        isSubpixelText = true
-        isLinearText = true
-        setHinting(Paint.HINTING_OFF)
     }
     private val softkeyAuxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        isSubpixelText = true
-        isLinearText = true
-        setHinting(Paint.HINTING_OFF)
     }
     private val softkeyValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.RIGHT
-        isSubpixelText = true
-        isLinearText = true
-        setHinting(Paint.HINTING_OFF)
     }
     private val softkeyDecorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
-        strokeWidth = 2f
+        strokeWidth = KeyVisualPolicy.SOFTKEY_DECOR_STROKE_WIDTH
     }
     private val softkeyDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -170,13 +171,12 @@ class CalculatorKeyView @JvmOverloads constructor(
         letterLabel.gravity = Gravity.START or Gravity.TOP
         letterLabel.includeFontPadding = false
         letterLabel.maxLines = 1
-        configureTextRendering(letterLabel)
         val letterParams = LayoutParams(0, 0)
         letterParams.topToTop = buttonView.id
         letterParams.endToEnd = LayoutParams.PARENT_ID
         letterParams.bottomToBottom = LayoutParams.PARENT_ID
-        letterParams.matchConstraintPercentWidth = SMALL_KEY_LETTER_RATIO
-        letterParams.matchConstraintPercentHeight = MAIN_KEY_BUTTON_HEIGHT_RATIO
+        letterParams.matchConstraintPercentWidth = STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
+        letterParams.matchConstraintPercentHeight = MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
         addView(letterLabel, letterParams)
 
         // Button background view (Left side)
@@ -187,7 +187,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         btnParams.startToStart = LayoutParams.PARENT_ID
         btnParams.endToStart = letterLabel.id
         btnParams.verticalBias = 0f
-        btnParams.matchConstraintPercentHeight = MAIN_KEY_BUTTON_HEIGHT_RATIO
+        btnParams.matchConstraintPercentHeight = MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
         buttonView.setBackgroundColor(Color.TRANSPARENT)
         addView(buttonView, btnParams)
 
@@ -197,7 +197,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         primaryLabel.gravity = Gravity.CENTER
         primaryLabel.includeFontPadding = false
         primaryLabel.maxLines = 1
-        configureTextRendering(primaryLabel)
         val primaryParams = LayoutParams(0, 0)
         primaryParams.topToTop = buttonView.id
         primaryParams.bottomToBottom = buttonView.id
@@ -211,7 +210,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         fLabel.gravity = Gravity.START or Gravity.TOP
         fLabel.includeFontPadding = false
         fLabel.maxLines = 1
-        configureTextRendering(fLabel)
         val fParams = LayoutParams(LayoutParams.WRAP_CONTENT, 0)
         fParams.topToTop = buttonView.id
         fParams.bottomToBottom = buttonView.id
@@ -226,7 +224,6 @@ class CalculatorKeyView @JvmOverloads constructor(
         gLabel.gravity = Gravity.END or Gravity.TOP
         gLabel.includeFontPadding = false
         gLabel.maxLines = 1
-        configureTextRendering(gLabel)
         val gParams = LayoutParams(LayoutParams.WRAP_CONTENT, 0)
         gParams.topToTop = buttonView.id
         gParams.bottomToBottom = buttonView.id
@@ -237,23 +234,10 @@ class CalculatorKeyView @JvmOverloads constructor(
         // Alpha label (NOT USED inside key)
         alphaLabel.id = View.generateViewId()
         alphaLabel.visibility = View.GONE
-        configureTextRendering(alphaLabel)
         addView(alphaLabel)
         
         isClickable = false
         buttonView.isClickable = false
-    }
-
-    private fun configureTextRendering(labelView: TextView) {
-        labelView.paintFlags =
-            labelView.paintFlags or
-                Paint.ANTI_ALIAS_FLAG or
-                Paint.SUBPIXEL_TEXT_FLAG or
-                Paint.LINEAR_TEXT_FLAG
-        labelView.paint.setAntiAlias(true)
-        labelView.paint.setSubpixelText(true)
-        labelView.paint.setLinearText(true)
-        labelView.paint.setHinting(Paint.HINTING_OFF)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -270,14 +254,14 @@ class CalculatorKeyView @JvmOverloads constructor(
             return
         }
 
-        val cellScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
-        val primarySize = mainKeyStyleSpec(mainKeyState.styleRole).fontSize * cellScale
+        val referenceCellToViewWidthScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
+        val primarySize = mainKeyStyleSpec(mainKeyState.styleRole).fontSize * referenceCellToViewWidthScale
 
         primaryLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, primarySize)
         primaryLabel.textScaleX = 1f
-        fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, SHIFT_LABEL_FONT_SIZE * cellScale)
-        gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, SHIFT_LABEL_FONT_SIZE * cellScale)
-        letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, LETTER_LABEL_FONT_SIZE * cellScale)
+        fLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
+        gLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, KeyVisualPolicy.TOP_F_G_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
+        letterLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX, KeyVisualPolicy.FOURTH_LABEL_TEXT_SIZE * referenceCellToViewWidthScale)
         primaryLabel.translationX = 0f
     }
 
@@ -312,16 +296,16 @@ class CalculatorKeyView @JvmOverloads constructor(
             return
         }
 
-        val cellScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
-        val labelOffset = FACEPLATE_LABEL_OFFSET * cellScale
-        val gap = FACEPLATE_GAP * cellScale
+        val referenceCellToViewWidthScale = if (designCellWidth > 0f) width.toFloat() / designCellWidth else 1f
+        val topFgLabelVerticalLift = KeyVisualPolicy.TOP_F_G_LABEL_VERTICAL_LIFT * referenceCellToViewWidthScale
+        val topFgLabelHorizontalGap = KeyVisualPolicy.TOP_F_G_LABEL_HORIZONTAL_GAP * referenceCellToViewWidthScale
         val buttonWidth = buttonView.width.toFloat()
         if (buttonWidth <= 0f || buttonView.height <= 0) {
             return
         }
 
-        val buttonScale = if (designButtonWidth > 0f) buttonWidth / designButtonWidth else 1f
-        updateMainKeySurfaceRect(mainKeyRect, buttonScale)
+        val referenceBodyToViewWidthScale = if (designButtonWidth > 0f) buttonWidth / designButtonWidth else 1f
+        updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
         val buttonCenterX = mainKeyRect.centerX()
         val rawButtonCenterX = buttonView.left + buttonWidth / 2f
         primaryLabel.translationX = buttonCenterX - rawButtonCenterX
@@ -330,7 +314,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         val hasFLabel = fLabel.visibility == View.VISIBLE && fLabel.text.isNotBlank()
         val hasGLabel = hasFLabel && gLabel.visibility == View.VISIBLE && gLabel.text.isNotBlank()
         val groupWidth = when {
-            hasGLabel -> fWidth + gap + gWidth
+            hasGLabel -> fWidth + topFgLabelHorizontalGap + gWidth
             hasFLabel -> fWidth
             else -> 0f
         }
@@ -339,7 +323,7 @@ class CalculatorKeyView @JvmOverloads constructor(
         when {
             hasGLabel -> {
                 val fLeft = groupLeft
-                val gLeft = groupLeft + fWidth + gap
+                val gLeft = groupLeft + fWidth + topFgLabelHorizontalGap
                 fLabel.translationX = fLeft - fLabel.left.toFloat()
                 gLabel.translationX = gLeft - gLabel.left.toFloat()
             }
@@ -355,28 +339,25 @@ class CalculatorKeyView @JvmOverloads constructor(
             }
         }
 
-        fLabel.translationY = -labelOffset - fLabel.top.toFloat()
-        gLabel.translationY = -labelOffset - gLabel.top.toFloat()
+        fLabel.translationY = -topFgLabelVerticalLift - fLabel.top.toFloat()
+        gLabel.translationY = -topFgLabelVerticalLift - gLabel.top.toFloat()
 
-        val letterText = letterLabel.text?.toString().orEmpty()
-        val letterTextWidth = if (letterText.isNotBlank()) {
-            letterLabel.paint.measureText(letterText)
-        } else {
-            0f
-        }
-        val letterMetrics = letterLabel.paint.fontMetrics
-        val letterTextHeight = letterMetrics.bottom - letterMetrics.top
-        val letterShiftX = letterTextWidth * LETTER_SHIFT_X_FRACTION
-        val letterShiftY = letterTextHeight * LETTER_SHIFT_Y_FRACTION
-        val letterLeft = mainKeyRect.right + LETTER_X_OFFSET * cellScale + letterShiftX
-        val letterTop = LETTER_Y_OFFSET * cellScale + letterShiftY
+        updateFourthLabelOffset(referenceCellToViewWidthScale)
+    }
+
+    private fun updateFourthLabelOffset(referenceCellToViewWidthScale: Float) {
+        val letterLeft =
+            mainKeyRect.right +
+                KeyVisualPolicy.FOURTH_LABEL_X_OFFSET_FROM_MAIN_KEY_BODY_RIGHT * referenceCellToViewWidthScale
+        val letterTop =
+            KeyVisualPolicy.FOURTH_LABEL_Y_OFFSET_FROM_MAIN_KEY_BODY_TOP * referenceCellToViewWidthScale
         letterLabel.translationX = letterLeft - letterLabel.left.toFloat()
         letterLabel.translationY = letterTop - letterLabel.top.toFloat()
     }
 
-    private fun updateMainKeySurfaceRect(targetRect: RectF, buttonScale: Float) {
-        val inset = buttonScale
-        val widthBonus = buttonVisualWidthBonus * buttonScale
+    private fun updateMainKeySurfaceRect(targetRect: RectF, referenceBodyToViewWidthScale: Float) {
+        val inset = referenceBodyToViewWidthScale
+        val widthBonus = KeyVisualPolicy.MAIN_KEY_BODY_OPTICAL_WIDTH_DELTA * referenceBodyToViewWidthScale
         val halfWidthBonus = widthBonus * 0.5f
         targetRect.set(
             (buttonView.left.toFloat() + inset - halfWidthBonus).coerceAtLeast(inset),
@@ -469,42 +450,42 @@ class CalculatorKeyView @JvmOverloads constructor(
     private fun mainKeyStyleSpec(styleRole: Int): MainKeyStyleSpec {
         return when (styleRole) {
             KeypadSceneContract.STYLE_SHIFT_F -> MainKeyStyleSpec(
-                fontSize = SHIFT_KEY_FONT_SIZE,
+                fontSize = KeyVisualPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = fAccentColor,
                 pressedFillColor = fPressedColor,
             )
 
             KeypadSceneContract.STYLE_SHIFT_G -> MainKeyStyleSpec(
-                fontSize = SHIFT_KEY_FONT_SIZE,
+                fontSize = KeyVisualPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = gAccentColor,
                 pressedFillColor = gPressedColor,
             )
 
             KeypadSceneContract.STYLE_SHIFT_FG -> MainKeyStyleSpec(
-                fontSize = SHIFT_KEY_FONT_SIZE,
+                fontSize = KeyVisualPolicy.SHIFT_STYLE_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = fgAccentColor,
                 pressedFillColor = fgPressedColor,
             )
 
             KeypadSceneContract.STYLE_ALPHA -> MainKeyStyleSpec(
-                fontSize = STANDARD_KEY_FONT_SIZE,
+                fontSize = KeyVisualPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryDarkColor,
                 idleFillColor = alphaAccentColor,
                 pressedFillColor = alphaAccentColor,
             )
 
             KeypadSceneContract.STYLE_NUMERIC -> MainKeyStyleSpec(
-                fontSize = NUMERIC_KEY_FONT_SIZE,
+                fontSize = KeyVisualPolicy.NUMERIC_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryColor,
                 idleFillColor = mainKeyFillColor,
                 pressedFillColor = mainKeyPressedColor,
             )
 
             else -> MainKeyStyleSpec(
-                fontSize = STANDARD_KEY_FONT_SIZE,
+                fontSize = KeyVisualPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE,
                 primaryTextColor = defaultPrimaryColor,
                 idleFillColor = mainKeyFillColor,
                 pressedFillColor = mainKeyPressedColor,
@@ -513,50 +494,43 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun configureMainKeySurface(family: KeypadKeyFamily) {
-        val surfaceSpec = when (family) {
-            KeypadKeyFamily.STANDARD -> MainKeySurfaceSpec(
-                cellWidth = SMALL_KEY_CELL_WIDTH,
-                buttonWidth = SMALL_KEY_BUTTON_WIDTH,
-                letterRatio = SMALL_KEY_LETTER_RATIO,
-                visualWidthBonus = SMALL_KEY_VISUAL_WIDTH_BONUS,
-            )
+        val letterRatio: Float
+        when (family) {
+            KeypadKeyFamily.STANDARD -> {
+                designCellWidth = R47ReferenceGeometry.STANDARD_PITCH
+                designButtonWidth = R47ReferenceGeometry.STANDARD_KEY_WIDTH
+                letterRatio = STANDARD_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
+            }
 
-            KeypadKeyFamily.ENTER -> MainKeySurfaceSpec(
-                cellWidth = WIDE_KEY_BUTTON_WIDTH,
-                buttonWidth = WIDE_KEY_BUTTON_WIDTH,
-                letterRatio = 0f,
-                visualWidthBonus = WIDE_KEY_VISUAL_WIDTH_BONUS,
-            )
+            KeypadKeyFamily.ENTER -> {
+                designCellWidth = R47ReferenceGeometry.ENTER_WIDTH
+                designButtonWidth = R47ReferenceGeometry.ENTER_WIDTH
+                letterRatio = 0f
+            }
 
-            KeypadKeyFamily.NUMERIC_MATRIX -> MainKeySurfaceSpec(
-                cellWidth = LARGE_KEY_CELL_WIDTH,
-                buttonWidth = LARGE_KEY_BUTTON_WIDTH,
-                letterRatio = LARGE_KEY_LETTER_RATIO,
-                visualWidthBonus = LARGE_KEY_VISUAL_WIDTH_BONUS,
-            )
+            KeypadKeyFamily.NUMERIC_MATRIX -> {
+                designCellWidth = R47ReferenceGeometry.MATRIX_PITCH
+                designButtonWidth = R47ReferenceGeometry.MATRIX_KEY_WIDTH
+                letterRatio = MATRIX_KEY_FOURTH_LABEL_STRIP_WIDTH_FRACTION
+            }
 
-            KeypadKeyFamily.BASE_OPERATOR -> MainKeySurfaceSpec(
-                cellWidth = SMALL_KEY_BUTTON_WIDTH,
-                buttonWidth = SMALL_KEY_BUTTON_WIDTH,
-                letterRatio = 0f,
-                visualWidthBonus = SMALL_KEY_VISUAL_WIDTH_BONUS,
-            )
+            KeypadKeyFamily.BASE_OPERATOR -> {
+                designCellWidth = R47ReferenceGeometry.STANDARD_KEY_WIDTH
+                designButtonWidth = R47ReferenceGeometry.STANDARD_KEY_WIDTH
+                letterRatio = 0f
+            }
 
             KeypadKeyFamily.SOFTKEY -> error("Softkeys use the dedicated function-key drawing path")
         }
-
-        designCellWidth = surfaceSpec.cellWidth
-        designButtonWidth = surfaceSpec.buttonWidth
-        buttonVisualWidthBonus = surfaceSpec.visualWidthBonus
 
         val buttonParams = buttonView.layoutParams as LayoutParams
         val letterParams = letterLabel.layoutParams as LayoutParams
         letterParams.topToTop = buttonView.id
         letterParams.bottomToBottom = buttonView.id
-        letterParams.matchConstraintPercentWidth = surfaceSpec.letterRatio
-        letterParams.matchConstraintPercentHeight = MAIN_KEY_BUTTON_HEIGHT_RATIO
+        letterParams.matchConstraintPercentWidth = letterRatio
+        letterParams.matchConstraintPercentHeight = MAIN_KEY_BODY_HEIGHT_FRACTION_OF_VIEW
 
-        if (surfaceSpec.letterRatio > 0f) {
+        if (letterRatio > 0f) {
             buttonParams.endToStart = letterLabel.id
             buttonParams.endToEnd = LayoutParams.UNSET
         } else {
@@ -695,29 +669,31 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun drawMainKey(canvas: Canvas) {
-        if (!drawKeySurfaces || buttonView.width <= 0 || buttonView.height <= 0) {
+        if (buttonView.width <= 0 || buttonView.height <= 0) {
             return
         }
 
         val keyState = mainKeyState
-        val buttonScale = if (designButtonWidth > 0f) {
+        val referenceBodyToViewWidthScale = if (designButtonWidth > 0f) {
             buttonView.width.toFloat() / designButtonWidth
         } else {
             1f
         }
-        val cornerRadius = MAIN_KEY_CORNER_RADIUS * buttonScale
-        updateMainKeySurfaceRect(mainKeyRect, buttonScale)
+        val cornerRadius = KeyVisualPolicy.MAIN_KEY_DRAW_CORNER_RADIUS * referenceBodyToViewWidthScale
+        updateMainKeySurfaceRect(mainKeyRect, referenceBodyToViewWidthScale)
 
         val styleSpec = mainKeyStyleSpec(keyState.styleRole)
         val fillColor = if (isPressed) styleSpec.pressedFillColor else styleSpec.idleFillColor
 
-        drawKeyChrome(
-            canvas = canvas,
-            rect = mainKeyRect,
-            fillPaint = mainKeyFillPaint,
-            fillColor = fillColor,
-            cornerRadius = cornerRadius,
-        )
+        if (drawKeySurfaces) {
+            drawKeyChrome(
+                canvas = canvas,
+                rect = mainKeyRect,
+                fillPaint = mainKeyFillPaint,
+                fillColor = fillColor,
+                cornerRadius = cornerRadius,
+            )
+        }
     }
 
     private fun drawSoftkey(canvas: Canvas) {
@@ -730,7 +706,12 @@ class CalculatorKeyView @JvmOverloads constructor(
         val showOverlay = keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_SHOW_CB) &&
             keyState.overlayState >= 0
 
-        softkeyRect.set(2f, 2f, width - 2f, height - 2f)
+        softkeyRect.set(
+            KeyVisualPolicy.SOFTKEY_OUTER_INSET,
+            KeyVisualPolicy.SOFTKEY_OUTER_INSET,
+            width - KeyVisualPolicy.SOFTKEY_OUTER_INSET,
+            height - KeyVisualPolicy.SOFTKEY_OUTER_INSET,
+        )
 
         val fillColor = when {
             reverseVideo && isPressed -> softkeyReversePressedColor
@@ -746,8 +727,8 @@ class CalculatorKeyView @JvmOverloads constructor(
         softkeyDecorPaint.color = decorColor
         softkeyDotPaint.color = decorColor
 
-        val cornerRadius = SOFTKEY_CORNER_RADIUS
-        val softkeySurfaceScale = width / SMALL_KEY_BUTTON_WIDTH
+        val softkeySurfaceScale = width / R47ReferenceGeometry.STANDARD_KEY_WIDTH
+        val cornerRadius = KeyVisualPolicy.SOFTKEY_DRAW_CORNER_RADIUS * softkeySurfaceScale
         if (drawKeySurfaces) {
             drawKeyChrome(
                 canvas = canvas,
@@ -760,10 +741,10 @@ class CalculatorKeyView @JvmOverloads constructor(
         if (drawKeySurfaces && keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET)) {
             softkeyDecorPaint.color = softkeyPreviewColor
             canvas.drawLine(
-                softkeyRect.left + 10f,
-                softkeyRect.bottom - 4f,
-                softkeyRect.right - 10f,
-                softkeyRect.bottom - 4f,
+                softkeyRect.left + KeyVisualPolicy.SOFTKEY_PREVIEW_LINE_SIDE_INSET,
+                softkeyRect.bottom - KeyVisualPolicy.SOFTKEY_PREVIEW_LINE_BOTTOM_INSET,
+                softkeyRect.right - KeyVisualPolicy.SOFTKEY_PREVIEW_LINE_SIDE_INSET,
+                softkeyRect.bottom - KeyVisualPolicy.SOFTKEY_PREVIEW_LINE_BOTTOM_INSET,
                 softkeyDecorPaint,
             )
             softkeyDecorPaint.color = decorColor
@@ -777,10 +758,10 @@ class CalculatorKeyView @JvmOverloads constructor(
                     text = valueText,
                     paint = softkeyValuePaint,
                     typeface = fontSet.numeric ?: fontSet.tiny ?: fontSet.standard,
-                    baseSize = height * 0.18f,
-                    maxWidth = softkeyRect.width() * 0.34f,
-                    x = softkeyRect.right - 7f,
-                    anchorY = softkeyRect.top + 6f,
+                    baseSize = height * KeyVisualPolicy.SOFTKEY_VALUE_TEXT_SIZE_RATIO,
+                    maxWidth = softkeyRect.width() * KeyVisualPolicy.SOFTKEY_VALUE_WIDTH_RATIO,
+                    x = softkeyRect.right - KeyVisualPolicy.SOFTKEY_VALUE_RIGHT_INSET,
+                    anchorY = softkeyRect.top + KeyVisualPolicy.SOFTKEY_VALUE_TOP_INSET,
                     color = valueTextColor,
                     align = Paint.Align.RIGHT,
                     verticalAnchor = TEXT_ANCHOR_TOP,
@@ -792,29 +773,29 @@ class CalculatorKeyView @JvmOverloads constructor(
             drawSoftkeyOverlay(
                 canvas = canvas,
                 overlayState = keyState.overlayState,
-                centerX = softkeyRect.right - 10f,
-                centerY = softkeyRect.bottom - 12f,
+                centerX = softkeyRect.right - KeyVisualPolicy.SOFTKEY_OVERLAY_CENTER_RIGHT_INSET,
+                centerY = softkeyRect.bottom - KeyVisualPolicy.SOFTKEY_OVERLAY_CENTER_BOTTOM_INSET,
                 color = decorColor,
             )
         }
 
         if (keyState.primaryLabel.isNotBlank()) {
             val primaryCenterY = if (showText) {
-                softkeyRect.top + (softkeyRect.height() * 0.28f)
+                softkeyRect.top + (softkeyRect.height() * KeyVisualPolicy.SOFTKEY_PRIMARY_TOP_RATIO)
             } else {
                 softkeyRect.centerY()
             }
             val reservedRight = when {
-                showOverlay -> 16f
-                else -> 8f
+                showOverlay -> KeyVisualPolicy.SOFTKEY_PRIMARY_RIGHT_RESERVE_WITH_OVERLAY
+                else -> KeyVisualPolicy.SOFTKEY_PRIMARY_SIDE_INSET
             }
             drawFittedText(
                 canvas = canvas,
                 text = keyState.primaryLabel,
                 paint = softkeyTextPaint,
                 typeface = fontSet.standard,
-                baseSize = STANDARD_KEY_FONT_SIZE * softkeySurfaceScale,
-                maxWidth = softkeyRect.width() - reservedRight - 8f,
+                baseSize = KeyVisualPolicy.DEFAULT_PRIMARY_LEGEND_TEXT_SIZE * softkeySurfaceScale,
+                maxWidth = softkeyRect.width() - reservedRight - KeyVisualPolicy.SOFTKEY_PRIMARY_SIDE_INSET,
                 x = softkeyRect.centerX(),
                 anchorY = primaryCenterY,
                 color = primaryTextColor,
@@ -827,10 +808,10 @@ class CalculatorKeyView @JvmOverloads constructor(
                 text = keyState.auxLabel,
                 paint = softkeyAuxPaint,
                 typeface = fontSet.tiny ?: fontSet.standard,
-                baseSize = height * 0.16f,
-                maxWidth = softkeyRect.width() - 12f,
+                baseSize = height * KeyVisualPolicy.SOFTKEY_AUX_TEXT_SIZE_RATIO,
+                maxWidth = softkeyRect.width() - KeyVisualPolicy.SOFTKEY_AUX_SIDE_INSET,
                 x = softkeyRect.centerX(),
-                anchorY = softkeyRect.bottom - 11f,
+                anchorY = softkeyRect.bottom - KeyVisualPolicy.SOFTKEY_AUX_BOTTOM_INSET,
                 color = metaTextColor,
                 verticalAnchor = TEXT_ANCHOR_BOTTOM,
             )
@@ -838,19 +819,19 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_STRIKE_THROUGH)) {
             canvas.drawLine(
-                softkeyRect.left + 8f,
+                softkeyRect.left + KeyVisualPolicy.SOFTKEY_STRIKE_SIDE_INSET,
                 softkeyRect.centerY(),
-                softkeyRect.right - 8f,
+                softkeyRect.right - KeyVisualPolicy.SOFTKEY_STRIKE_SIDE_INSET,
                 softkeyRect.centerY(),
                 softkeyDecorPaint,
             )
         }
         if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_STRIKE_OUT)) {
             canvas.drawLine(
-                softkeyRect.left + 7f,
-                softkeyRect.top + 10f,
-                softkeyRect.right - 7f,
-                softkeyRect.bottom - 10f,
+                softkeyRect.left + KeyVisualPolicy.SOFTKEY_STRIKE_OUT_SIDE_INSET,
+                softkeyRect.top + KeyVisualPolicy.SOFTKEY_STRIKE_OUT_VERTICAL_INSET,
+                softkeyRect.right - KeyVisualPolicy.SOFTKEY_STRIKE_OUT_SIDE_INSET,
+                softkeyRect.bottom - KeyVisualPolicy.SOFTKEY_STRIKE_OUT_VERTICAL_INSET,
                 softkeyDecorPaint,
             )
         }
@@ -874,42 +855,82 @@ class CalculatorKeyView @JvmOverloads constructor(
         centerY: Float,
         color: Int,
     ) {
-        val size = 7f
+        val size = KeyVisualPolicy.SOFTKEY_OVERLAY_SIZE
         softkeyDecorPaint.color = color
 
         when (overlayState) {
             KeypadSceneContract.OVERLAY_RB_FALSE -> {
-                canvas.drawCircle(centerX, centerY, size * 0.7f, softkeyDecorPaint)
+                canvas.drawCircle(centerX, centerY, size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO, softkeyDecorPaint)
             }
             KeypadSceneContract.OVERLAY_RB_TRUE -> {
-                canvas.drawCircle(centerX, centerY, size * 0.7f, softkeyDecorPaint)
-                canvas.drawCircle(centerX, centerY, size * 0.28f, softkeyDotPaint.apply { this.color = color })
+                canvas.drawCircle(centerX, centerY, size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO, softkeyDecorPaint)
+                canvas.drawCircle(centerX, centerY, size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_DOT_RATIO, softkeyDotPaint.apply { this.color = color })
             }
             KeypadSceneContract.OVERLAY_CB_FALSE -> {
-                canvas.drawRect(centerX - size * 0.7f, centerY - size * 0.7f, centerX + size * 0.7f, centerY + size * 0.7f, softkeyDecorPaint)
+                canvas.drawRect(
+                    centerX - size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
+                    centerY - size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
+                    centerX + size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
+                    centerY + size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
+                    softkeyDecorPaint,
+                )
             }
             KeypadSceneContract.OVERLAY_CB_TRUE -> {
-                canvas.drawRect(centerX - size * 0.7f, centerY - size * 0.7f, centerX + size * 0.7f, centerY + size * 0.7f, softkeyDecorPaint)
-                canvas.drawLine(centerX - 3f, centerY, centerX - 1f, centerY + 3f, softkeyDecorPaint)
-                canvas.drawLine(centerX - 1f, centerY + 3f, centerX + 4f, centerY - 3f, softkeyDecorPaint)
+                canvas.drawRect(
+                    centerX - size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
+                    centerY - size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
+                    centerX + size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
+                    centerY + size * KeyVisualPolicy.SOFTKEY_OVERLAY_MARK_HALF_EXTENT_RATIO,
+                    softkeyDecorPaint,
+                )
+                canvas.drawLine(
+                    centerX - KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_LEFT_X,
+                    centerY,
+                    centerX - KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_MID_X,
+                    centerY + KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_DELTA_Y,
+                    softkeyDecorPaint,
+                )
+                canvas.drawLine(
+                    centerX - KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_MID_X,
+                    centerY + KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_DELTA_Y,
+                    centerX + KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_RIGHT_X,
+                    centerY - KeyVisualPolicy.SOFTKEY_OVERLAY_CHECK_DELTA_Y,
+                    softkeyDecorPaint,
+                )
             }
             KeypadSceneContract.OVERLAY_MB_FALSE,
             KeypadSceneContract.OVERLAY_MB_TRUE -> {
-                val rect = RectF(centerX - 6.5f, centerY - 5.2f, centerX + 6.5f, centerY + 5.2f)
-                canvas.drawRoundRect(rect, 3f, 3f, softkeyDecorPaint)
+                val rect = RectF(
+                    centerX - KeyVisualPolicy.SOFTKEY_OVERLAY_MB_HALF_WIDTH,
+                    centerY - KeyVisualPolicy.SOFTKEY_OVERLAY_MB_HALF_HEIGHT,
+                    centerX + KeyVisualPolicy.SOFTKEY_OVERLAY_MB_HALF_WIDTH,
+                    centerY + KeyVisualPolicy.SOFTKEY_OVERLAY_MB_HALF_HEIGHT,
+                )
+                canvas.drawRoundRect(
+                    rect,
+                    KeyVisualPolicy.SOFTKEY_OVERLAY_MB_CORNER_RADIUS,
+                    KeyVisualPolicy.SOFTKEY_OVERLAY_MB_CORNER_RADIUS,
+                    softkeyDecorPaint,
+                )
                 drawFittedText(
                     canvas = canvas,
                     text = "M",
                     paint = softkeyAuxPaint,
                     typeface = fontSet.tiny ?: fontSet.standard,
-                    baseSize = height * 0.12f,
-                    maxWidth = 9f,
+                    baseSize = height * KeyVisualPolicy.SOFTKEY_OVERLAY_MB_TEXT_SIZE_RATIO,
+                    maxWidth = KeyVisualPolicy.SOFTKEY_OVERLAY_MB_TEXT_MAX_WIDTH,
                     x = centerX,
-                    anchorY = centerY - 0.5f,
+                    anchorY = centerY - KeyVisualPolicy.SOFTKEY_OVERLAY_MB_TEXT_BASELINE_OFFSET,
                     color = color,
                 )
                 if (overlayState == KeypadSceneContract.OVERLAY_MB_TRUE) {
-                    canvas.drawLine(centerX + 1f, centerY + 4f, centerX + 6f, centerY + 4f, softkeyDecorPaint)
+                    canvas.drawLine(
+                        centerX + KeyVisualPolicy.SOFTKEY_OVERLAY_MB_UNDERLINE_START_X,
+                        centerY + KeyVisualPolicy.SOFTKEY_OVERLAY_MB_UNDERLINE_Y,
+                        centerX + KeyVisualPolicy.SOFTKEY_OVERLAY_MB_UNDERLINE_END_X,
+                        centerY + KeyVisualPolicy.SOFTKEY_OVERLAY_MB_UNDERLINE_Y,
+                        softkeyDecorPaint,
+                    )
                 }
             }
         }
@@ -939,7 +960,8 @@ class CalculatorKeyView @JvmOverloads constructor(
 
         val measured = paint.measureText(text)
         if (measured > maxWidth && measured > 0f) {
-            paint.textSize = (baseSize * (maxWidth / measured)).coerceAtLeast(baseSize * 0.58f)
+            paint.textSize =
+                (baseSize * (maxWidth / measured)).coerceAtLeast(baseSize * KeyVisualPolicy.FITTED_TEXT_MIN_SCALE)
         }
 
         val metrics = paint.fontMetrics

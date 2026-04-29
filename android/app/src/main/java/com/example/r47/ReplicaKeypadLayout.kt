@@ -4,74 +4,15 @@ import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
 
-internal object R47MeasuredGeometry {
-    private const val REFERENCE_WIDTH = 1820f
-    private const val REFERENCE_HEIGHT = 3403f
-    private const val SHARED_SHELL_WIDTH = 526f
-    private const val SHARED_SHELL_HEIGHT = 980f
-    private const val SCALE_X = SHARED_SHELL_WIDTH / REFERENCE_WIDTH
-    private const val SCALE_Y = SHARED_SHELL_HEIGHT / REFERENCE_HEIGHT
-
-    const val STANDARD_LEFT = 134f * SCALE_X
-    const val STANDARD_PITCH = 272f * SCALE_X
-    const val STANDARD_KEY_WIDTH = 192f * SCALE_X
-    const val MATRIX_FIRST_VISIBLE_LEFT = 465f * SCALE_X
-    const val MATRIX_PITCH = 331f * SCALE_X
-    const val MATRIX_KEY_WIDTH = 228f * SCALE_X
-    const val ENTER_WIDTH = 462f * SCALE_X
-    const val ROW_HEIGHT = 144f * SCALE_Y
-    const val ROW_STEP = 260f * SCALE_Y
-    const val SOFTKEY_ROW_TOP = 1290f * SCALE_Y
-    const val FIRST_SMALL_ROW_TOP = 1550f * SCALE_Y
-    const val ENTER_ROW_TOP = 2070f * SCALE_Y
-    const val FIRST_LARGE_ROW_TOP = 2330f * SCALE_Y
-}
-
 internal object ReplicaKeypadLayout {
     private const val CHROME_MODE_TEXTURE = "r47_texture"
-    private const val TEXTURE_SHELL_WIDTH = 537f
-    private const val TEXTURE_SHELL_HEIGHT = 1005f
-    private const val SHARED_SHELL_WIDTH = 526f
-    private const val SHARED_SHELL_HEIGHT = 980f
-    private const val REFERENCE_SMALL_ROW_START_X = R47MeasuredGeometry.STANDARD_LEFT
-    private const val REFERENCE_SOFTKEY_TOP = R47MeasuredGeometry.SOFTKEY_ROW_TOP
-    private const val REFERENCE_SMALL_CELL_WIDTH = R47MeasuredGeometry.STANDARD_PITCH
-    private const val REFERENCE_SMALL_BUTTON_WIDTH = R47MeasuredGeometry.STANDARD_KEY_WIDTH
-    private const val REFERENCE_SOFTKEY_WIDTH = R47MeasuredGeometry.STANDARD_KEY_WIDTH + 4f
-    private const val REFERENCE_SOFTKEY_HEIGHT = R47MeasuredGeometry.ROW_HEIGHT + 4f
-    private const val REFERENCE_MAIN_KEY_HEIGHT = 68f
-    private const val REFERENCE_FIRST_SMALL_ROW_TOP = R47MeasuredGeometry.FIRST_SMALL_ROW_TOP
-    private const val REFERENCE_MAIN_ROW_STEP_Y = R47MeasuredGeometry.ROW_STEP
-    private const val REFERENCE_ENTER_ROW_TOP = R47MeasuredGeometry.ENTER_ROW_TOP
-    private const val REFERENCE_FIRST_LARGE_ROW_TOP = R47MeasuredGeometry.FIRST_LARGE_ROW_TOP
-    private const val REFERENCE_LARGE_ROW_STEP_Y = R47MeasuredGeometry.ROW_STEP
-    private const val REFERENCE_LARGE_FIRST_COLUMN_WIDTH = REFERENCE_SMALL_BUTTON_WIDTH
-    private const val REFERENCE_LARGE_WIDE_CELL_WIDTH = R47MeasuredGeometry.MATRIX_PITCH
-    private const val REFERENCE_LARGE_WIDE_COLUMNS = 4
-    private const val REFERENCE_ENTER_WIDTH = R47MeasuredGeometry.ENTER_WIDTH
-    private const val REFERENCE_LARGE_WIDE_GRID_START_X =
-        R47MeasuredGeometry.MATRIX_FIRST_VISIBLE_LEFT
-
-    private data class DynamicGridSpec(
-        val softkeyStartX: Float,
-        val softkeyTopY: Float,
-        val softkeyStepX: Float,
-        val softkeyWidth: Float,
-        val softkeyHeight: Float,
-        val smallRowStartX: Float,
-        val smallRowCellWidth: Float,
-        val mainKeyHeight: Float,
-        val firstSmallRowY: Float,
-        val mainRowStepY: Float,
-        val enterRowY: Float,
-        val largeRowFirstX: Float,
-        val largeRowWideStartX: Float,
-        val largeRowWideCellWidth: Float,
-        val largeRowFirstWidth: Float,
-        val firstLargeRowY: Float,
-        val largeRowStepY: Float,
-        val enterWidth: Float,
-    )
+    private const val SOFTKEY_WIDTH = R47ReferenceGeometry.STANDARD_KEY_WIDTH
+    private const val SOFTKEY_HEIGHT = R47ReferenceGeometry.ROW_HEIGHT
+    private const val NON_SOFTKEY_VIEW_HEIGHT = R47AndroidChromeGeometry.NON_SOFTKEY_VIEW_HEIGHT
+    private val UPPER_COLUMN_BOUNDARIES = floatArrayOf(94.0f, 366.0f, 638.0f, 910.0f, 1182.0f, 1454.0f, 1726.0f)
+    private val UPPER_ROW_BOUNDARIES = floatArrayOf(1232.0f, 1492.0f, 1752.0f, 2012.0f, 2272.0f)
+    private val LOWER_COLUMN_BOUNDARIES = floatArrayOf(82.5f, 413.5f, 744.5f, 1075.5f, 1406.5f, 1737.5f)
+    private val LOWER_ROW_BOUNDARIES = floatArrayOf(2272.0f, 2532.0f, 2792.0f, 3052.0f, 3312.0f)
 
     private data class TouchZoneSpec(
         val code: Int,
@@ -81,52 +22,8 @@ internal object ReplicaKeypadLayout {
         val height: Float,
     )
 
-    private data class TouchCellSpec(
-        val code: Int,
-        val startColumn: Int,
-        val columnSpan: Int = 1,
-    )
-
-    private data class TouchRowSpec(
-        val top: Float,
-        val bottom: Float,
-        val startX: Float,
-        val columnWidth: Float,
-        val cells: List<TouchCellSpec>,
-    )
-
-    private data class KeyPlacementSpec(
-        val x: Float,
-        val y: Float,
-        val width: Float,
-        val height: Float,
-    )
-
     private val baseTouchZones = buildBaseTouchZones()
     private val baseTouchZonesByCode = baseTouchZones.associateBy { it.code }
-
-    private fun dynamicGridSpec(): DynamicGridSpec {
-        return DynamicGridSpec(
-            softkeyStartX = REFERENCE_SMALL_ROW_START_X,
-            softkeyTopY = REFERENCE_SOFTKEY_TOP,
-            softkeyStepX = REFERENCE_SMALL_CELL_WIDTH,
-            softkeyWidth = REFERENCE_SOFTKEY_WIDTH,
-            softkeyHeight = REFERENCE_SOFTKEY_HEIGHT,
-            smallRowStartX = REFERENCE_SMALL_ROW_START_X,
-            smallRowCellWidth = REFERENCE_SMALL_CELL_WIDTH,
-            mainKeyHeight = REFERENCE_MAIN_KEY_HEIGHT,
-            firstSmallRowY = REFERENCE_FIRST_SMALL_ROW_TOP,
-            mainRowStepY = REFERENCE_MAIN_ROW_STEP_Y,
-            enterRowY = REFERENCE_ENTER_ROW_TOP,
-            largeRowFirstX = REFERENCE_SMALL_ROW_START_X,
-            largeRowWideStartX = REFERENCE_LARGE_WIDE_GRID_START_X,
-            largeRowWideCellWidth = REFERENCE_LARGE_WIDE_CELL_WIDTH,
-            largeRowFirstWidth = REFERENCE_LARGE_FIRST_COLUMN_WIDTH,
-            firstLargeRowY = REFERENCE_FIRST_LARGE_ROW_TOP,
-            largeRowStepY = REFERENCE_LARGE_ROW_STEP_Y,
-            enterWidth = REFERENCE_ENTER_WIDTH,
-        )
-    }
 
     fun rebuild(
         activity: MainActivity,
@@ -165,7 +62,6 @@ internal object ReplicaKeypadLayout {
             addTouchZone(
                 activity = activity,
                 overlay = overlay,
-                chromeMode = CHROME_MODE_TEXTURE,
                 code = touchZone.code,
                 performHapticClick = performHapticClick,
                 dispatchKey = dispatchKey,
@@ -180,7 +76,6 @@ internal object ReplicaKeypadLayout {
         performHapticClick: () -> Unit,
         dispatchKey: (Int) -> Unit,
     ) {
-        val grid = dynamicGridSpec()
         val fonts = KeypadFontSet(
             standard = loadTypeface(activity, "fonts/C47__StandardFont.ttf"),
             numeric = loadTypeface(activity, "fonts/C47__NumericFont.ttf"),
@@ -191,7 +86,38 @@ internal object ReplicaKeypadLayout {
         }
 
         KeypadTopology.orderedSlots().forEach { slot ->
-            val placement = keyPlacementFor(slot, grid)
+            val y = when (slot.lane) {
+                KeypadLane.SOFTKEY_ROW -> R47ReferenceGeometry.SOFTKEY_ROW_TOP
+                KeypadLane.SMALL_ROW_1 -> R47ReferenceGeometry.FIRST_SMALL_ROW_TOP
+                KeypadLane.SMALL_ROW_2 -> R47ReferenceGeometry.FIRST_SMALL_ROW_TOP + R47ReferenceGeometry.ROW_STEP
+                KeypadLane.ENTER_ROW -> R47ReferenceGeometry.ENTER_ROW_TOP
+                KeypadLane.MATRIX_ROW_1 -> R47ReferenceGeometry.FIRST_LARGE_ROW_TOP
+                KeypadLane.MATRIX_ROW_2 -> R47ReferenceGeometry.FIRST_LARGE_ROW_TOP + R47ReferenceGeometry.ROW_STEP
+                KeypadLane.MATRIX_ROW_3 -> R47ReferenceGeometry.FIRST_LARGE_ROW_TOP + R47ReferenceGeometry.ROW_STEP * 2f
+                KeypadLane.MATRIX_ROW_4 -> R47ReferenceGeometry.FIRST_LARGE_ROW_TOP + R47ReferenceGeometry.ROW_STEP * 3f
+            }
+            val x = when (slot.family) {
+                KeypadKeyFamily.SOFTKEY,
+                KeypadKeyFamily.STANDARD,
+                KeypadKeyFamily.ENTER,
+                KeypadKeyFamily.BASE_OPERATOR -> R47ReferenceGeometry.STANDARD_LEFT + R47ReferenceGeometry.STANDARD_PITCH * slot.column
+
+                KeypadKeyFamily.NUMERIC_MATRIX ->
+                    R47ReferenceGeometry.MATRIX_FIRST_VISIBLE_LEFT +
+                        R47ReferenceGeometry.MATRIX_PITCH * (slot.column - 1)
+            }
+            val width = when (slot.family) {
+                KeypadKeyFamily.SOFTKEY -> SOFTKEY_WIDTH
+                KeypadKeyFamily.STANDARD -> R47ReferenceGeometry.STANDARD_PITCH
+                KeypadKeyFamily.ENTER -> R47ReferenceGeometry.ENTER_WIDTH
+                KeypadKeyFamily.BASE_OPERATOR -> R47ReferenceGeometry.STANDARD_KEY_WIDTH
+                KeypadKeyFamily.NUMERIC_MATRIX -> R47ReferenceGeometry.MATRIX_PITCH
+            }
+            val height = if (slot.family == KeypadKeyFamily.SOFTKEY) {
+                SOFTKEY_HEIGHT
+            } else {
+                NON_SOFTKEY_VIEW_HEIGHT
+            }
             addKey(
                 activity = activity,
                 overlay = overlay,
@@ -199,65 +125,12 @@ internal object ReplicaKeypadLayout {
                 initialSnapshot = initialSnapshot,
                 slot = slot,
                 chromeMode = chromeMode,
-                x = placement.x,
-                y = placement.y,
-                width = placement.width,
-                height = placement.height,
+                x = x,
+                y = y,
+                width = width,
+                height = height,
                 performHapticClick = performHapticClick,
                 dispatchKey = dispatchKey,
-            )
-        }
-    }
-
-    private fun keyPlacementFor(
-        slot: KeypadSlotSpec,
-        grid: DynamicGridSpec,
-    ): KeyPlacementSpec {
-        val y = when (slot.lane) {
-            KeypadLane.SOFTKEY_ROW -> grid.softkeyTopY
-            KeypadLane.SMALL_ROW_1 -> grid.firstSmallRowY
-            KeypadLane.SMALL_ROW_2 -> grid.firstSmallRowY + grid.mainRowStepY
-            KeypadLane.ENTER_ROW -> grid.enterRowY
-            KeypadLane.MATRIX_ROW_1 -> grid.firstLargeRowY
-            KeypadLane.MATRIX_ROW_2 -> grid.firstLargeRowY + grid.largeRowStepY
-            KeypadLane.MATRIX_ROW_3 -> grid.firstLargeRowY + grid.largeRowStepY * 2f
-            KeypadLane.MATRIX_ROW_4 -> grid.firstLargeRowY + grid.largeRowStepY * 3f
-        }
-
-        return when (slot.family) {
-            KeypadKeyFamily.SOFTKEY -> KeyPlacementSpec(
-                x = grid.softkeyStartX + grid.softkeyStepX * slot.column,
-                y = y,
-                width = grid.softkeyWidth,
-                height = grid.softkeyHeight,
-            )
-
-            KeypadKeyFamily.STANDARD -> KeyPlacementSpec(
-                x = grid.smallRowStartX + grid.smallRowCellWidth * slot.column,
-                y = y,
-                width = grid.smallRowCellWidth,
-                height = grid.mainKeyHeight,
-            )
-
-            KeypadKeyFamily.ENTER -> KeyPlacementSpec(
-                x = grid.smallRowStartX,
-                y = y,
-                width = grid.enterWidth,
-                height = grid.mainKeyHeight,
-            )
-
-            KeypadKeyFamily.BASE_OPERATOR -> KeyPlacementSpec(
-                x = grid.largeRowFirstX,
-                y = y,
-                width = grid.largeRowFirstWidth,
-                height = grid.mainKeyHeight,
-            )
-
-            KeypadKeyFamily.NUMERIC_MATRIX -> KeyPlacementSpec(
-                x = grid.largeRowWideStartX + grid.largeRowWideCellWidth * (slot.column - 1),
-                y = y,
-                width = grid.largeRowWideCellWidth,
-                height = grid.mainKeyHeight,
             )
         }
     }
@@ -283,7 +156,6 @@ internal object ReplicaKeypadLayout {
         addTouchZone(
             activity = activity,
             overlay = overlay,
-            chromeMode = chromeMode,
             code = slot.code,
             performHapticClick = performHapticClick,
             dispatchKey = dispatchKey,
@@ -303,13 +175,12 @@ internal object ReplicaKeypadLayout {
     private fun addTouchZone(
         activity: MainActivity,
         overlay: ReplicaOverlay,
-        chromeMode: String,
         code: Int,
         performHapticClick: () -> Unit,
         dispatchKey: (Int) -> Unit,
         pressedView: View? = null,
     ) {
-        val touchZoneSpec = touchZoneFor(chromeMode, code)
+        val touchZoneSpec = touchZoneFor(code)
         val touchZone = View(activity).apply {
             isFocusable = false
             isFocusableInTouchMode = false
@@ -372,96 +243,28 @@ internal object ReplicaKeypadLayout {
         }
     }
 
-    private fun touchZoneFor(chromeMode: String, code: Int): TouchZoneSpec {
-        val base = baseTouchZonesByCode.getValue(code)
-        val scaleX = if (chromeMode == CHROME_MODE_TEXTURE) {
-            TEXTURE_SHELL_WIDTH / SHARED_SHELL_WIDTH
-        } else {
-            1f
-        }
-        val scaleY = if (chromeMode == CHROME_MODE_TEXTURE) {
-            TEXTURE_SHELL_HEIGHT / SHARED_SHELL_HEIGHT
-        } else {
-            1f
-        }
-        return TouchZoneSpec(
-            code = code,
-            x = base.x * scaleX,
-            y = base.y * scaleY,
-            width = base.width * scaleX,
-            height = base.height * scaleY,
-        )
+    private fun touchZoneFor(code: Int): TouchZoneSpec {
+        return baseTouchZonesByCode.getValue(code)
     }
 
     private fun buildBaseTouchZones(): List<TouchZoneSpec> {
-        val grid = dynamicGridSpec()
-        val upperColumnBounds = centerlineBoundaries(
-            (0 until 6).map { index ->
-                grid.smallRowStartX + REFERENCE_SMALL_BUTTON_WIDTH / 2f + grid.smallRowCellWidth * index
+        return KeypadTopology.orderedSlots().map { slot ->
+            val rowBounds = if (slot.lane.usesUpperTouchGrid) {
+                UPPER_ROW_BOUNDARIES
+            } else {
+                LOWER_ROW_BOUNDARIES
             }
-        )
-        val lowerColumnBounds = centerlineBoundaries(
-            (0 until 5).map { index ->
-                grid.largeRowWideStartX + R47MeasuredGeometry.MATRIX_KEY_WIDTH / 2f +
-                    grid.largeRowWideCellWidth * (index - 1)
+            val columnBounds = if (slot.lane.usesUpperTouchGrid) {
+                UPPER_COLUMN_BOUNDARIES
+            } else {
+                LOWER_COLUMN_BOUNDARIES
             }
-        )
-        val upperRowBounds = centerlineBoundaries(
-            listOf(
-                grid.softkeyTopY + R47MeasuredGeometry.ROW_HEIGHT / 2f,
-                grid.firstSmallRowY + R47MeasuredGeometry.ROW_HEIGHT / 2f,
-                grid.firstSmallRowY + grid.mainRowStepY + R47MeasuredGeometry.ROW_HEIGHT / 2f,
-                grid.enterRowY + R47MeasuredGeometry.ROW_HEIGHT / 2f,
-            )
-        )
-        val lowerRowBounds = centerlineBoundaries(
-            (0 until 4).map { index ->
-                grid.firstLargeRowY + R47MeasuredGeometry.ROW_HEIGHT / 2f + grid.largeRowStepY * index
-            }
-        )
-        val upperColumnWidth = upperColumnBounds[1] - upperColumnBounds[0]
-        val lowerColumnWidth = lowerColumnBounds[1] - lowerColumnBounds[0]
-        val rows = KeypadLane.values().map { lane ->
-            val rowBounds = if (lane.usesUpperTouchGrid) upperRowBounds else lowerRowBounds
-            TouchRowSpec(
-                top = rowBounds[lane.touchRowIndex],
-                bottom = rowBounds[lane.touchRowIndex + 1],
-                startX = if (lane.usesUpperTouchGrid) upperColumnBounds[0] else lowerColumnBounds[0],
-                columnWidth = if (lane.usesUpperTouchGrid) upperColumnWidth else lowerColumnWidth,
-                cells = KeypadTopology.slotsForLane(lane).map { slot ->
-                    TouchCellSpec(
-                        code = slot.code,
-                        startColumn = slot.column,
-                        columnSpan = slot.columnSpan,
-                    )
-                },
-            )
-        }
-
-        return rows.flatMap(::buildRowTouchZones)
-    }
-
-    private fun centerlineBoundaries(centers: List<Float>): List<Float> {
-        require(centers.size >= 2) { "Need at least two centers to compute touch boundaries" }
-
-        val boundaries = MutableList(centers.size + 1) { 0f }
-        boundaries[0] = centers[0] - (centers[1] - centers[0]) / 2f
-        for (index in 0 until centers.lastIndex) {
-            boundaries[index + 1] = (centers[index] + centers[index + 1]) / 2f
-        }
-        boundaries[boundaries.lastIndex] = centers.last() + (centers.last() - centers[centers.lastIndex - 1]) / 2f
-        return boundaries
-    }
-
-    private fun buildRowTouchZones(row: TouchRowSpec): List<TouchZoneSpec> {
-        val rowHeight = row.bottom - row.top
-        return row.cells.map { cell ->
             TouchZoneSpec(
-                code = cell.code,
-                x = row.startX + row.columnWidth * cell.startColumn,
-                y = row.top,
-                width = row.columnWidth * cell.columnSpan,
-                height = rowHeight,
+                code = slot.code,
+                x = columnBounds[slot.column],
+                y = rowBounds[slot.lane.touchRowIndex],
+                width = columnBounds[slot.column + slot.columnSpan] - columnBounds[slot.column],
+                height = rowBounds[slot.lane.touchRowIndex + 1] - rowBounds[slot.lane.touchRowIndex],
             )
         }
     }

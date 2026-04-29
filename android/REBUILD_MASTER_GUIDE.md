@@ -79,15 +79,20 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 
 ### 2.1. Dynamic Scaling & Layout Sync
 
-- **Logical Canvases**: `r47_texture` uses `537 x 1005`; `native` and `r47_background` use `526 x 980`.
-- **Scaling Rule**: `ReplicaOverlay` fits the active shell contract inside the available window. `physical` mode caps that fit scale by the calculator's physical-width target derived from display DPI.
+- **Logical Canvas**: The live runtime uses one measured reference canvas, `1820 x 3403`. The checked-in `r47_texture.webp` and `r47_background.webp` assets share the same measured widths across density buckets: mdpi `360`, hdpi `540`, xhdpi `720`, xxhdpi `1080`, xxxhdpi `1440`.
+- **Scaling Rule**: `ReplicaOverlay` fits the active shell contract inside the available window. `full_width` fits the trimmed visible frame (`42 / 49 / 42 / 56` logical-canvas units), while `physical` fits the full shell and caps that scale by the resolved shell bitmap width divided by `R47ReferenceGeometry.LOGICAL_CANVAS_WIDTH`.
 - **Chrome Contract**: `chrome_mode` selects between the default `r47_texture` classic shell with hidden touch zones, the background-backed `r47_background` shell that keeps scene-driven labels and softkey text without Android-painted key surfaces, and the native-drawn chrome mode.
-- **Positioning**: The active shell is centered inside the view. Areas above and below the shell remain filled by the activity background.
+- **Positioning**: The active projected frame is centered inside the view, and the logical shell is offset by the active trim when `full_width` is selected. Areas outside the rounded shell remain filled by the activity background.
 
 ### 2.2. LCD Calibration
 
-- **`r47_texture` Viewport**: `(25.5, 67.5)` with size `486 x 266.7` relative to the classic shell.
-- **`native` / `r47_background` Viewport**: `(43, 60)` with size `440 x 264` relative to the scene-driven shell.
+- **Live LCD Window**: All chrome modes use the same logical LCD window from
+  `R47AndroidChromeGeometry`: left `86`, top `229`, width `1648`, height `903`.
+- **LCD Buffer**: The native display buffer remains `400 x 240`; Android draws
+  that bitmap into the projected logical LCD window.
+- **Readability Bias**: The live Android LCD window is larger than the measured
+  physical LCD opening on the reference image. That is intentional app UI
+  policy, not a geometry parsing error.
 
 ---
 

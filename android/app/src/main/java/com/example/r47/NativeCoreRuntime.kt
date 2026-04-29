@@ -39,7 +39,7 @@ internal class NativeCoreRuntime(
         fun isAppRunning(): Boolean = isAppRunningShared
     }
 
-    private val lcdPixels = IntArray(400 * 240)
+    private val lcdPixels = IntArray(R47LcdContract.PIXEL_COUNT)
     private var lastLabelRefresh = 0L
     private var lastKeypadMeta = IntArray(0)
     private var frameLoopActive = false
