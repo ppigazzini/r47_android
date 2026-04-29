@@ -98,6 +98,8 @@ enum {
 extern void changeSoftKey(int16_t menuNr, int16_t itemNr, char *itemName,
                           videoMode_t *vm, int8_t *showCb,
                           int16_t *showValue, char *showText);
+extern char *figlabel(const char *label, const char *showText,
+                      int16_t showValue);
 extern bool_t itemNotAvail(int16_t itemNr);
   extern void itemToBeCoded(uint16_t unusedButMandatoryParameter);
   extern bool_t savedspace(int16_t itemNr);
@@ -422,6 +424,51 @@ static void clearSoftkeyScene(keypadSoftkeyScene_t *scene) {
   scene->sceneFlags = KEYPAD_SCENE_FLAG_SOFTKEY;
 }
 
+static bool_t usesSplitSoftkeyLayout(int16_t menuItem) {
+  switch (menuItem) {
+  case -MNU_CONVS:
+  case -MNU_CONVANG:
+  case -MNU_CONVE:
+  case -MNU_CONVP:
+  case -MNU_CONVFP:
+  case -MNU_CONVM:
+  case -MNU_CONVX:
+  case -MNU_CONVV:
+  case -MNU_CONVA:
+  case -MNU_UNITCONV:
+  case -MNU_MISC:
+  case -MNU_CONVHUM:
+  case -MNU_CONVYMMV:
+  case -MNU_CONVCHEF:
+  case -MNU_CONVTEMP:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool_t shouldComposeSoftkeyLabel(int16_t menuItem,
+                                        const char *showText,
+                                        int16_t showValue) {
+  return !usesSplitSoftkeyLayout(menuItem) &&
+         (showText[0] != 0 || showValue != NOVAL);
+}
+
+static bool_t composeSoftkeyInlineLabel(keypadSoftkeyScene_t *scene,
+                                        const char *label,
+                                        const char *showText,
+                                        int16_t showValue) {
+  const char *composed = figlabel(label ? label : "",
+                                  showText ? showText : "",
+                                  showValue);
+  if (!composed || composed[0] == 0) {
+    return false;
+  }
+
+  snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", composed);
+  return true;
+}
+
 static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene) {
   clearSoftkeyScene(scene);
 
@@ -476,7 +523,15 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
       } else if (userMenuItems[visibleIndex].argumentName[0] == 0) {
         changeSoftKey(softmenu[softmenuId].menuItem, sceneItem, itemName, &videoMode,
                       &showCb, &showValue, showText);
-        snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+        if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
+                                      showText,
+                                      showValue) &&
+            composeSoftkeyInlineLabel(scene, itemName, showText, showValue)) {
+          showText[0] = 0;
+          showValue = NOVAL;
+        } else {
+          snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+        }
       }
       break;
     case MNU_MyAlpha:
@@ -495,7 +550,15 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
                  0) {
         changeSoftKey(softmenu[softmenuId].menuItem, sceneItem, itemName, &videoMode,
                       &showCb, &showValue, showText);
-        snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+        if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
+                                      showText,
+                                      showValue) &&
+            composeSoftkeyInlineLabel(scene, itemName, showText, showValue)) {
+          showText[0] = 0;
+          showValue = NOVAL;
+        } else {
+          snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+        }
       }
       break;
     default:
@@ -542,7 +605,15 @@ static void resolveSoftkeyScene(int16_t fnKeyIndex, keypadSoftkeyScene_t *scene)
 
       changeSoftKey(softmenu[softmenuId].menuItem, item, itemName, &videoMode,
                     &showCb, &showValue, showText);
-      snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+      if (shouldComposeSoftkeyLabel(softmenu[softmenuId].menuItem,
+                                    showText,
+                                    showValue) &&
+          composeSoftkeyInlineLabel(scene, itemName, showText, showValue)) {
+        showText[0] = 0;
+        showValue = NOVAL;
+      } else {
+        snprintf(scene->primaryLabel, sizeof(scene->primaryLabel), "%s", itemName);
+      }
 
       if (videoMode == vmReverse) {
         scene->sceneFlags |= KEYPAD_SCENE_FLAG_REVERSE_VIDEO;
