@@ -754,10 +754,7 @@ class CalculatorKeyView @JvmOverloads constructor(
                 cornerRadius = cornerRadius,
             )
         }
-        if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_DOTTED_ROW)) {
-            drawSoftkeyDots(canvas, decorColor)
-        }
-        if (keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET)) {
+        if (drawKeySurfaces && keyState.hasSceneFlag(KeypadSceneContract.SCENE_FLAG_PREVIEW_TARGET)) {
             softkeyDecorPaint.color = softkeyPreviewColor
             canvas.drawLine(
                 softkeyRect.left + 10f,
@@ -865,16 +862,6 @@ class CalculatorKeyView @JvmOverloads constructor(
     ) {
         fillPaint.color = fillColor
         canvas.drawRoundRect(rect, cornerRadius, cornerRadius, fillPaint)
-    }
-
-    private fun drawSoftkeyDots(canvas: Canvas, color: Int) {
-        softkeyDotPaint.color = color
-        val spacing = 8f
-        val startX = softkeyRect.centerX() - spacing
-        val y = softkeyRect.top + 4f
-        for (index in 0..2) {
-            canvas.drawCircle(startX + index * spacing, y, 1.7f, softkeyDotPaint)
-        }
     }
 
     private fun drawSoftkeyOverlay(
