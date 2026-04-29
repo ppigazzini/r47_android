@@ -133,20 +133,20 @@ class CalculatorKeyView @JvmOverloads constructor(
     private val softkeyTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         isSubpixelText = true
-        isLinearText = false
-        setHinting(Paint.HINTING_ON)
+        isLinearText = true
+        setHinting(Paint.HINTING_OFF)
     }
     private val softkeyAuxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         isSubpixelText = true
-        isLinearText = false
-        setHinting(Paint.HINTING_ON)
+        isLinearText = true
+        setHinting(Paint.HINTING_OFF)
     }
     private val softkeyValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.RIGHT
         isSubpixelText = true
-        isLinearText = false
-        setHinting(Paint.HINTING_ON)
+        isLinearText = true
+        setHinting(Paint.HINTING_OFF)
     }
     private val softkeyDecorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -245,12 +245,15 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun configureTextRendering(labelView: TextView) {
-        labelView.paintFlags = (labelView.paintFlags or Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG) and
-            Paint.LINEAR_TEXT_FLAG.inv()
+        labelView.paintFlags =
+            labelView.paintFlags or
+                Paint.ANTI_ALIAS_FLAG or
+                Paint.SUBPIXEL_TEXT_FLAG or
+                Paint.LINEAR_TEXT_FLAG
         labelView.paint.setAntiAlias(true)
         labelView.paint.setSubpixelText(true)
-        labelView.paint.setLinearText(false)
-        labelView.paint.setHinting(Paint.HINTING_ON)
+        labelView.paint.setLinearText(true)
+        labelView.paint.setHinting(Paint.HINTING_OFF)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
