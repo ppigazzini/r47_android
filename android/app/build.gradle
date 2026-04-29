@@ -3,6 +3,50 @@ plugins {
     id 'kotlin-android'
 }
 
+def readGitOutput(List<String> args) {
+    def stdout = new ByteArrayOutputStream()
+    try {
+        exec {
+            workingDir rootProject.file('..')
+            commandLine(['git'] + args)
+            standardOutput = stdout
+            errorOutput = new ByteArrayOutputStream()
+            ignoreExitValue = true
+        }
+    } catch (Exception ignored) {
+        return null
+    }
+
+    def output = stdout.toString().trim()
+    return output ? output : null
+}
+
+def normalizeRepositoryUrl(String url) {
+    if (!url) {
+        return null
+    }
+
+    def normalizedUrl = url.trim().replaceAll(/\.git$/, '')
+    if (normalizedUrl.startsWith('ssh://')) {
+        def sshUrl = normalizedUrl.substring('ssh://'.length()).replaceFirst(/^[^@]+@/, '')
+        return "https://${sshUrl}"
+    }
+
+    if (!normalizedUrl.contains('://') && normalizedUrl.contains(':')) {
+        def scpStyleUrl = normalizedUrl.replaceFirst(/^[^@]+@/, '').replaceFirst(':', '/')
+        return "https://${scpStyleUrl}"
+    }
+
+    return normalizedUrl
+}
+
+def inferredAndroidSourceRepositoryUrl = normalizeRepositoryUrl(readGitOutput(['config', '--get', 'remote.origin.url']))
+def androidSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.sourceRepositoryUrl') ?: inferredAndroidSourceRepositoryUrl ?: "https://github.com/ppigazzini/r47_android").toString())
+def androidSourceCommit = (project.findProperty('r47.sourceCommit') ?: readGitOutput(['rev-parse', 'HEAD']) ?: 'unknown').toString()
+def upstreamSourceRepositoryUrl = normalizeRepositoryUrl(project.findProperty('r47.upstreamSourceRepositoryUrl')?.toString())
+def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toString()?.trim()
+def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
+
 android {
     namespace 'com.example.r47'
     compileSdk project.findProperty('r47.compileSdk')?.toInteger() ?: 35
@@ -18,6 +62,7 @@ android {
         versionCode releaseVersionCode
         versionName releaseVersionName
         resValue "string", "about_version_summary", "R47 Android ${releaseVersionName} (Core: ${coreVersion})"
+        resValue "string", "android_source_repository_url", androidSourceRepositoryUrl
         
         // Use property override if provided, otherwise default to a verified version
         // To use system default, user can pass -Pr47.ndkVersion=
@@ -68,6 +113,12 @@ android {
         jvmTarget = '17'
     }
 
+    sourceSets {
+        main {
+            assets.srcDir generatedComplianceAssetsDir
+        }
+    }
+
     applicationVariants.all { variant ->
         variant.outputs.all {
             outputFileName = "R47calculator-${variant.name}.apk"
@@ -82,4 +133,40 @@ dependencies {
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.preference:preference-ktx:1.2.1'
+}
+
+tasks.register('copyGplLicense', Copy) {
+    from rootProject.file('../COPYING')
+    into generatedComplianceAssetsDir
+}
+
+tasks.register('generateSourceManifest') {
+    inputs.property('androidSourceRepositoryUrl', androidSourceRepositoryUrl ?: '')
+    inputs.property('androidSourceCommit', androidSourceCommit ?: '')
+    inputs.property('upstreamSourceRepositoryUrl', upstreamSourceRepositoryUrl ?: '')
+    inputs.property('upstreamSourceCommit', upstreamSourceCommit ?: '')
+    outputs.file("${generatedComplianceAssetsDir}/SOURCE")
+
+    doLast {
+        def generatedAssetsDir = file(generatedComplianceAssetsDir)
+        generatedAssetsDir.mkdirs()
+        def sourceLines = []
+
+        if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
+            sourceLines << "Source repository: ${upstreamSourceRepositoryUrl}"
+            sourceLines << "Commit: ${upstreamSourceCommit}"
+            sourceLines << "Android source repository: ${androidSourceRepositoryUrl}"
+            sourceLines << "Android commit: ${androidSourceCommit}"
+        } else {
+            sourceLines << "Source repository: ${androidSourceRepositoryUrl}"
+            sourceLines << "Commit: ${androidSourceCommit}"
+        }
+
+        file("${generatedAssetsDir}/SOURCE").text = sourceLines.join('\n') + '\n'
+    }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('copyGplLicense')
+    dependsOn tasks.named('generateSourceManifest')
 }

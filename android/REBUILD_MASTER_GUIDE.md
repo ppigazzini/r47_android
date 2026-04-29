@@ -166,8 +166,27 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
   `CMAKE_BUILD_PARALLEL_LEVEL`, then the host CPU count, export that value as
   `CMAKE_BUILD_PARALLEL_LEVEL`, and thread it through `make`, `NINJAFLAGS`, and
   `gradlew --max-workers`.
+- `build_android.sh` MAY pass `R47_SOURCE_REPOSITORY_URL` through as the Gradle
+  property `r47.sourceRepositoryUrl` so redistributed APKs can point the About
+  screen at the Android fork source for the build they convey.
+- `build_android.sh` MAY also pass `R47_UPSTREAM_SOURCE_REPOSITORY_URL` and
+  `R47_UPSTREAM_SOURCE_COMMIT` so the packaged `SOURCE` manifest records the
+  synchronized upstream core revision ahead of the Android fork metadata.
+- `build_android.sh` MUST pass the checked-out Android repo commit through as
+  `r47.sourceCommit` so the packaged `SOURCE` manifest records the build input
+  even when Gradle is not invoked directly.
 - After `make sim`, it MUST delegate native staging to `android/stage_native_sources.sh`.
 - That staging step copies the synced `src/c47` tree, `dep/decNumberICU`, generated files, and mini-gmp inputs into `android/app/src/main/cpp`.
+- The app-module Gradle build MUST generate both `assets/COPYING` and
+  `assets/SOURCE`, with `COPYING` copied from the repo root and `SOURCE`
+  recording the Android repository URL plus commit for the packaged APK.
+- When `r47.upstreamSourceRepositoryUrl` and `r47.upstreamSourceCommit` are
+  supplied, `assets/SOURCE` MUST record that synchronized upstream core
+  revision first and then the Android repository URL plus commit.
+- The default Android source URL is inferred from `git remote origin` when
+  available, with a fallback of `https://github.com/ppigazzini/r47_android`.
+  Distributors remain responsible for overriding it when the shipped APK
+  corresponds to a different public Android source location.
 - Android compatibility for upstream GTK, GDK, and Cairo includes MUST live in tracked Android stub headers under `android/app/src/main/cpp/c47-android/stubs` plus `android_mocks.h`. Do not reintroduce post-copy `sed` rewrites of staged sources.
 - The About-version preference summary MUST come from the Gradle property `r47.coreVersion`, not from build-time edits of tracked XML resources.
 

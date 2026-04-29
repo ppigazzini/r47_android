@@ -218,6 +218,9 @@ jobs:
 
       - name: Build Linux simulator package
         shell: bash
+        env:
+          R47_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
+          R47_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
         run: |
           set -euo pipefail
 

@@ -176,6 +176,21 @@ else
   FORCENEW_TESTPGMS = 1
 endif
 
+SOURCE_REPOSITORY_URL ?= $(shell url="$(R47_SOURCE_REPOSITORY_URL)"; \
+	if [ -z "$$url" ]; then \
+		url=$$(git remote get-url origin 2>/dev/null || true); \
+	fi; \
+	if [ -z "$$url" ]; then \
+		url="https://github.com/ppigazzini/r47_android"; \
+	fi; \
+	printf '%s' "$$url" | sed \
+		-e 's#\.git$$##' \
+		-e 's#^ssh://git@#https://#' \
+		-e 's#^ssh://#https://#' \
+		-e 's#^git@#https://#' \
+		-e 's#^https://\([^:/]*\):#https://\1/#')
+SOURCE_COMMIT ?= $(or $(R47_SOURCE_COMMIT),$(shell git rev-parse HEAD 2>/dev/null || printf unknown))
+
 
 dist_build_PC:
 	$(MAKE) $(BUILD_PC)
@@ -187,6 +202,10 @@ dist_install_PC: dist_build_PC
 	mkdir -p $(DIST_DIR_PC)/res/
 	cp $(BUILD_PC)/src/c47-gtk/c47$(EXE) $(DIST_DIR_PC)/
 	cp $(BUILD_PC)/src/c47-gtk/r47$(EXE) $(DIST_DIR_PC)/
+	cp COPYING $(DIST_DIR_PC)/COPYING
+	printf '%s\n%s\n' \
+		"Source repository: $(SOURCE_REPOSITORY_URL)" \
+		"Commit: $(SOURCE_COMMIT)" > $(DIST_DIR_PC)/SOURCE
 	cp -r res/PROGRAMS $(DIST_DIR_PC)/res/
 	cp -r res/STATE $(DIST_DIR_PC)/res/
 	cp res/c47_pre.css $(DIST_DIR_PC)/res/

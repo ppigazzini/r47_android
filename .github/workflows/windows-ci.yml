@@ -147,6 +147,9 @@ jobs:
           done < <(git ls-files | grep -E '(^|/)meson\.build$' | grep -Ev '^src/')
 
       - name: Build upstream Windows package
+        env:
+          R47_SOURCE_REPOSITORY_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          R47_SOURCE_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
         run: |
           set -euo pipefail
 
