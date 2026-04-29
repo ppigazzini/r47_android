@@ -42,7 +42,9 @@ class ReplicaOverlay @JvmOverloads constructor(
         val drawNativeChrome: Boolean = false,
     )
 
-    private val shellCorner = 48f
+    private val sharedShellWidth = 526f
+    private val sharedShellHeight = 980f
+    private val shellCorner = 24f
     private val lcdCorner = 14f
     private val sharedTextureScaleX = 526f / 537f
     private val sharedTextureScaleY = 980f / 1005f
@@ -62,8 +64,8 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val textureAdaptiveTrimBottom = sharedAdaptiveTrimBottom / sharedTextureScaleY
     private val sharedChromeSpec = ChromeSpec(
         mode = CHROME_MODE_NATIVE,
-        shellWidth = 526f,
-        shellHeight = 980f,
+        shellWidth = sharedShellWidth,
+        shellHeight = sharedShellHeight,
         bezelHeight = 72f,
         settingsTouchHeight = sharedSettingsTouchHeight,
         lcdLeft = sharedVirtualLcdLeft,
