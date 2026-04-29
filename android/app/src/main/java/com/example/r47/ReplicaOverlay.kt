@@ -116,7 +116,7 @@ class ReplicaOverlay @JvmOverloads constructor(
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val shellRect = RectF()
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(31, 31, 31)
+        color = Color.rgb(32, 32, 32)
     }
     private val lcdFramePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.BLACK
