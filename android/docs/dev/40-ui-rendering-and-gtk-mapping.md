@@ -312,12 +312,19 @@ together before treating any of them as visible Android surfaces.
 hardcoding one text style for all keys. In practice that means:
 
 - primary labels can use different visual roles from faceplate labels
+- main-key primary labels stay on the staged standard calculator font,
+  including Alpha-styled captions such as the left-shift `Alpha` label
 - numeric and softkey roles can diverge without changing geometry ownership
 - faceplate labels that open menus are underlined because the native snapshot
   marks them as dedicated underline roles, not because Android inspects label
   text or moves the labels
 - label-role changes should come from native scene metadata, not from ad hoc
   Android string inspection
+
+Style-role changes do not by themselves justify a font-family change for main
+key primary legends. If one primary legend appears in a different face from the
+rest of the keypad, inspect the Android typeface selection and the native label
+export path before treating it as a typography rule.
 
 For the faceplate legends specifically, Android follows the upstream GTK rule:
 an underlined F or G label means that legend opens a menu, while a non-
