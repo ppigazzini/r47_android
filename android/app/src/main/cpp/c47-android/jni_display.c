@@ -2,6 +2,7 @@
 
 #include "keyboard.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -185,6 +186,40 @@ static void encodeUtf8Label(const char *name, char *utf8, size_t utf8Size) {
     return;
   }
   stringToUtf8(name, (uint8_t *)utf8);
+}
+
+static const char *resolveMainFaceplateGlyphLabel(jint labelType,
+                                                  const char *name,
+                                                  char *mapped,
+                                                  size_t mappedSize) {
+  if (labelType != KEYPAD_LABEL_F || !name || name[0] == 0) {
+    return name;
+  }
+
+  const char *glyph = NULL;
+  if (strcmp(name, "SST") == 0) {
+    glyph = isR47FAM ? STD_DOWN_BLOCKARROW : STD_SST;
+  } else if (strcmp(name, "BST") == 0) {
+    glyph = isR47FAM ? STD_UP_BLOCKARROW : STD_BST;
+  }
+
+  if (!glyph || mappedSize == 0) {
+    return name;
+  }
+
+  snprintf(mapped, mappedSize, "%s%s", STD_HAMBURGER, glyph);
+  return mapped;
+}
+
+static void encodeKeypadLabel(int keyCode, int labelType, const char *name,
+                              char *utf8, size_t utf8Size) {
+  char mapped[16];
+  const char *displayName = name;
+  if (keyCode >= 1 && keyCode <= 37) {
+    displayName = resolveMainFaceplateGlyphLabel(labelType, name, mapped,
+                                                 sizeof(mapped));
+  }
+  encodeUtf8Label(displayName, utf8, utf8Size);
 }
 
 static jint packLabelRole(jint slot, jint role) {
@@ -882,7 +917,7 @@ static void fillKeypadMeta(jint *fill, jboolean isDynamic) {
 static void setKeypadLabelElement(JNIEnv *env, jobjectArray labels, int keyCode,
                                   int labelType, const char *name) {
   char utf8[128];
-  encodeUtf8Label(name, utf8, sizeof(utf8));
+  encodeKeypadLabel(keyCode, labelType, name, utf8, sizeof(utf8));
   jstring value = (*env)->NewStringUTF(env, utf8);
   int index = (keyCode - 1) * KEYPAD_LABELS_PER_KEY + labelType;
   (*env)->SetObjectArrayElement(env, labels, index, value);
@@ -935,7 +970,7 @@ Java_com_example_r47_MainActivity_getButtonLabelNative(JNIEnv *env,
   const calcKey_t *key = &keys[keyCode - 1];
   const char *name = resolveMainKeyLabel(key, keyCode, type, isDynamic, alphaOn);
   char utf8[128];
-  encodeUtf8Label(name, utf8, sizeof(utf8));
+  encodeKeypadLabel(keyCode, type, name, utf8, sizeof(utf8));
   pthread_mutex_unlock(&screenMutex);
   return (*env)->NewStringUTF(env, utf8);
 }
