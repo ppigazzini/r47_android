@@ -590,6 +590,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun applyLabelVisibility(keyState: KeypadKeySnapshot) {
+        primaryLabel.visibility = View.VISIBLE
         val hasFLabel = keyState.fLabel.isNotBlank()
         fLabel.visibility = if (hasFLabel) View.VISIBLE else View.INVISIBLE
         gLabel.visibility = if (hasFLabel && keyState.gLabel.isNotBlank()) View.VISIBLE else View.INVISIBLE
