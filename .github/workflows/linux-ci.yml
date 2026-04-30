@@ -237,7 +237,6 @@ jobs:
           name: ${{ steps.meta.outputs.artifact_name }}-build-log
           path: ci-artifacts/logs/build-linux.log
           if-no-files-found: warn
-          compression-level: 0
           retention-days: 14
 
       - name: Collect Linux package artifact
@@ -249,7 +248,9 @@ jobs:
           release_dir="$artifact_dir/release"
           package_zip="c47-linux.zip"
           package_dir="$release_dir/c47-linux"
+          stripped_count=0
 
+          rm -rf "$release_dir"
           mkdir -p "$release_dir"
 
           if [[ ! -f "$package_zip" ]]; then
@@ -264,18 +265,47 @@ jobs:
             exit 1
           fi
 
+          if command -v llvm-strip > /dev/null 2>&1; then
+            strip_tool=llvm-strip
+          elif command -v strip > /dev/null 2>&1; then
+            strip_tool=strip
+          else
+            echo "No strip tool found in PATH." >&2
+            exit 1
+          fi
+
+          while IFS= read -r -d '' binary; do
+            if ! readelf -h "$binary" > /dev/null 2>&1; then
+              continue
+            fi
+
+            "$strip_tool" "$binary"
+            stripped_count=$((stripped_count + 1))
+          done < <(find "$package_dir" -type f -print0)
+
+          cp COPYING "$package_dir/COPYING"
+
+          cat > "$package_dir/SOURCE" <<EOF
+          upstream_url=${{ steps.upstream.outputs.upstream_url }}
+          upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
+          upstream_license_file=COPYING
+          xlsxio_url=${{ steps.xlsxio.outputs.xlsxio_url }}
+          xlsxio_commit=${{ steps.xlsxio.outputs.xlsxio_commit }}
+          EOF
+
           find "$package_dir" -type f | sed "s#^$release_dir/##" | sort > "$release_dir/PACKAGE-CONTENTS.txt"
 
           cat > "$release_dir/BUILD-METADATA.txt" <<EOF
-          ref=${GITHUB_REF}
-          sha=${GITHUB_SHA}
-          run_id=${GITHUB_RUN_ID}
-          run_attempt=${GITHUB_RUN_ATTEMPT}
           upstream_url=${{ steps.upstream.outputs.upstream_url }}
           upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
+          upstream_license_file=COPYING
+          source_manifest_file=SOURCE
           xlsxio_url=${{ steps.xlsxio.outputs.xlsxio_url }}
           xlsxio_commit=${{ steps.xlsxio.outputs.xlsxio_commit }}
           make_target=dist_linux
+          strip_tool=$strip_tool
+          stripped_files_count=$stripped_count
+          package_zip=$package_zip
           package_dir=$(basename "$package_dir")
           EOF
 
@@ -285,5 +315,4 @@ jobs:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: ci-artifacts/release/
           if-no-files-found: error
-          compression-level: 0
           retention-days: 14
