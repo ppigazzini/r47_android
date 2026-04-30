@@ -15,6 +15,8 @@ concurrency:
 
 env:
   UPSTREAM_URL: https://gitlab.com/rpncalculators/c43.git
+  XLSXIO_URL: https://github.com/brechtsanders/xlsxio.git
+  XLSXIO_COMMIT: a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
 
 jobs:
   resolve-upstream-core:
@@ -146,6 +148,35 @@ jobs:
             git checkout -- "$meson_file"
           done < <(git ls-files | grep -E '(^|/)meson\.build$' | grep -Ev '^src/')
 
+      - name: Load packaged Windows font into runner session
+        shell: pwsh
+        run: |
+          $fontPath = Join-Path $PWD "res\fonts\C47__StandardFont.ttf"
+          if (-not (Test-Path $fontPath)) {
+            throw "Expected font file not found: $fontPath"
+          }
+
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+
+          public static class C47FontLoader {
+              [DllImport("gdi32.dll", CharSet = CharSet.Unicode, EntryPoint = "AddFontResourceW", SetLastError = true)]
+              public static extern int AddFontResource(string lpFileName);
+
+              [DllImport("user32.dll", EntryPoint = "SendMessageW", SetLastError = true)]
+              public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+          }
+          '@
+
+          $fontsAdded = [C47FontLoader]::AddFontResource($fontPath)
+          if ($fontsAdded -lt 1) {
+            throw "AddFontResource failed for $fontPath"
+          }
+
+          [void][C47FontLoader]::SendMessage([IntPtr]0xffff, 0x001D, [IntPtr]::Zero, [IntPtr]::Zero)
+          Write-Host "Loaded $fontsAdded font resource(s) from $fontPath"
+
       - name: Build upstream Windows package
         env:
           R47_SOURCE_REPOSITORY_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
@@ -172,11 +203,13 @@ jobs:
 
           {
           artifact_dir="artifact-${{ matrix.artifact_suffix }}"
-          package_dir="$artifact_dir/c47-windows"
+          release_dir="$artifact_dir/release"
+          package_dir="$release_dir/c47-windows"
+          stripped_count=0
 
           rm -rf "$artifact_dir"
-          mkdir -p "$artifact_dir"
-          unzip -q c47-windows.zip -d "$artifact_dir"
+          mkdir -p "$release_dir"
+          unzip -q c47-windows.zip -d "$release_dir"
 
           if command -v llvm-strip > /dev/null 2>&1; then
             strip_tool=llvm-strip
@@ -188,6 +221,7 @@ jobs:
           fi
 
           "$strip_tool" "$package_dir/c47.exe" "$package_dir/r47.exe"
+          stripped_count=2
 
           dlls=$(for exe in "$package_dir/c47.exe" "$package_dir/r47.exe"; do
             ldd "$exe"
@@ -209,9 +243,36 @@ jobs:
           printf 'Stripped executable sizes:\n'
           stat -c '%n %s' "$package_dir/c47.exe" "$package_dir/r47.exe"
 
+          cp COPYING "$package_dir/COPYING"
+
+          cat > "$package_dir/SOURCE" <<EOF
+          upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          upstream_license_file=COPYING
+          xlsxio_url=$XLSXIO_URL
+          xlsxio_commit=$XLSXIO_COMMIT
+          EOF
+
+          find "$package_dir" -type f | sed "s#^$release_dir/##" | sort > "$release_dir/PACKAGE-CONTENTS.txt"
+
+          cat > "$release_dir/BUILD-METADATA.txt" <<EOF
+          upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+          upstream_license_file=COPYING
+          source_manifest_file=SOURCE
+          xlsxio_url=$XLSXIO_URL
+          xlsxio_commit=$XLSXIO_COMMIT
+          make_target=dist_windows
+          msystem=${{ matrix.msystem }}
+          strip_tool=$strip_tool
+          stripped_files_count=$stripped_count
+          package_zip=c47-windows.zip
+          package_dir=$(basename "$package_dir")
+          EOF
+
           rm -f c47-windows.zip
 
-          echo "artifact_path=$package_dir" >> "$GITHUB_OUTPUT"
+          echo "artifact_path=$release_dir" >> "$GITHUB_OUTPUT"
           } 2>&1 | tee -a "$log_file"
 
       - name: Upload Windows simulator artifact
@@ -220,6 +281,7 @@ jobs:
           name: r47-windows-${{ matrix.artifact_suffix }}-${{ needs.resolve-upstream-core.outputs.upstream_short }}
           path: ${{ steps.bundle.outputs.artifact_path }}
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload Windows build log
         if: always()
@@ -228,5 +290,4 @@ jobs:
           name: r47-windows-${{ matrix.artifact_suffix }}-${{ needs.resolve-upstream-core.outputs.upstream_short }}-build-log
           path: ci-artifacts/logs/build-windows-${{ matrix.artifact_suffix }}.log
           if-no-files-found: warn
-          compression-level: 0
           retention-days: 14
