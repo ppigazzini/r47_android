@@ -38,10 +38,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isHapticEnabled = true
     private var isHighFidelityHapticEnabled = true
-    private var hapticIntensity = 180
+    private var hapticIntensity = DEFAULT_HAPTIC_INTENSITY
     private var beeperVolume = 20
 
     companion object {
+        private const val DEFAULT_HAPTIC_INTENSITY = 64
+        private const val DEFAULT_CHROME_MODE = ReplicaOverlay.CHROME_MODE_BACKGROUND
+        private const val DEFAULT_LCD_MODE = "vintage"
+        private const val DEFAULT_SCALING_MODE = "full_width"
+
         init {
             System.loadLibrary("c47-android")
         }
@@ -53,9 +58,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private var currentSlotId = 0
     private var pendingSlotId: Int? = null 
 
-    private var chromeMode = "r47_texture"
-    private var lcdMode = "vintage"
-    private var scalingMode = "full_width"
+    private var chromeMode = DEFAULT_CHROME_MODE
+    private var lcdMode = DEFAULT_LCD_MODE
+    private var scalingMode = DEFAULT_SCALING_MODE
 
     private val VINTAGE_TEXT = 0xFF303030.toInt()
     private val VINTAGE_BG = 0xFFDFF5CC.toInt()
@@ -135,19 +140,17 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun applyLcdMode(mode: String) {
         lcdMode = mode
-        if (mode == "vintage") setLcdColors(VINTAGE_TEXT, VINTAGE_BG)
+        if (mode == DEFAULT_LCD_MODE) setLcdColors(VINTAGE_TEXT, VINTAGE_BG)
         else setLcdColors(BW_TEXT.toInt(), BW_BG.toInt())
     }
 
     private fun normalizeChromeMode(mode: String?): String {
         return when {
-            mode == null -> ReplicaOverlay.CHROME_MODE_TEXTURE
+            mode == null -> DEFAULT_CHROME_MODE
             mode == ReplicaOverlay.CHROME_MODE_NATIVE ||
                 mode == ReplicaOverlay.CHROME_MODE_TEXTURE ||
                 mode == ReplicaOverlay.CHROME_MODE_BACKGROUND -> mode
-            mode == "image" -> ReplicaOverlay.CHROME_MODE_BACKGROUND
-            mode.startsWith("r47_") -> ReplicaOverlay.CHROME_MODE_BACKGROUND
-            else -> ReplicaOverlay.CHROME_MODE_TEXTURE
+            else -> DEFAULT_CHROME_MODE
         }
     }
 
@@ -185,7 +188,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         when (key) {
             "haptic_enabled" -> isHapticEnabled = prefs.getBoolean(key, true)
             "haptic_hifi_enabled" -> isHighFidelityHapticEnabled = prefs.getBoolean(key, true)
-            "haptic_intensity" -> hapticIntensity = prefs.getInt(key, 180)
+            "haptic_intensity" -> hapticIntensity = prefs.getInt(key, DEFAULT_HAPTIC_INTENSITY)
             "beeper_volume" -> {
                 beeperVolume = prefs.getInt(key, 20)
                 syncAudioSettings()
@@ -200,14 +203,14 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 syncAudioSettings()
             }
             "lcd_mode" -> {
-                lcdMode = prefs.getString(key, "vintage") ?: "vintage"
+                lcdMode = prefs.getString(key, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
                 applyLcdMode(lcdMode)
             }
             "chrome_mode" -> {
-                applyChromeMode(prefs.getString(key, ReplicaOverlay.CHROME_MODE_TEXTURE) ?: ReplicaOverlay.CHROME_MODE_TEXTURE)
+                applyChromeMode(prefs.getString(key, DEFAULT_CHROME_MODE) ?: DEFAULT_CHROME_MODE)
             }
             "scaling_mode" -> {
-                scalingMode = prefs.getString(key, "full_width") ?: "full_width"
+                scalingMode = prefs.getString(key, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
                 replicaOverlay.setScalingMode(scalingMode)
             }
             "show_touch_zones" -> {
@@ -335,15 +338,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         
         isHapticEnabled = prefs.getBoolean("haptic_enabled", true)
         isHighFidelityHapticEnabled = prefs.getBoolean("haptic_hifi_enabled", true)
-        hapticIntensity = prefs.getInt("haptic_intensity", 180)
+        hapticIntensity = prefs.getInt("haptic_intensity", DEFAULT_HAPTIC_INTENSITY)
         beeperVolume = prefs.getInt("beeper_volume", 20)
-        val storedChromeMode = prefs.getString("chrome_mode", ReplicaOverlay.CHROME_MODE_TEXTURE)
+        val storedChromeMode = prefs.getString("chrome_mode", DEFAULT_CHROME_MODE)
         chromeMode = normalizeChromeMode(storedChromeMode)
         if (storedChromeMode != chromeMode) {
             prefs.edit().putString("chrome_mode", chromeMode).apply()
         }
-        lcdMode = prefs.getString("lcd_mode", "vintage") ?: "vintage"
-        scalingMode = prefs.getString("scaling_mode", "full_width") ?: "full_width"
+        lcdMode = prefs.getString("lcd_mode", DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
+        scalingMode = prefs.getString("scaling_mode", DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
         isBeeperEnabled = prefs.getBoolean("beeper_enabled", true)
         showTouchZones = prefs.getBoolean("show_touch_zones", false)
         if (prefs.getBoolean("keep_screen_on", false)) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

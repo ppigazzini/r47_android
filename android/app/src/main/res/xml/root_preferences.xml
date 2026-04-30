@@ -16,7 +16,7 @@
             app:title="Haptic Intensity"
             app:min="0"
             android:max="255"
-            app:defaultValue="180"
+            app:defaultValue="64"
             app:dependency="haptic_enabled"
             app:showSeekBarValue="true" />
         <SwitchPreferenceCompat
@@ -66,20 +66,22 @@
             app:title="Shell Chrome"
             app:entries="@array/chrome_entries"
             app:entryValues="@array/chrome_values"
-            app:defaultValue="r47_texture"
+            app:defaultValue="r47_background"
             app:useSimpleSummaryProvider="true" />
         <ListPreference
             app:key="lcd_mode"
             app:title="LCD Mode"
             app:entries="@array/lcd_entries"
             app:entryValues="@array/lcd_values"
-            app:defaultValue="vintage" />
+            app:defaultValue="vintage"
+            app:useSimpleSummaryProvider="true" />
         <ListPreference
             app:key="scaling_mode"
             app:title="Scaling"
             app:entries="@array/scaling_entries"
             app:entryValues="@array/scaling_values"
-            app:defaultValue="full_width" />
+            app:defaultValue="full_width"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Developer Tools">
