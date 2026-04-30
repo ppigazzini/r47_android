@@ -543,8 +543,12 @@ class CalculatorKeyView @JvmOverloads constructor(
         scheduleFaceplateOffsetUpdate()
     }
 
-    private fun primaryTypefaceFor(): Typeface? {
-        return fontSet.standard
+    private fun primaryTypefaceFor(keyState: KeypadKeySnapshot = mainKeyState): Typeface? {
+        return if (keyState.styleRole == KeypadSceneContract.STYLE_ALPHA) {
+            Typeface.DEFAULT
+        } else {
+            fontSet.standard
+        }
     }
 
     private fun applyLabelRole(labelView: TextView, role: Int, defaultColor: Int) {
@@ -571,7 +575,7 @@ class CalculatorKeyView @JvmOverloads constructor(
 
     private fun applySceneStyling(keyState: KeypadKeySnapshot) {
         primaryLabel.setTextColor(mainKeyStyleSpec(keyState.styleRole).primaryTextColor)
-        primaryLabel.typeface = primaryTypefaceFor()
+        primaryLabel.typeface = primaryTypefaceFor(keyState)
         applyLabelRole(
             fLabel,
             keyState.labelRole(KeypadSceneContract.LABEL_F),
@@ -590,6 +594,7 @@ class CalculatorKeyView @JvmOverloads constructor(
     }
 
     private fun applyLabelVisibility(keyState: KeypadKeySnapshot) {
+        primaryLabel.visibility = View.VISIBLE
         val hasFLabel = keyState.fLabel.isNotBlank()
         fLabel.visibility = if (hasFLabel) View.VISIBLE else View.INVISIBLE
         gLabel.visibility = if (hasFLabel && keyState.gLabel.isNotBlank()) View.VISIBLE else View.INVISIBLE
