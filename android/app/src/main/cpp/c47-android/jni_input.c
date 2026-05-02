@@ -44,7 +44,9 @@ Java_com_example_r47_MainActivity_sendSimKeyNative(
   }
 
   const char *nativeKeyId = (*env)->GetStringUTFChars(env, keyId, 0);
-  if (!nativeKeyId) {
+    if (!nativeKeyId ||
+      jni_check_and_clear_exception(env,
+                      "sendSimKeyNative GetStringUTFChars")) {
     return;
   }
 
@@ -78,20 +80,17 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
     return;
   }
 
-  char charKey[4];
   onUIActivity();
   if (keyCode > 0) {
     LOGD("sendKey: DOWN %d", keyCode);
     currentPressedKeyCode = keyCode;
     pthread_mutex_lock(&screenMutex);
     if (keyCode >= 38 && keyCode <= 43) {
-      sprintf(charKey, "%c", keyCode - 38 + '1');
-      strcpy(currentPressedKeyStr, charKey);
-      btnFnPressed(NULL, &pressEvent, charKey);
+      snprintf(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%c", keyCode - 38 + '1');
+      btnFnPressed(NULL, &pressEvent, currentPressedKeyStr);
     } else if (keyCode >= 1 && keyCode <= 37) {
-      sprintf(charKey, "%02u", keyCode - 1);
-      strcpy(currentPressedKeyStr, charKey);
-      btnPressed(NULL, &pressEvent, charKey);
+      snprintf(currentPressedKeyStr, sizeof(currentPressedKeyStr), "%02u", keyCode - 1);
+      btnPressed(NULL, &pressEvent, currentPressedKeyStr);
     }
     pthread_mutex_unlock(&screenMutex);
     return;

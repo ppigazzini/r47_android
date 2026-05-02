@@ -34,7 +34,7 @@ bridge does not rely on name-based native lookup.
 
 The registered native surface includes:
 
-- activity reattachment
+- activity reattachment and final runtime release
 - native pre-init, init, and tick
 - key, menu, and function dispatch
 - state save, load, and force refresh
@@ -44,12 +44,21 @@ The registered native surface includes:
 - slot selection and X-register fetch
 - SAF file selection callbacks
 
+Shared helpers in `jni_bridge.h` centralize `JNIEnv` acquisition,
+detach-on-scope-exit for native-owned threads, exception detection and clearing
+after Java calls, and fallback Java-string creation. New Android bridge code
+should use those helpers instead of open-coded `GetEnv`, `AttachCurrentThread`,
+or unchecked `Call*Method` paths.
+
 Development rule:
 
 - Keep the Kotlin external declarations, `JNINativeMethod` table, signatures,
   and implementations aligned in one change.
 - Keep app-class lookups and registration failures early in `JNI_OnLoad()` so a
   broken bridge fails at library load time rather than on first use.
+- Use `jni_acquire_env(...)`, `jni_release_env(...)`, and
+  `jni_check_and_clear_exception(...)` for native-owned JVM work instead of
+  duplicating attach, detach, and exception logic at each call site.
 
 ## Threading and synchronization
 
@@ -60,6 +69,8 @@ supports that model by keeping shared synchronization in native code:
 - `yieldToAndroidWithMs()` refreshes the LCD, releases the recursive screen
   lock, lets Android process queued work, sleeps briefly, and then reacquires
   the lock
+- native-owned JVM work acquires `JNIEnv` through `jni_acquire_env()` and
+  `jni_release_env()` so attach and detach remain scope-bound
 - the bridge can update the current activity reference when the activity is
   recreated
 - file I/O handoff uses a condition-based native wait path so the calculator
@@ -69,6 +80,11 @@ Practical rule:
 
 - when a native change can block on Android UI or storage, make the lock
   boundaries explicit before changing behavior
+
+Final app shutdown uses `releaseNativeRuntime()` to delete the global
+`MainActivity` reference and clear the cached method IDs. Activity recreation
+continues to use `updateNativeActivityRef()` without tearing down the native
+core.
 
 ## File I/O boundary
 
@@ -88,6 +104,10 @@ The SAF path works as follows:
    `ParcelFileDescriptor` and returned to native code.
 4. Native code wraps the descriptor with `fdopen(...)` and continues using
    standard file I/O.
+
+After `detachFd()`, the `ParcelFileDescriptor` wrapper no longer owns that file
+descriptor. Native closes it on the existing `fdopen()` failure path or through
+`fclose()` on success.
 
 The runtime base path is separate from the user-selected work directory. The
 base path supports internal files; the work-directory contract supports user
@@ -119,11 +139,15 @@ The checked-in Android build uses the supported NDK flexible-page-size path:
 - the checked-in NDK pin is `29.0.14206865`
 - the checked-in AGP version is `9.2.0`
 
-The current checked-in APK target is `arm64-v8a`. Any added prebuilt native
-dependency must also satisfy the 16 KB requirements for ELF and APK alignment.
+The default checked-in APK target is `arm64-v8a`. The workflow and local
+Gradle invocations can temporarily add `x86_64` through `r47.abiFilters` for
+emulator-backed test runs, but the shipped debug artifact remains
+`arm64-v8a` by default. Any added prebuilt native dependency must also satisfy
+the 16 KB requirements for ELF and APK alignment.
 
 The CI lane verifies that contract by checking zip alignment and native library
-`LOAD` segment alignment in the built debug APK.
+`LOAD` segment alignment in the built debug APK. The `android-tests` lane uses
+the temporary multi-ABI override only for hosted `x86_64` emulator execution.
 
 That artifact verification is the reason packaging changes should be documented
 alongside the workflow and Gradle files, not only in the CMake layer.

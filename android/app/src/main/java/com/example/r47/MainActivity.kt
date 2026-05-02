@@ -253,6 +253,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             onNativeFileSelected = ::onFileSelectedNative,
             onNativeFileCancelled = ::onFileCancelledNative,
         )
+        storageAccessCoordinator.registerLaunchers()
 
         displayActionController = DisplayActionController(
             context = this,
@@ -343,6 +344,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         coreRuntime.dispose(stopApp = isFinishing)
         if (isFinishing) {
             AudioEngine.stop()
+            releaseNativeRuntime()
         }
         appPreferences.unregisterOnSharedPreferenceChangeListener(this)
         super.onDestroy() 
@@ -423,6 +425,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun nativePreInit(storagePath: String)
     private external fun initNative(storagePath: String, slotId: Int)
     private external fun tick()
+    private external fun releaseNativeRuntime()
     private external fun sendKey(keyCode: Int)
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
     private external fun sendSimMenuNative(menuId: Int)

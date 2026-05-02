@@ -2,6 +2,11 @@ package com.example.r47
 
 import android.view.Choreographer
 
+internal interface DisplayRefreshLoop {
+    fun start()
+    fun stop()
+}
+
 internal class NativeDisplayRefreshLoop(
     private val isAppRunning: () -> Boolean,
     private val isNativeInitialized: () -> Boolean,
@@ -11,7 +16,7 @@ internal class NativeDisplayRefreshLoop(
     private val getKeypadSnapshot: (IntArray) -> KeypadSnapshot,
     private val onLcdPixels: (IntArray) -> Unit,
     private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
-) {
+) : DisplayRefreshLoop {
     private val lcdPixels = IntArray(R47LcdContract.PIXEL_COUNT)
     private var lastLabelRefresh = 0L
     private var lastKeypadMeta = IntArray(0)
@@ -46,7 +51,7 @@ internal class NativeDisplayRefreshLoop(
         }
     }
 
-    fun start() {
+    override fun start() {
         if (isActive) {
             return
         }
@@ -55,7 +60,7 @@ internal class NativeDisplayRefreshLoop(
         Choreographer.getInstance().postFrameCallback(frameCallback)
     }
 
-    fun stop() {
+    override fun stop() {
         if (!isActive) {
             return
         }

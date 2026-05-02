@@ -16,8 +16,9 @@ engine loop.
   frame-driven LCD refresh, and keypad snapshot refresh.
 - `SlotStore`: owns slot metadata persistence and the current-slot preference.
 - `AudioEngine`: owns Android-side tone playback and runtime beeper settings.
-- `StorageAccessCoordinator`: owns SAF create and open launchers, native file
-  request handoff, and work-directory validation on resume.
+- `StorageAccessCoordinator`: owns SAF create and open launcher registration
+  during activity initialization, native file request handoff, direct result
+  delivery used by tests, and work-directory validation on resume.
 - `WorkDirectory`: stores the persisted tree URI and resolves the `STATE`,
   `PROGRAMS`, `SAVFILES`, and `SCREENS` subfolders.
 - `DisplayActionController`: owns display long-press actions such as copy X
@@ -72,8 +73,8 @@ in the shell.
 
 ## Lifecycle contract
 
-- `onCreate()` wires the overlay, helpers, keypad, and native runtime, then
-  attaches the core thread.
+- `onCreate()` wires the overlay, helpers, SAF launchers, keypad, and native
+  runtime, then attaches the core thread.
 - `onResume()` requests a native refresh and revalidates the work-directory
   contract.
 - `onPause()` performs a synchronous native save when auto-save on minimize is
@@ -82,6 +83,11 @@ in the shell.
   finishing.
 - `onPictureInPictureModeChanged()` switches the overlay between normal shell
   mode and PiP mode.
+
+Activity Result launchers are registered from `MainActivity.onCreate()` through
+`StorageAccessCoordinator.registerLaunchers()`. Helper construction must stay
+side-effect free after resume so tests can call `deliverNativeFileResult()`
+without violating the Activity Result lifecycle contract.
 
 ## Input surfaces
 
@@ -119,6 +125,8 @@ Each path ultimately resolves to core-thread work or a small Android-side action
 - Keep blocking work off the main thread.
 - Add new Android integrations through focused helper types when they do not
   belong in `MainActivity`.
+- Keep `registerForActivityResult()` calls in the unconditional activity or
+  fragment initialization path, not in helper constructors or late callbacks.
 - When adding a native call, update the Kotlin external declaration and the JNI
   registration table together.
 - When a feature needs both Android lifecycle logic and native execution,

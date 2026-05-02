@@ -10,7 +10,7 @@
 #endif
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
-static void ascii_clean(char *str) {
+static void ascii_clean(char *str, size_t str_size) {
     if (!str || !*str) return;
     char tmp[1024];
     char *s = str;
@@ -52,7 +52,7 @@ static void ascii_clean(char *str) {
         }
     }
     *d = '\0';
-    strcpy(str, tmp);
+    snprintf(str, str_size, "%s", tmp);
 }
 
 static void trimTrailingRadix(char *str) {
@@ -97,11 +97,11 @@ char* getXRegisterString() {
             break;
             
         default:
-            sprintf(coreBuf, "[%s]", getDataTypeName(dataType, false, false));
+            snprintf(coreBuf, sizeof(coreBuf), "[%s]", getDataTypeName(dataType, false, false));
             break;
     }
     
-    ascii_clean(coreBuf);
+    ascii_clean(coreBuf, sizeof(coreBuf));
     trimTrailingRadix(coreBuf);
 
     // Convert core glyphs to valid UTF-8

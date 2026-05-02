@@ -47,6 +47,15 @@ def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toS
 def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: 'https://github.com/brechtsanders/xlsxio.git').toString())
 def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: 'a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9').toString()
 def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
+def configuredAbiFilters = (project.findProperty('r47.abiFilters') ?: 'arm64-v8a')
+    .toString()
+    .split(',')
+    .collect { it.trim() }
+    .findAll { !it.isEmpty() }
+
+if (configuredAbiFilters.isEmpty()) {
+    configuredAbiFilters = ['arm64-v8a']
+}
 
 android {
     namespace 'com.example.r47'
@@ -60,6 +69,7 @@ android {
         applicationId "com.example.r47"
         minSdk project.findProperty('r47.minSdk')?.toInteger() ?: 24
         targetSdk project.findProperty('r47.targetSdk')?.toInteger() ?: 36
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         versionCode releaseVersionCode
         versionName releaseVersionName
         resValue "string", "about_version_summary", "R47 Android ${releaseVersionName} (Core: ${coreVersion})"
@@ -76,7 +86,7 @@ android {
             }
         }
         ndk {
-            abiFilters 'arm64-v8a'
+            abiFilters(*configuredAbiFilters)
         }
     }
 
@@ -117,6 +127,10 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+
 }
 
 dependencies {
@@ -126,6 +140,14 @@ dependencies {
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.preference:preference-ktx:1.2.1'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'androidx.test:core:1.6.1'
+    testImplementation 'org.robolectric:robolectric:4.12.2'
+
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
 }
 
 tasks.register('copyGplLicense', Copy) {

@@ -11,23 +11,69 @@ extern void shiftCutoff(uint16_t timerType);
 extern void fnTimerDummy1(uint16_t timerType);
 extern void execTimerApp(uint16_t timerType);
 
+void releaseNativeActivityReferences(JNIEnv *env) {
+  if (g_mainActivityObj != NULL) {
+    (*env)->DeleteGlobalRef(env, g_mainActivityObj);
+    g_mainActivityObj = NULL;
+  }
+
+  g_requestFileId = NULL;
+  g_playToneId = NULL;
+  g_stopToneId = NULL;
+  g_processCoreTasksId = NULL;
+}
+
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
                                                                  jobject thiz) {
   LOGI("updateNativeActivityRef called");
 
-  if (g_mainActivityObj) {
-    (*env)->DeleteGlobalRef(env, g_mainActivityObj);
-  }
+  releaseNativeActivityReferences(env);
   g_mainActivityObj = (*env)->NewGlobalRef(env, thiz);
+  if (!jni_result_ok(env, g_mainActivityObj, "NewGlobalRef(MainActivity)")) {
+    releaseNativeActivityReferences(env);
+    return;
+  }
 
   jclass clazz = (*env)->GetObjectClass(env, thiz);
+  if (!jni_result_ok(env, clazz, "GetObjectClass(MainActivity)")) {
+    releaseNativeActivityReferences(env);
+    return;
+  }
+
   g_requestFileId =
       (*env)->GetMethodID(env, clazz, "requestFile", "(ZLjava/lang/String;I)V");
+  if (!jni_result_ok(env, (const void *)g_requestFileId,
+                     "GetMethodID(requestFile)")) {
+    (*env)->DeleteLocalRef(env, clazz);
+    releaseNativeActivityReferences(env);
+    return;
+  }
+
   g_playToneId = (*env)->GetMethodID(env, clazz, "playTone", "(II)V");
+  if (!jni_result_ok(env, (const void *)g_playToneId,
+                     "GetMethodID(playTone)")) {
+    (*env)->DeleteLocalRef(env, clazz);
+    releaseNativeActivityReferences(env);
+    return;
+  }
+
   g_stopToneId = (*env)->GetMethodID(env, clazz, "stopTone", "()V");
+  if (!jni_result_ok(env, (const void *)g_stopToneId,
+                     "GetMethodID(stopTone)")) {
+    (*env)->DeleteLocalRef(env, clazz);
+    releaseNativeActivityReferences(env);
+    return;
+  }
+
   g_processCoreTasksId =
       (*env)->GetMethodID(env, clazz, "processCoreTasks", "()V");
+  if (!jni_result_ok(env, (const void *)g_processCoreTasksId,
+                     "GetMethodID(processCoreTasks)")) {
+    (*env)->DeleteLocalRef(env, clazz);
+    releaseNativeActivityReferences(env);
+    return;
+  }
   (*env)->DeleteLocalRef(env, clazz);
 
   if (!ram) {
@@ -40,6 +86,14 @@ Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
   refreshLcd(NULL);
   lcd_refresh();
   pthread_mutex_unlock(&screenMutex);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_releaseNativeRuntime(JNIEnv *env,
+                                                              jobject thiz) {
+  (void)thiz;
+  LOGI("releaseNativeRuntime called");
+  releaseNativeActivityReferences(env);
 }
 
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(

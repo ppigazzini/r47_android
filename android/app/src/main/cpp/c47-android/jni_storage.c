@@ -30,14 +30,11 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
     return -1;
   }
 
-  JNIEnv *env = NULL;
-  if ((*g_jvm)->GetEnv(g_jvm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
-    jint attachResult = (*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL);
-    if (attachResult != JNI_OK || !env) {
-      LOGE("requestAndroidFile: AttachCurrentThread failed (%d)", attachResult);
-      return -1;
-    }
+  jni_env_scope_t scope;
+  if (!jni_acquire_env(&scope, "requestAndroidFile")) {
+    return -1;
   }
+  JNIEnv *env = scope.env;
 
   int lockCount = 0;
   while (pthread_mutex_unlock(&screenMutex) == 0) {
@@ -53,11 +50,11 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
   fileDescriptor = -1;
   pthread_mutex_unlock(&fileMutex);
 
-  jstring nameObj = (*env)->NewStringUTF(env, defaultName ? defaultName : "");
-  if ((*env)->ExceptionCheck(env)) {
-    LOGE("requestAndroidFile: NewStringUTF threw before request dispatch");
-    (*env)->ExceptionDescribe(env);
-    (*env)->ExceptionClear(env);
+  jstring nameObj =
+      jni_new_string_utf(env, defaultName ? defaultName : "", "",
+                         "requestAndroidFile NewStringUTF");
+  if (nameObj == NULL) {
+    jni_release_env(&scope, "requestAndroidFile");
     return failAndroidFileRequest(lockCount);
   }
 
@@ -67,12 +64,13 @@ int requestAndroidFile(int isSave, const char *defaultName, int fileType) {
     (*env)->DeleteLocalRef(env, nameObj);
   }
 
-  if ((*env)->ExceptionCheck(env)) {
-    LOGE("requestAndroidFile: requestFile threw before a file result was posted");
-    (*env)->ExceptionDescribe(env);
-    (*env)->ExceptionClear(env);
+  if (jni_check_and_clear_exception(env,
+                                    "requestAndroidFile CallVoidMethod")) {
+    jni_release_env(&scope, "requestAndroidFile");
     return failAndroidFileRequest(lockCount);
   }
+
+  jni_release_env(&scope, "requestAndroidFile");
 
   pthread_mutex_lock(&fileMutex);
   LOGI("requestAndroidFile: Waiting for file result...");

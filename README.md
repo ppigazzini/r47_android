@@ -33,7 +33,9 @@ sudo apt-get install git build-essential meson ninja-build libgmp-dev libgtk-3-d
     `com.example.r47`. Debug builds install as
     `com.example.r47.debug` so the snapshot lane stays separate from a
     future store release.
-- **APK ABI**: The checked-in debug APK currently packages `arm64-v8a` only.
+- **APK ABI**: The checked-in debug APK defaults to `arm64-v8a`. Use the
+    Gradle property `r47.abiFilters` only when you intentionally need extra
+    ABIs such as `x86_64` for emulator validation.
 
 ### 3. Firmware Cross-Compilation (Optional)
 ```bash
@@ -90,6 +92,19 @@ The debug APK packages a verbatim copy of the GNU GPL from `COPYING` at
 provenance manifest at `assets/SOURCE`. The GPL text is exposed in the app
 under `Settings -> About R47 -> GNU GPL Version 3`.
 
+### 4. Automated Validation
+The checked-in GitHub Actions workflow resolves one upstream core revision per
+run and validates that same revision across:
+
+- `make test` for the simulator lane
+- `./build_android.sh` for the Android debug APK and packaging checks
+- `:app:testDebugUnitTest` for the Android JVM suite
+- `:app:connectedDebugAndroidTest` on a hosted `x86_64` emulator with a CI-only
+    `r47.abiFilters=arm64-v8a,x86_64` override
+
+Workflow artifacts include the debug APK bundle, build logs, and Android test
+reports.
+
 ### 🛠️ Advanced Build Configuration
 If you have different versions of the Android SDK, NDK, or CMake installed (common on Windows), you can override the defaults. Depending on your operating system and terminal, some methods may be more reliable than others.
 
@@ -102,6 +117,8 @@ r47.ndkVersion=29.0.14206865
 r47.cmakeVersion=3.22.1
 r47.versionCode=1
 r47.versionName=0.1.0
+# Optional for emulator validation or local multi-ABI checks:
+# r47.abiFilters=arm64-v8a,x86_64
 r47.sourceRepositoryUrl=https://github.com/ppigazzini/r47_android
 r47.xlsxioSourceRepositoryUrl=https://github.com/brechtsanders/xlsxio.git
 r47.xlsxioSourceCommit=a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
@@ -111,6 +128,9 @@ r47.xlsxioSourceCommit=a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
 ```
 Note: **API 36 (Android 16)** is the checked-in default. Override these values
 only when you are intentionally validating against an older installed SDK set.
+Use `r47.abiFilters` only when validating on an emulator or another non-default
+ABI. Hosted CI uses that override for the `x86_64` emulator lane while the
+published debug artifact stays `arm64-v8a`.
 
 #### Option 2: Environment Variables (Linux / macOS / WSL)
 You can pass the NDK version, an explicit worker count, and optional
@@ -120,6 +140,7 @@ count:
 ```bash
 export R47_NDK_VERSION="29.0.14206865"
 export R47_BUILD_JOBS="8"
+export R47_GRADLE_ARGS="-Pr47.abiFilters=arm64-v8a,x86_64"
 export R47_VERSION_CODE="1"
 export R47_VERSION_NAME="0.1.0"
 export R47_SOURCE_REPOSITORY_URL="https://github.com/ppigazzini/r47_android"

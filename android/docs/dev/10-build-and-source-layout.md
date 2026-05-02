@@ -11,7 +11,7 @@
 - `minSdk 24`
 - `ndkVersion 29.0.14206865`
 - CMake `3.22.1`
-- ABI filter `arm64-v8a`
+- default ABI filter `arm64-v8a` with optional `r47.abiFilters` override
 - base `namespace` and `applicationId` `com.example.r47`
 - debug builds add `applicationIdSuffix ".debug"`
 - release version inputs come from `r47.versionCode`, `r47.versionName`, and
@@ -24,10 +24,19 @@
 - `./build_android.sh` is the authoritative Android debug-build entry point. It
   detects Java and the Android NDK, runs `make sim`, stages native inputs,
   copies fonts, writes `android/local.properties`, and runs Gradle clean plus
-  `assembleDebug`.
+  `assembleDebug`. It also forwards optional extra Gradle arguments from
+  `R47_GRADLE_ARGS`, which is how hosted CI applies the temporary multi-ABI
+  emulator override.
 - `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   native tree is already current and the change is isolated to the Android
   module.
+- `cd android && ./gradlew :app:testDebugUnitTest` validates the Robolectric
+  and fixture-backed Android JVM suite when the staged native tree is already
+  current.
+- `cd android && ./gradlew :app:assembleDebugAndroidTest` compiles and
+  packages the instrumentation suite. `:app:connectedDebugAndroidTest` requires
+  a device or emulator, and `-Pr47.abiFilters=arm64-v8a,x86_64` is the
+  supported override when that emulator is `x86_64`.
 - `make sim` is the generator step behind Android native staging. It produces
   the simulator build plus generated files copied into
   `android/app/src/main/cpp/generated`.
@@ -86,14 +95,25 @@ Build-safety rule:
 The GitHub Actions workflow at `.github/workflows/android-ci.yml` keeps the same
 ownership model as the local build:
 
-- it runs on `pull_request`, pushes to `github_ci` and `main`, and manual
-  `workflow_dispatch`
-- `resolve-upstream-core` resolves the authoritative upstream `master` commit.
+- it runs on `pull_request`, pushes to `github_ci` and `main`, scheduled
+  nightly runs, and manual `workflow_dispatch`
+- `resolve-upstream-core` resolves the authoritative upstream `master` commit
+  once per workflow run.
 - `simulator-tests` syncs that commit into the workspace and runs `make test`.
 - `android-debug` installs the pinned SDK, CMake, and NDK versions, runs
-  `./build_android.sh`, then records packaging evidence.
-- the simulator and Android jobs consume the same resolved upstream commit for a
-  given workflow run
+  `./build_android.sh`, and records packaging evidence for the default
+  `arm64-v8a` debug APK.
+- `android-tests` uses the same resolved upstream commit and staged-native
+  build path, applies `-Pr47.abiFilters=arm64-v8a,x86_64` only for the hosted
+  test lane, assembles `:app:assembleDebugAndroidTest`, runs
+  `:app:testDebugUnitTest`, enables KVM, and runs
+  `:app:connectedDebugAndroidTest` on a hosted `x86_64` emulator.
+- the simulator and Android jobs consume the same resolved upstream commit for
+  a given workflow run.
+- Android build logs, Android test logs, and test reports are uploaded with
+  `if: always()` where later steps can fail.
+- `publish-main-snapshot` waits for `simulator-tests`, `android-debug`, and
+  `android-tests` before publishing a main-branch prerelease.
 - the uploaded Android artifact contains the debug APK plus `SHA256SUMS.txt`,
   `abis.txt`, `zipalign.txt`, `elf-load-segments.txt`, and `BUILD-METADATA.txt`.
 - pushes to `main` and manual runs on `main` publish a debug-signed prerelease
@@ -106,6 +126,13 @@ lane.
 
 - Kotlin-only Android UI changes: `cd android && ./gradlew assembleDebug` when
   the staged native tree is already current.
+- Robolectric, fixture, or runtime-seam changes:
+  `cd android && ./gradlew :app:testDebugUnitTest` when the staged native tree
+  is already current.
+- SAF, debug-manifest, or Activity Result lifecycle changes:
+  `cd android && ./gradlew :app:assembleDebugAndroidTest`, then
+  `:app:connectedDebugAndroidTest` on a device or emulator. Add
+  `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`.
 - JNI, HAL, CMake, or packaging changes: `./build_android.sh`.
 - root core or generator changes: `make test` and then `./build_android.sh`.
 - CI-only changes: verify `.github/workflows/android-ci.yml` against the local

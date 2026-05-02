@@ -20,8 +20,8 @@ Read in this order:
 
 The CI lane follows the same ownership model as the local build: resolve one
 authoritative upstream core revision, run the root simulator tests, build the
-debug APK, then publish a main-branch snapshot prerelease from the generated
-artifact bundle.
+debug APK, run Android JVM plus emulator-backed instrumentation tests, then
+publish a main-branch snapshot prerelease only after those jobs pass.
 
 Two rules govern most Android work in this repository:
 

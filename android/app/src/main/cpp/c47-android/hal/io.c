@@ -91,12 +91,12 @@ int ioFileOpen(ioFilePath_t path, ioFileMode_t mode) {
         extern void stringToASCII(const char *in, char *out);
         
         if (path == ioPathSaveStateFile || path == ioPathLoadStateFile) {
-            strcpy(defaultName, "state.s47");
+            snprintf(defaultName, sizeof(defaultName), "%s", "state.s47");
         } else if (path == ioPathManualSave) {
             #if (CALCMODEL == USER_R47)
-                strcpy(defaultName, "R47.sav");
+                snprintf(defaultName, sizeof(defaultName), "%s", "R47.sav");
             #else
-                strcpy(defaultName, "C47.sav");
+                snprintf(defaultName, sizeof(defaultName), "%s", "C47.sav");
             #endif
         } else {
             // For programs, try to use the current label name
