@@ -174,24 +174,35 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
 - `build_android.sh` MAY pass `R47_SOURCE_REPOSITORY_URL` through as the Gradle
   property `r47.sourceRepositoryUrl` so redistributed APKs can point the About
   screen at the Android fork source for the build they convey.
+- `build_android.sh` MUST NOT default the Android source commit to the
+  synchronized upstream core hash. When `R47_SOURCE_COMMIT` is omitted, Gradle
+  MUST infer the checked-out Android repo `HEAD` for `assets/SOURCE`.
 - `build_android.sh` MAY also pass `R47_UPSTREAM_SOURCE_REPOSITORY_URL` and
   `R47_UPSTREAM_SOURCE_COMMIT` so the packaged `SOURCE` manifest records the
   synchronized upstream core revision ahead of the Android fork metadata.
-- `build_android.sh` MUST pass the checked-out Android repo commit through as
-  `r47.sourceCommit` so the packaged `SOURCE` manifest records the build input
-  even when Gradle is not invoked directly.
+- `build_android.sh` MUST pass the pinned xlsxio repository URL and commit
+  through as `r47.xlsxioSourceRepositoryUrl` and `r47.xlsxioSourceCommit` so
+  the packaged APK provenance matches the host toolchain that generated the
+  fonts.
 - After `make sim`, it MUST delegate native staging to `android/stage_native_sources.sh`.
 - That staging step copies the synced `src/c47` tree, `dep/decNumberICU`, generated files, and mini-gmp inputs into `android/app/src/main/cpp`.
-- The app-module Gradle build MUST generate both `assets/COPYING` and
-  `assets/SOURCE`, with `COPYING` copied from the repo root and `SOURCE`
-  recording the Android repository URL plus commit for the packaged APK.
+- The app-module Gradle build MUST generate `assets/COPYING`,
+  `assets/LICENSE.txt`, and `assets/SOURCE`, with `COPYING` copied from the
+  repo root, `LICENSE.txt` carrying the pinned xlsxio MIT license text, and
+  `SOURCE` recording the Android repository URL plus commit plus the xlsxio
+  repository URL plus commit for the packaged APK.
 - When `r47.upstreamSourceRepositoryUrl` and `r47.upstreamSourceCommit` are
   supplied, `assets/SOURCE` MUST record that synchronized upstream core
-  revision first and then the Android repository URL plus commit.
+  revision first and then the Android and xlsxio provenance lines.
 - The default Android source URL is inferred from `git remote origin` when
   available, with a fallback of `https://github.com/ppigazzini/r47_android`.
   Distributors remain responsible for overriding it when the shipped APK
   corresponds to a different public Android source location.
+- The Android GitHub Actions workflow in `.github/workflows/android-ci.yml`
+  owns the main-branch snapshot lane. It MUST poll upstream daily, skip the
+  scheduled release path when the resolved upstream commit already has a GitHub
+  release tag in this repository, and keep publication downstream of successful
+  simulator and Android build jobs.
 - Android compatibility for upstream GTK, GDK, and Cairo includes MUST live in tracked Android stub headers under `android/app/src/main/cpp/c47-android/stubs` plus `android_mocks.h`. Do not reintroduce post-copy `sed` rewrites of staged sources.
 - The About-version preference summary MUST come from the Gradle property `r47.coreVersion`, not from build-time edits of tracked XML resources.
 

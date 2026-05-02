@@ -2,6 +2,8 @@ name: Android CI
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '14 3 * * *'
   push:
     branches:
       - github_ci
@@ -44,10 +46,67 @@ jobs:
           echo "upstream_url=$UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
 
-  simulator-tests:
-    name: Run simulator tests
+  upstream-release-gate:
+    name: Decide whether the release lane should run
     needs:
       - resolve-upstream-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
+      release_tag: ${{ steps.decide.outputs.release_tag }}
+    steps:
+      - name: Decide whether to build and publish
+        id: decide
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$UPSTREAM_COMMIT" ]]; then
+            echo "Missing resolved upstream commit." >&2
+            exit 1
+          fi
+
+          release_tag="${UPSTREAM_COMMIT:0:8}"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+
+          if [[ "$GITHUB_EVENT_NAME" != "schedule" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          api_url="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/ref/tags/${release_tag}"
+          status_code=$(curl -sS \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -o /dev/null \
+            -w '%{http_code}' \
+            "$api_url")
+
+          case "$status_code" in
+            200)
+              echo "Upstream ${UPSTREAM_COMMIT} already has release tag ${release_tag}; skipping scheduled run."
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo "Upstream ${UPSTREAM_COMMIT} is new to this repository; running scheduled release lane."
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected GitHub API status while checking tag ${release_tag}: ${status_code}" >&2
+              exit 1
+              ;;
+          esac
+
+  simulator-tests:
+    name: Run simulator tests
+    if: needs.upstream-release-gate.outputs.should_run == 'true'
+    needs:
+      - resolve-upstream-core
+      - upstream-release-gate
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -200,8 +259,10 @@ jobs:
 
   android-debug:
     name: Build and package Android debug APK
+    if: needs.upstream-release-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
+      - upstream-release-gate
     runs-on: ubuntu-latest
     timeout-minutes: 75
     outputs:
@@ -478,6 +539,8 @@ jobs:
           R47_SOURCE_COMMIT: ${{ github.sha }}
           R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
           R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
+          R47_XLSXIO_URL: ${{ steps.xlsxio.outputs.xlsxio_url }}
+          R47_XLSXIO_COMMIT: ${{ steps.xlsxio.outputs.xlsxio_commit }}
           GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
@@ -570,16 +633,53 @@ jobs:
           run_attempt=${GITHUB_RUN_ATTEMPT}
           upstream_url=${{ steps.upstream.outputs.upstream_url }}
           upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
+          upstream_license_file=COPYING
           android_source_repository_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
           android_source_commit=${GITHUB_SHA}
+          source_manifest_file=SOURCE
           xlsxio_url=${{ steps.xlsxio.outputs.xlsxio_url }}
           xlsxio_commit=${{ steps.xlsxio.outputs.xlsxio_commit }}
+          xlsxio_license_file=LICENSE.txt
           compile_sdk=${{ steps.versions.outputs.compile_sdk }}
           cmake_version=${{ steps.versions.outputs.cmake_version }}
           ndk_version=${{ steps.versions.outputs.ndk_version }}
           android_variant=debug
           debug_apk_name=${apk_name}
           debug_apk_signed=debug
+          EOF
+
+          cat > "$release_dir/SOURCE" <<EOF
+          upstream_url=${{ steps.upstream.outputs.upstream_url }}
+          upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
+          android_source_repository_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
+          android_source_commit=${GITHUB_SHA}
+          xlsxio_url=${{ steps.xlsxio.outputs.xlsxio_url }}
+          xlsxio_commit=${{ steps.xlsxio.outputs.xlsxio_commit }}
+          EOF
+
+          cp COPYING "$release_dir/COPYING"
+
+          cat > "$release_dir/LICENSE.txt" <<'EOF'
+          Copyright (C) 2016 Brecht Sanders All Rights Reserved
+
+          Permission is hereby granted, free of charge, to any person obtaining
+          a copy of this software and associated documentation files (the
+          "Software"), to deal in the Software without restriction, including
+          without limitation the rights to use, copy, modify, merge, publish,
+          distribute, sublicense, and/or sell copies of the Software, and to
+          permit persons to whom the Software is furnished to do so, subject to
+          the following conditions:
+
+          The above copyright notice and this permission notice shall be
+          included in all copies or substantial portions of the Software.
+
+          THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+          EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+          MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+          IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+          CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+          TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+          SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           EOF
 
       - name: Upload Android build artifact
@@ -593,9 +693,15 @@ jobs:
   publish-main-snapshot:
     name: Publish main snapshot prerelease
     if: |
+      needs.upstream-release-gate.outputs.should_run == 'true' &&
       github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      (
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'schedule'
+      )
     needs:
+      - upstream-release-gate
       - simulator-tests
       - android-debug
     runs-on: ubuntu-latest
@@ -641,6 +747,9 @@ jobs:
           - zipalign.txt
           - elf-load-segments.txt
           - BUILD-METADATA.txt
+          - SOURCE
+          - COPYING
+          - LICENSE.txt
 
           Notes:
           - This is a main-branch snapshot prerelease, not a signed store release.
@@ -648,6 +757,8 @@ jobs:
           - The workflow ran the root simulator test suite with parallel make test.
           - The workflow verified packaged ABIs and ran the Android 16 KB zip
             alignment check described in the Android docs.
+          - COPYING is the GNU GPL text for the packaged calculator core.
+          - LICENSE.txt is the MIT license shipped by the pinned xlsxio project.
 
           Workflow run:
           https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}

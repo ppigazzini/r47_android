@@ -82,8 +82,9 @@ The checked-in release version inputs default to `r47.versionCode=1` and
 The resulting debug APK is
 `android/app/build/outputs/apk/debug/R47calculator-debug.apk`.
 The debug APK packages a verbatim copy of the GNU GPL from `COPYING` at
-`assets/COPYING` and exposes it in the app under `Settings -> About R47 -> GNU
-GPL Version 3`.
+`assets/COPYING`, the pinned xlsxio MIT license at `assets/LICENSE.txt`, and a
+provenance manifest at `assets/SOURCE`. The GPL text is exposed in the app
+under `Settings -> About R47 -> GNU GPL Version 3`.
 
 ### 🛠️ Advanced Build Configuration
 If you have different versions of the Android SDK, NDK, or CMake installed (common on Windows), you can override the defaults. Depending on your operating system and terminal, some methods may be more reliable than others.
@@ -98,6 +99,8 @@ r47.cmakeVersion=3.22.1
 r47.versionCode=1
 r47.versionName=0.1.0
 r47.sourceRepositoryUrl=https://github.com/ppigazzini/r47_android
+r47.xlsxioSourceRepositoryUrl=https://github.com/brechtsanders/xlsxio.git
+r47.xlsxioSourceCommit=a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
 # Optional when the APK stages a synchronized upstream core revision:
 # r47.upstreamSourceRepositoryUrl=https://gitlab.com/rpncalculators/c43.git
 # r47.upstreamSourceCommit=<upstream commit>
@@ -115,6 +118,8 @@ export R47_BUILD_JOBS="8"
 export R47_VERSION_CODE="1"
 export R47_VERSION_NAME="0.1.0"
 export R47_SOURCE_REPOSITORY_URL="https://github.com/ppigazzini/r47_android"
+export R47_XLSXIO_URL="https://github.com/brechtsanders/xlsxio.git"
+export R47_XLSXIO_COMMIT="a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9"
 ./build_android.sh
 ```
 
@@ -137,26 +142,35 @@ echo r47.ndkVersion=29.0.14206865>> android/gradle.properties
 echo r47.versionCode=1>> android/gradle.properties
 echo r47.versionName=0.1.0>> android/gradle.properties
 echo r47.sourceRepositoryUrl=https://github.com/ppigazzini/r47_android>> android/gradle.properties
+echo r47.xlsxioSourceRepositoryUrl=https://github.com/brechtsanders/xlsxio.git>> android/gradle.properties
+echo r47.xlsxioSourceCommit=a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9>> android/gradle.properties
 ```
 
 ## 📜 License And Source Availability
 - This repo declares `GPL-3.0-only`; the full license text is at `COPYING`.
-- Android builds package a verbatim GPL copy at `assets/COPYING` and a build
-    provenance file at `assets/SOURCE`; the GPL text is exposed from
-    `Settings -> About R47 -> GNU GPL Version 3`.
-- Desktop `dist_windows` and `dist_linux` archives also stage `COPYING` and
-    `SOURCE` beside the binaries.
+- Android builds package a verbatim GPL copy at `assets/COPYING`, the pinned
+    xlsxio MIT license at `assets/LICENSE.txt`, and a build provenance file at
+    `assets/SOURCE`; the GPL text is exposed from `Settings -> About R47 -> GNU
+    GPL Version 3`.
+- Desktop `dist_windows` and `dist_linux` archives also stage `COPYING`,
+    `LICENSE.txt`, and `SOURCE` beside the binaries.
 - The default source URL is inferred from `git remote origin` when available,
     and can be overridden with `r47.sourceRepositoryUrl`,
     `R47_SOURCE_REPOSITORY_URL`, or `SOURCE_REPOSITORY_URL`.
+- The pinned xlsxio provenance defaults to
+    `https://github.com/brechtsanders/xlsxio.git` at commit
+    `a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9` and can be overridden with
+    `r47.xlsxioSourceRepositoryUrl`, `r47.xlsxioSourceCommit`,
+    `R47_XLSXIO_URL`, or `R47_XLSXIO_COMMIT`.
 - APK builds can also set `r47.upstreamSourceRepositoryUrl` and
     `r47.upstreamSourceCommit` or the matching `R47_UPSTREAM_SOURCE_*`
     environment variables so `assets/SOURCE` records the synchronized upstream
-    core revision before the Android fork repository and commit.
+    core revision before the Android fork and xlsxio metadata.
 - The `SOURCE` file is a provenance aid, not a replacement for the obligation
     to provide the exact corresponding source for the binary you ship. Desktop
     CI packages override it to the authoritative upstream core revision;
-    Android CI records that upstream core revision plus the Android repo/commit.
+    Android CI records that upstream core revision plus the Android repo/commit
+    and xlsxio repo/commit.
 
 ## 📜 Acknowledgments
 Based on the excellent work by the [WP43/C47 team](https://gitlab.com/rpncalculators/c43) and [SwissMicros](https://www.swissmicros.com/). This port is an independent community contribution.
