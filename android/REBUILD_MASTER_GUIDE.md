@@ -188,9 +188,22 @@ The `quitApp()` function respects the `force_close_on_exit` preference, allowing
 
 To maintain custom work while pulling latest upstream changes, the `sync_public.sh` script MUST follow these rules:
 
-1. **Backup All Custom Assets**: The `android/` directory is the primary asset requiring persistence.
-2. **Upstream Reset**: The script pulls the math core from the authoritative source and populates the workspace.
-3. **Local Patch Restoration**: Immediately after the upstream pull, the script re-applies the Android Port modifications. This ensures that the optimized code takes precedence over the generic core.
+1. **Tracked Source Defaults Plus Local Pin**: The script MUST read the
+  authoritative upstream URL plus ref from Git-tracked `upstream.source`. The
+  Git-ignored `upstream.lock` MAY pin `upstream_commit` for repeatable local
+  reruns, but when that commit is absent the script MUST resolve the latest
+  upstream revision automatically.
+2. **Dedicated Remote Name**: The script MUST use the dedicated
+  `r47-c43-upstream` remote name so fork remotes called `upstream` do not
+  silently redirect the hydration source.
+3. **Clean-Worktree Default**: The script MUST refuse dirty tracked worktrees
+  unless `--force` is passed.
+4. **Repo-Owned Restore Boundary**: After the upstream overlay, the script MUST
+  restore repo-owned files only. Restore allowlists and generic restore loops
+  MUST keep excluding `src/**`, including `src/**/meson.build`.
+5. **Conditional Commit Pin**: `sync_public.sh --locked` MUST require a local
+  `upstream.lock` commit, while the default path and `--latest` MUST continue
+  to work without a tracked or manually committed lockfile.
 
 ### 8.1. Android Native Staging
 
@@ -199,6 +212,9 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
   `CMAKE_BUILD_PARALLEL_LEVEL`, then the host CPU count, export that value as
   `CMAKE_BUILD_PARALLEL_LEVEL`, and thread it through `make`, `NINJAFLAGS`, and
   `gradlew --max-workers`.
+- `build_android.sh` MUST resolve one upstream revision through the shared
+  upstream command, write a local `upstream.lock` when needed, and hydrate that
+  resolved core when `src/c47` is missing.
 - `build_android.sh` MAY pass `R47_SOURCE_REPOSITORY_URL` through as the Gradle
   property `r47.sourceRepositoryUrl` so redistributed APKs can point the About
   screen at the Android fork source for the build they convey.
@@ -208,12 +224,20 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
 - `build_android.sh` MAY also pass `R47_UPSTREAM_SOURCE_REPOSITORY_URL` and
   `R47_UPSTREAM_SOURCE_COMMIT` so the packaged `SOURCE` manifest records the
   synchronized upstream core revision ahead of the Android fork metadata.
+- When those overrides are absent, `build_android.sh` MUST default the upstream
+  repository URL and commit from the resolved shared upstream state so local APK
+  provenance matches the synchronized core actually staged for the build.
 - `build_android.sh` MUST pass the pinned xlsxio repository URL and commit
   through as `r47.xlsxioSourceRepositoryUrl` and `r47.xlsxioSourceCommit` so
   the packaged APK provenance matches the host toolchain that generated the
   fonts.
 - After `make sim`, it MUST delegate native staging to `android/stage_native_sources.sh`.
-- That staging step copies the synced `src/c47` tree, `dep/decNumberICU`, generated files, and mini-gmp inputs into `android/app/src/main/cpp`.
+- That staging step copies the synced `src/c47` tree, `dep/decNumberICU`, generated files, and mini-gmp inputs into the ignored build-only staging root `android/.staged-native/cpp`.
+- That staging step MUST also regenerate `android/.staged-native/cpp/STAGED-SOURCE-MANIFEST.txt`
+  and `android/.staged-native/cpp/staged_native_sources.cmake`.
+- The tracked directories `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` MUST remain untouched during normal builds; they are no longer the authoritative Android staging output.
+- `android/app/src/main/cpp/CMakeLists.txt` MUST consume the generated staged
+  source list for the staged upstream trees via `R47_STAGED_CPP_DIR` instead of recursive globs.
 - The app-module Gradle build MUST generate `assets/COPYING`,
   `assets/LICENSE.txt`, and `assets/SOURCE`, with `COPYING` copied from the
   repo root, `LICENSE.txt` carrying the pinned xlsxio MIT license text, and
@@ -231,6 +255,10 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
   scheduled release path when the resolved upstream commit already has a GitHub
   release tag in this repository, and keep publication downstream of successful
   simulator and Android build jobs.
+- The Android GitHub Actions workflow MUST resolve the latest upstream commit
+  once per workflow run, hydrate every downstream job through
+  `sync_public.sh --commit ...`, and verify that regenerating the staged Android
+  native tree leaves no diffs under the tracked staging directories.
 - Android compatibility for upstream GTK, GDK, and Cairo includes MUST live in tracked Android stub headers under `android/app/src/main/cpp/c47-android/stubs` plus `android_mocks.h`. Do not reintroduce post-copy `sed` rewrites of staged sources.
 - The About-version preference summary MUST come from the Gradle property `r47.coreVersion`, not from build-time edits of tracked XML resources.
 

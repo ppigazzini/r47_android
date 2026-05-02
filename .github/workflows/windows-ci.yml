@@ -2,6 +2,8 @@ name: Windows CI
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '34 3 * * *'
   push:
     branches:
       - github_ci
@@ -14,7 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  UPSTREAM_URL: https://gitlab.com/rpncalculators/c43.git
   XLSXIO_URL: https://github.com/brechtsanders/xlsxio.git
   XLSXIO_COMMIT: a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
 
@@ -28,21 +29,22 @@ jobs:
       upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
       upstream_short: ${{ steps.resolve.outputs.upstream_short }}
     steps:
-      - name: Resolve authoritative upstream core
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve latest upstream core
         id: resolve
         shell: bash
         run: |
           set -euo pipefail
 
-          upstream_commit=$(git ls-remote --exit-code "$UPSTREAM_URL" refs/heads/master | awk 'NR == 1 { print $1 }')
-          if [[ -z "$upstream_commit" ]]; then
-            echo "Failed to resolve upstream master." >&2
-            exit 1
-          fi
+          eval "$(bash ./tools/upstream.sh resolve --latest)"
 
-          echo "upstream_url=$UPSTREAM_URL" >> "$GITHUB_OUTPUT"
-          echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
-          echo "upstream_short=${upstream_commit:0:12}" >> "$GITHUB_OUTPUT"
+          echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "upstream_short=$R47_RESOLVED_UPSTREAM_SHORT_COMMIT" >> "$GITHUB_OUTPUT"
 
   windows-simulator:
     name: Build Windows simulator (${{ matrix.label }})
@@ -115,38 +117,14 @@ jobs:
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
 
       - name: Sync authoritative upstream core
-        env:
-          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
-          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
         run: |
           set -euo pipefail
 
           chmod +x tools/onARaspberry
 
-          if git remote | grep -qx upstream; then
-            git remote set-url upstream "$UPSTREAM_URL"
-          else
-            git remote add upstream "$UPSTREAM_URL"
-          fi
-
-          git fetch --depth 1 upstream "$UPSTREAM_COMMIT"
-          git cat-file -e "$UPSTREAM_COMMIT^{commit}"
-          git archive --format=tar "$UPSTREAM_COMMIT" | tar -xf -
-
-          git checkout -- \
-            .gitignore \
-            README.md \
-            Makefile \
-            build_android.sh \
-            sync_public.sh \
-            dist.sh \
-            meson.build \
-            meson_options.txt \
-            android/
-
-          while IFS= read -r meson_file; do
-            git checkout -- "$meson_file"
-          done < <(git ls-files | grep -E '(^|/)meson\.build$' | grep -Ev '^src/')
+          bash ./sync_public.sh \
+            --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
 
       - name: Load packaged Windows font into runner session
         shell: pwsh

@@ -5,9 +5,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
-CPP_DIR="$ANDROID_PROJECT_DIR/app/src/main/cpp"
-GENERATED_DEST="$CPP_DIR/generated"
+LEGACY_CPP_DIR="$ANDROID_PROJECT_DIR/app/src/main/cpp"
+CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$ANDROID_PROJECT_DIR/.staged-native/cpp}"
 CORE_HASH="${R47_CORE_HASH:-unknown}"
+METADATA_SCRIPT="$ANDROID_PROJECT_DIR/generate_staged_native_metadata.sh"
+
+usage() {
+        cat <<'EOF'
+Usage:
+    android/stage_native_sources.sh [--cpp-dir <dir>]
+EOF
+}
 
 require_dir() {
     local path="$1"
@@ -40,7 +48,32 @@ stage_tree() {
     cp -R "$source_dir"/. "$dest_dir"/
 }
 
-echo "--- Staging Android native inputs ---"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --cpp-dir)
+            shift
+            [ "$#" -gt 0 ] || {
+                echo "ERROR: Missing value for --cpp-dir"
+                exit 1
+            }
+            CPP_DIR="$1"
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "ERROR: Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+GENERATED_DEST="$CPP_DIR/generated"
+
+echo "--- Staging Android native inputs into $CPP_DIR ---"
 
 require_dir "$PROJECT_ROOT/src/c47" "synced core tree"
 require_dir "$PROJECT_ROOT/dep/decNumberICU" "decNumberICU source tree"
@@ -77,7 +110,7 @@ echo "--- Staging mini-gmp ---"
 GMP_SOURCE_DIR=""
 for candidate in \
     "$PROJECT_ROOT/subprojects/gmp-6.2.1/mini-gmp" \
-    "$CPP_DIR/gmp"
+    "$LEGACY_CPP_DIR/gmp"
 do
     if [ -f "$candidate/mini-gmp.c" ] && { [ -f "$candidate/mini-gmp.h" ] || [ -f "$candidate/gmp.h" ]; }; then
         GMP_SOURCE_DIR="$candidate"
@@ -113,5 +146,8 @@ fi
 if [ "$GMP_STAGING_SOURCE" != "$GMP_SOURCE_DIR" ]; then
     rm -rf "$GMP_STAGING_SOURCE"
 fi
+
+echo "--- Writing staged native source metadata ---"
+bash "$METADATA_SCRIPT" --cpp-dir "$CPP_DIR"
 
 echo "--- Android native staging complete ---"
