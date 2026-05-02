@@ -75,6 +75,32 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 - **Timed Yielding (`yieldToAndroidWithMs`)**: The native `yieldToAndroidWithMs(ms)` function MUST be used for intentional delays. It fully unlocks the recursive mutex before sleeping to allow the UI thread to render.
 - **PAUSE Implementation**: Long-running pauses are broken into 100ms yielding chunks to allow the UI to capture intermediate states.
 
+### 1.5. Kotlin Ownership Boundaries
+
+- The checked-in AGP `9.2.0`, Kotlin `2.3.21`, and Gradle `9.5.0` contract now
+  passes `:app:compileDebugKotlin`. Treat future Kotlin work as ownership
+  cleanup, not as a repo-wide syntax migration.
+- `HapticFeedbackController` now owns haptic preference state and vibration
+  effect construction instead of `MainActivity` doing that work inline.
+- `SlotSessionController` now owns current-slot restoration and slot-switch
+  orchestration instead of `MainActivity` doing that work inline.
+- `NativeDisplayRefreshLoop` now owns the Choreographer-driven LCD and keypad
+  refresh loop instead of `NativeCoreRuntime` doing that work inline.
+- `ReplicaChromeLayout` now owns chrome-mode resolution, shell bitmap lookup,
+  and projection math instead of `ReplicaOverlay` doing that work inline.
+- The old `pendingSlotId` slot SAF branch is removed from `MainActivity`
+  because the checked-in shell no longer consumes per-slot document URIs after
+  they are persisted.
+- `MainActivity` MUST stay a shell coordinator for lifecycle, PiP, and top-
+  level wiring. Haptics, slot-session changes, and preference-binding growth
+  SHOULD stay in focused helpers rather than move back into the activity.
+- `NativeCoreRuntime` SHOULD remain the runtime orchestrator, but core-task
+  queue execution and frame-loop scheduling are the next extraction seams if
+  runtime responsibilities grow.
+- `ReplicaOverlay` SHOULD own view hosting and LCD composition, but chrome-spec
+  resolution, projection math, and touch routing are the next extraction seams
+  if more shell modes or geometry policies are added.
+
 ---
 
 ## 2. Visual Specifications & Scaling
