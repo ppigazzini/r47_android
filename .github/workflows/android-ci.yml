@@ -569,7 +569,7 @@ jobs:
           mkdir -p "$unpack_dir" "$release_dir"
           printf '%s\n' arm64-v8a > "$artifact_dir/expected-abis.txt"
 
-          original_apk="android/app/build/outputs/apk/debug/R47calculator-debug.apk"
+          original_apk="android/app/build/outputs/apk/debug/app-debug.apk"
           apk="$original_apk"
           release_apk="$release_dir/$apk_name"
           zipalign_bin=$(find "${ANDROID_SDK_ROOT:?}/build-tools" -type f -name zipalign | sort -V | tail -n 1)

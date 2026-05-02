@@ -354,7 +354,7 @@ echo "--- Building APK ---"
 GRADLE_CMD="./gradlew"
 
 if [ ! -f "$GRADLE_CMD" ]; then
-    gradle wrapper --gradle-version 8.9 --distribution-type bin
+    gradle wrapper --gradle-version 9.5.0 --distribution-type bin
 fi
 chmod +x "$GRADLE_CMD"
 
@@ -387,7 +387,7 @@ rm -rf app/.cxx
 $GRADLE_CMD clean $GRADLE_EXTRA_ARGS
 $GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_EXTRA_ARGS $GRADLE_PROPS
 
-APK_PATH="app/build/outputs/apk/debug/R47calculator-debug.apk"
+APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
 if [ -f "$APK_PATH" ]; then
     echo "SUCCESS: APK created at: $ANDROID_PROJECT_DIR/$APK_PATH"
 else

@@ -117,7 +117,7 @@ The checked-in Android build uses the supported NDK flexible-page-size path:
 - `android/app/build.gradle` passes
   `-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON` to CMake
 - the checked-in NDK pin is `29.0.14206865`
-- the checked-in AGP version is `8.7.3`
+- the checked-in AGP version is `9.2.0`
 
 The current checked-in APK target is `arm64-v8a`. Any added prebuilt native
 dependency must also satisfy the 16 KB requirements for ELF and APK alignment.
