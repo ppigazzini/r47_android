@@ -47,6 +47,7 @@ def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toS
 def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: 'https://github.com/brechtsanders/xlsxio.git').toString())
 def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: 'a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9').toString()
 def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
+def stagedNativeCppDir = rootProject.file('.staged-native/cpp').absolutePath
 def configuredAbiFilters = (project.findProperty('r47.abiFilters') ?: 'arm64-v8a')
     .toString()
     .split(',')
@@ -82,7 +83,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags ""
-                arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+                arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON", "-DR47_STAGED_CPP_DIR=${stagedNativeCppDir}"
             }
         }
         ndk {

@@ -18,7 +18,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  UPSTREAM_URL: https://gitlab.com/rpncalculators/c43.git
   XLSXIO_URL: https://github.com/brechtsanders/xlsxio.git
   XLSXIO_COMMIT: a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
   ANDROID_TEST_API_LEVEL: '34'
@@ -33,20 +32,21 @@ jobs:
       upstream_url: ${{ steps.resolve.outputs.upstream_url }}
       upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
     steps:
-      - name: Resolve authoritative upstream core
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve latest upstream core
         id: resolve
         shell: bash
         run: |
           set -euo pipefail
 
-          upstream_commit=$(git ls-remote --exit-code "$UPSTREAM_URL" refs/heads/master | awk 'NR == 1 { print $1 }')
-          if [[ -z "$upstream_commit" ]]; then
-            echo "Failed to resolve upstream master." >&2
-            exit 1
-          fi
+          eval "$(bash ./tools/upstream.sh resolve --latest)"
 
-          echo "upstream_url=$UPSTREAM_URL" >> "$GITHUB_OUTPUT"
-          echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
+          echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
 
   upstream-release-gate:
     name: Decide whether the release lane should run
@@ -212,44 +212,12 @@ jobs:
 
       - name: Sync authoritative upstream core
         shell: bash
-        env:
-          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
-          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
         run: |
           set -euo pipefail
 
-          upstream_url="$UPSTREAM_URL"
-          upstream_commit="$UPSTREAM_COMMIT"
-
-          if [[ -z "$upstream_commit" ]]; then
-            echo "Missing resolved upstream commit." >&2
-            exit 1
-          fi
-
-          if git remote | grep -qx upstream; then
-            git remote set-url upstream "$upstream_url"
-          else
-            git remote add upstream "$upstream_url"
-          fi
-
-          git fetch --depth 1 upstream "$upstream_commit"
-          git cat-file -e "$upstream_commit^{commit}"
-          git archive --format=tar "$upstream_commit" | tar -xf -
-
-          git checkout -- \
-            .gitignore \
-            README.md \
-            Makefile \
-            build_android.sh \
-            sync_public.sh \
-            dist.sh \
-            meson.build \
-            meson_options.txt \
-            android/
-
-          while IFS= read -r meson_file; do
-            git checkout -- "$meson_file"
-            done < <(git ls-files | grep -E '(^|/)meson\.build$' | grep -Ev '^src/')
+          bash ./sync_public.sh \
+            --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
 
       - name: Run simulator tests
         shell: bash
@@ -466,47 +434,14 @@ jobs:
       - name: Sync authoritative upstream core
         id: upstream
         shell: bash
-        env:
-          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
-          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
         run: |
           set -euo pipefail
 
-          upstream_url="$UPSTREAM_URL"
-          upstream_commit="$UPSTREAM_COMMIT"
-
-          if [[ -z "$upstream_commit" ]]; then
-            echo "Missing resolved upstream commit." >&2
-            exit 1
-          fi
-
-          if git remote | grep -qx upstream; then
-            git remote set-url upstream "$upstream_url"
-          else
-            git remote add upstream "$upstream_url"
-          fi
-
-          git fetch --depth 1 upstream "$upstream_commit"
-          git cat-file -e "$upstream_commit^{commit}"
-          echo "upstream_url=$upstream_url" >> "$GITHUB_OUTPUT"
-          echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
-
-          git archive --format=tar "$upstream_commit" | tar -xf -
-
-          git checkout -- \
-            .gitignore \
-            README.md \
-            Makefile \
-            build_android.sh \
-            sync_public.sh \
-            dist.sh \
-            meson.build \
-            meson_options.txt \
-            android/
-
-          while IFS= read -r meson_file; do
-            git checkout -- "$meson_file"
-          done < <(git ls-files | grep -E '(^|/)meson\.build$' | grep -Ev '^src/')
+          bash ./sync_public.sh \
+            --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
 
       - name: Set build metadata
         id: meta
@@ -548,6 +483,25 @@ jobs:
           set -euo pipefail
           mkdir -p ci-artifacts/logs
           ./build_android.sh 2>&1 | tee ci-artifacts/logs/build-android.log
+
+      - name: Verify Android staging stays build-only
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f android/.staged-native/cpp/staged_native_sources.cmake || ! -f android/.staged-native/cpp/STAGED-SOURCE-MANIFEST.txt ]]; then
+            echo "Android build did not generate the build-only native staging metadata under android/.staged-native/cpp/." >&2
+            exit 1
+          fi
+
+          if ! git diff --exit-code -- \
+            android/app/src/main/cpp/c47/ \
+            android/app/src/main/cpp/decNumberICU/ \
+            android/app/src/main/cpp/generated/ \
+            android/app/src/main/cpp/gmp/; then
+            echo "Android build mutated tracked native sources. Build-only staged outputs must stay under android/.staged-native/cpp/, and android/app/src/main/cpp/{c47,decNumberICU,generated,gmp} must remain untouched." >&2
+            exit 1
+          fi
 
       - name: Upload Android build log
         if: always()
@@ -895,47 +849,14 @@ jobs:
       - name: Sync authoritative upstream core
         id: upstream
         shell: bash
-        env:
-          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
-          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
         run: |
           set -euo pipefail
 
-          upstream_url="$UPSTREAM_URL"
-          upstream_commit="$UPSTREAM_COMMIT"
-
-          if [[ -z "$upstream_commit" ]]; then
-            echo "Missing resolved upstream commit." >&2
-            exit 1
-          fi
-
-          if git remote | grep -qx upstream; then
-            git remote set-url upstream "$upstream_url"
-          else
-            git remote add upstream "$upstream_url"
-          fi
-
-          git fetch --depth 1 upstream "$upstream_commit"
-          git cat-file -e "$upstream_commit^{commit}"
-          echo "upstream_url=$upstream_url" >> "$GITHUB_OUTPUT"
-          echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
-
-          git archive --format=tar "$upstream_commit" | tar -xf -
-
-          git checkout -- \
-            .gitignore \
-            README.md \
-            Makefile \
-            build_android.sh \
-            sync_public.sh \
-            dist.sh \
-            meson.build \
-            meson_options.txt \
-            android/
-
-          while IFS= read -r meson_file; do
-            git checkout -- "$meson_file"
-          done < <(git ls-files | grep -E '(^|/)meson\.build$' | grep -Ev '^src/')
+          bash ./sync_public.sh \
+            --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+          echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}" >> "$GITHUB_OUTPUT"
 
       - name: Set Android test metadata
         id: meta

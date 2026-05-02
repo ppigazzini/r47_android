@@ -101,7 +101,11 @@ Thumbs.db
 # --- 7. Upstream Whitelist (Delta Mode) ---
 # Ignore synced upstream core sources; keep only repo-owned build scaffolding.
 /src/
+/upstream.lock
 
 # --- 8. Android Core Copies (Ignore copies of the core) ---
+/android/.staged-native/
 /android/app/src/main/cpp/c47/
 !/android/app/src/main/cpp/c47-android/
+/android/app/src/main/cpp/STAGED-SOURCE-MANIFEST.txt
+/android/app/src/main/cpp/staged_native_sources.cmake

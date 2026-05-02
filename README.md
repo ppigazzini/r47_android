@@ -1,202 +1,42 @@
-# R47 Android Port: RPN Calculator
+# C47
 
-This repository provides an Android port of the [SwissMicros C43/C47 project](https://gitlab.com/rpncalculators/c43.git). It runs the high-performance mathematical core of the C43 via a native JNI wrapper and exposes three live shell modes: the default `r47_texture` classic image shell, the background-backed `r47_background` shell, and a native-drawn chrome mode.
+The [C47 project](https://gitlab.com/rpncalculators/c43) is a fork of the [WP43 project](https://gitlab.com/rpncalculators/wp43), adapted to work on a standard Swiss Micros DM42 calculator with the standard keyboard layout.
 
-## 🎯 Features
-- **Scene-Driven Android Keypad**: `native` renders all 43 keys, including the stateful F1-F6 softkeys, from one native snapshot instead of relying on per-label JNI polling. One shared Kotlin topology model now defines the Android row and key-family contract used by layout and touch geometry, while the softkey row keeps its dedicated scene-driven renderer for reverse video, overlays, preview cues, strike marks, and value text. In native mode the default dark keys draw as plain rounded fills at `RGB(64, 64, 64)`, the live F and G accents use an HSL lightness `+10` lift over the hardware palette to land at `RGB(242, 171, 94)` and `RGB(131, 183, 223)`, and softkeys move the primary legend into the upper row when auxiliary text is visible. The Android settings theme reuses that same lifted F/G palette while keeping the upstream primary-versus-container role split instead of flattening the slider to one color. `r47_background` reuses that same snapshot for keypad labels and softkey text without repainting the key bodies baked into the background asset.
-- **Restored Shell Backgrounds**: Settings expose `r47_texture` as the default shell image, plus `r47_background` and `native` chrome.
-- **Normalized Shared Touch Geometry**: `r47_texture` keeps the image-backed shell with invisible touch zones, and all chrome modes now reuse one normalized touch grid with contiguous cell boundaries, matched outer keypad bounds, and the same active-key layout.
-- **Shell-Mode Parity**: All three chrome modes now share the same settings-entry touch strip, the same texture-derived LCD position and size, and the same adaptive visible crop. The native software shell now renders one rounded body at `RGB(32, 32, 32)` without separate top and bottom bars while staying aligned with the bitmap-shell LCD and touch contracts.
-- **Native Performance**: Math engine runs in C via JNI for 100% parity with the hardware.
-- **Modern Android Support**: Optimized for high-refresh screens and 16KB page sizes (Android 15+).
-- **SAF Integration**: Full support for Android's Storage Access Framework for programs and state files.
+The two shifted key positions (f and g) on the calculator are supported by applying the infamous cycling shift behaviour to the DM42's single shift key, which means a custom faceplate or overlay is all that is needed to convert the DM42 hardware into a C47 calculator. No key stickers are required on a DM42.
 
-## 🛠️ Linux Dependencies
-To build the simulator or the Android APK on Linux (Ubuntu/Debian), you will need the following:
+Building on the user experience of the legendary HP-42S, tapping into the unprecedented accuracy of the WP34S engine, and adding a quite few extra features of its own, the C47 is a thriving open source project aiming to make RPN calculators highly relevant for mathematicians, scientists and engineers of today.
 
-### 1. Build Tools & Math Libraries
-```bash
-sudo apt-get install git build-essential meson ninja-build libgmp-dev libgtk-3-dev libpulse-dev
-```
+C43 / C47: The C47 historically is based on the WP43, which was called WP43S before it was renamed to WP43. The C47 as such initially was forked and called WP43C, then renamed to C43, then renamed to C47. Many references in the source code and documents on GitLab still refer to any or all of the listed prior names! This makes no difference to the current (C47) state of the project.
 
-**NOTE:** Please refer to the [Build instructions](https://gitlab.com/h2x/c47-wiki/-/wikis/Build-instructions) in the [C47-wiki](https://gitlab.com/h2x/c47-wiki/-/wikis/home) for further details on how to set up a development environment in Macos, Linux, Windows. 
+The C47 Wiki can be found [here](https://gitlab.com/rpncalculators/c43/-/wikis/home).
+The C47 Community Wiki, which every user can help to create, can be found [here](https://gitlab.com/h2x/c47-wiki/-/wikis/home).
 
-### 2. Android Development
-- **Java**: OpenJDK 17. AGP `9.2.0` still declares JDK `17` as its supported
-    minimum and default, so this repo keeps Java source and target compatibility
-    at `17` for the most conservative Android build contract.
-- **Android SDK & NDK**: The checked-in app defaults target compile SDK 36,
-    target SDK 36, NDK `29.0.14206865`, and CMake `3.22.1`.
-- **Android Gradle Toolchain**: The checked-in Android build uses the Gradle
-    `9.5.0` wrapper, AGP `9.2.0`, and Kotlin Gradle plugin `2.3.21`.
-- **Package Identity**: The checked-in base app identity is
-    `com.example.r47`. Debug builds install as
-    `com.example.r47.debug` so the snapshot lane stays separate from a
-    future store release.
-- **APK ABI**: The checked-in debug APK defaults to `arm64-v8a`. Use the
-    Gradle property `r47.abiFilters` only when you intentionally need extra
-    ABIs such as `x86_64` for emulator validation.
+The page where you can order the bezel to glue it on a DM42 to make it a C47 can be found [here](https://47calc.com).
 
-### 3. Firmware Cross-Compilation (Optional)
-```bash
-sudo apt-get install gcc-arm-none-eabi
-```
+A comprehensive reference to all functions of the C47 as PDF downloads can be found [here](https://47calc.com/documentation/combined/doc.html).
 
-## 🚀 Getting Started
+## Upstream Hydration
 
-### 1. Clone & Sync
-The repository contains the Android shell and build blueprints. You must run the sync script to pull the mathematical core from C43 GitLab.
-```bash
-git clone https://github.com/paletochen/r47_android.git
-cd r47_android
-chmod +x sync_public.sh
-./sync_public.sh
-```
-
-Repository constraint for contributors: the synced upstream core under `src/`
-is authoritative. Keep repo-owned changes in the Android shell, build scripts,
-docs, workflows, and Android-specific native bridge or HAL code. Do not keep
-local overrides under `src/**`, including `src/**/meson.build`, because they
-can silently override the synced upstream build graph and break future builds.
-
-### 2. Build the Simulator (PC)
-```bash
-./dist.sh
-```
-This builds the GTK-based simulators for Linux/macOS and the firmware files for the physical DM42/DM42n hardware.
-
-### 3. Build the Android App (APK)
-Ensure `ANDROID_SDK_ROOT` is set in your environment.
-```bash
-./build_android.sh
-```
-`build_android.sh` resolves its worker count from `R47_BUILD_JOBS`, then
-`CMAKE_BUILD_PARALLEL_LEVEL`, then the host CPU count. It exports
-`CMAKE_BUILD_PARALLEL_LEVEL`, runs
-`make -j <jobs> NINJAFLAGS="-j <jobs>" sim`, then delegates native staging to
-`android/stage_native_sources.sh`. That step copies the synced `src/c47` tree,
-`dep/decNumberICU`, generated files, and mini-gmp inputs into
-`android/app/src/main/cpp` before Gradle builds the debug APK with
-`--max-workers <jobs>`. The staged tree is an Android build input, not the
-preferred source of truth.
-Because sync and CI overlay the upstream core before restoring repo-owned
-scaffolding, local build fixes should go in the Android shell, Android HAL or
-JNI bridge, or staging scripts instead of in checked-in `src/**` overrides.
-The checked-in release version inputs default to `r47.versionCode=1` and
-`r47.versionName=0.1.0`. Debug builds append the synchronized core revision as a
-`-snapshot.<core>` suffix automatically.
-The resulting debug APK is
-`android/app/build/outputs/apk/debug/app-debug.apk`.
-The debug APK packages a verbatim copy of the GNU GPL from `COPYING` at
-`assets/COPYING`, the pinned xlsxio MIT license at `assets/LICENSE.txt`, and a
-provenance manifest at `assets/SOURCE`. The GPL text is exposed in the app
-under `Settings -> About R47 -> GNU GPL Version 3`.
-
-### 4. Automated Validation
-The checked-in GitHub Actions workflow resolves one upstream core revision per
-run and validates that same revision across:
-
-- `make test` for the simulator lane
-- `./build_android.sh` for the Android debug APK and packaging checks
-- `:app:testDebugUnitTest` for the Android JVM suite
-- `:app:connectedDebugAndroidTest` on a hosted `x86_64` emulator with a CI-only
-    `r47.abiFilters=arm64-v8a,x86_64` override
-
-Workflow artifacts include the debug APK bundle, build logs, and Android test
-reports.
-
-### 🛠️ Advanced Build Configuration
-If you have different versions of the Android SDK, NDK, or CMake installed (common on Windows), you can override the defaults. Depending on your operating system and terminal, some methods may be more reliable than others.
-
-#### Option 1: Using gradle.properties (Most Reliable / Cross-Platform)
-Create or edit `android/gradle.properties`. This method works on all systems (Linux, macOS, Windows) and is the recommended approach:
-```properties
-r47.compileSdk=36
-r47.targetSdk=36
-r47.ndkVersion=29.0.14206865
-r47.cmakeVersion=3.22.1
-r47.versionCode=1
-r47.versionName=0.1.0
-# Optional for emulator validation or local multi-ABI checks:
-# r47.abiFilters=arm64-v8a,x86_64
-r47.sourceRepositoryUrl=https://github.com/ppigazzini/r47_android
-r47.xlsxioSourceRepositoryUrl=https://github.com/brechtsanders/xlsxio.git
-r47.xlsxioSourceCommit=a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
-# Optional when the APK stages a synchronized upstream core revision:
-# r47.upstreamSourceRepositoryUrl=https://gitlab.com/rpncalculators/c43.git
-# r47.upstreamSourceCommit=<upstream commit>
-```
-Note: **API 36 (Android 16)** is the checked-in default. Override these values
-only when you are intentionally validating against an older installed SDK set.
-Use `r47.abiFilters` only when validating on an emulator or another non-default
-ABI. Hosted CI uses that override for the `x86_64` emulator lane while the
-published debug artifact stays `arm64-v8a`.
-
-#### Option 2: Environment Variables (Linux / macOS / WSL)
-You can pass the NDK version, an explicit worker count, and optional
-release-version overrides as environment variables before running the build
-script. If `R47_BUILD_JOBS` is unset, the script auto-detects the host CPU
-count:
-```bash
-export R47_NDK_VERSION="29.0.14206865"
-export R47_BUILD_JOBS="8"
-export R47_GRADLE_ARGS="-Pr47.abiFilters=arm64-v8a,x86_64"
-export R47_VERSION_CODE="1"
-export R47_VERSION_NAME="0.1.0"
-export R47_SOURCE_REPOSITORY_URL="https://github.com/ppigazzini/r47_android"
-export R47_XLSXIO_URL="https://github.com/brechtsanders/xlsxio.git"
-export R47_XLSXIO_COMMIT="a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9"
-./build_android.sh
-```
-
-#### Option 3: PowerShell / CMD (Windows Native)
-If you are running from a native Windows terminal without WSL or Git Bash:
-**PowerShell:**
-```powershell
-$env:R47_NDK_VERSION="29.0.14206865"; $env:R47_BUILD_JOBS="8"; $env:R47_VERSION_CODE="1"; $env:R47_VERSION_NAME="0.1.0"; $env:R47_SOURCE_REPOSITORY_URL="https://github.com/ppigazzini/r47_android"; ./build_android.sh
-```
-**CMD:**
-```cmd
-set R47_NDK_VERSION=29.0.14206865 && set R47_BUILD_JOBS=8 && set R47_VERSION_CODE=1 && set R47_VERSION_NAME=0.1.0 && set R47_SOURCE_REPOSITORY_URL=https://github.com/ppigazzini/r47_android && ./build_android.sh
-```
-
-#### Option 4: Append To gradle.properties (Alternative For Windows)
-If setting environment variables is inconvenient, append the same project
-properties directly to `android/gradle.properties`:
-```cmd
-echo r47.ndkVersion=29.0.14206865>> android/gradle.properties
-echo r47.versionCode=1>> android/gradle.properties
-echo r47.versionName=0.1.0>> android/gradle.properties
-echo r47.sourceRepositoryUrl=https://github.com/ppigazzini/r47_android>> android/gradle.properties
-echo r47.xlsxioSourceRepositoryUrl=https://github.com/brechtsanders/xlsxio.git>> android/gradle.properties
-echo r47.xlsxioSourceCommit=a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9>> android/gradle.properties
-```
-
-## 📜 License And Source Availability
-- This repo declares `GPL-3.0-only`; the full license text is at `COPYING`.
-- Android builds package a verbatim GPL copy at `assets/COPYING`, the pinned
-    xlsxio MIT license at `assets/LICENSE.txt`, and a build provenance file at
-    `assets/SOURCE`; the GPL text is exposed from `Settings -> About R47 -> GNU
-    GPL Version 3`.
-- Desktop `dist_windows` and `dist_linux` archives also stage `COPYING`,
-    `LICENSE.txt`, and `SOURCE` beside the binaries.
-- The default source URL is inferred from `git remote origin` when available,
-    and can be overridden with `r47.sourceRepositoryUrl`,
-    `R47_SOURCE_REPOSITORY_URL`, or `SOURCE_REPOSITORY_URL`.
-- The pinned xlsxio provenance defaults to
-    `https://github.com/brechtsanders/xlsxio.git` at commit
-    `a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9` and can be overridden with
-    `r47.xlsxioSourceRepositoryUrl`, `r47.xlsxioSourceCommit`,
-    `R47_XLSXIO_URL`, or `R47_XLSXIO_COMMIT`.
-- APK builds can also set `r47.upstreamSourceRepositoryUrl` and
-    `r47.upstreamSourceCommit` or the matching `R47_UPSTREAM_SOURCE_*`
-    environment variables so `assets/SOURCE` records the synchronized upstream
-    core revision before the Android fork and xlsxio metadata.
-- The `SOURCE` file is a provenance aid, not a replacement for the obligation
-    to provide the exact corresponding source for the binary you ship. Desktop
-    CI packages override it to the authoritative upstream core revision;
-    Android CI records that upstream core revision plus the Android repo/commit
-    and xlsxio repo/commit.
-
-## 📜 Acknowledgments
-Based on the excellent work by the [WP43/C47 team](https://gitlab.com/rpncalculators/c43) and [SwissMicros](https://www.swissmicros.com/). This port is an independent community contribution.
+- `upstream.source` is Git-tracked and defines the authoritative upstream URL
+	plus ref for the shared C43 import.
+- `upstream.lock` is generated locally, ignored by Git, and may optionally pin
+	one resolved upstream commit for repeatable local reruns.
+- `./sync_public.sh` is the authoritative hydration entry point. Its shared
+	resolver uses this policy:
+	- an explicit `--commit` wins
+	- otherwise a local `upstream.lock` commit wins when present
+	- otherwise it resolves the latest commit from `upstream.source`
+- `./sync_public.sh --latest` refreshes the local lock to the newest upstream
+	HEAD.
+- `./sync_public.sh --locked` requires a local pinned commit and fails if none
+	exists.
+- `./build_android.sh` resolves one upstream commit through the same shared
+	command, writes a local `upstream.lock` when needed, stages authoritative
+	native inputs plus staged metadata under `android/.staged-native/cpp`, and
+	builds the Android APK from that resolved upstream state.
+- the tracked directories `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}`
+	are no longer the authoritative staged build output and should stay untouched
+	during normal builds.
+- CI resolves the latest upstream commit once per workflow run and passes that
+	exact commit into each downstream `sync_public.sh` invocation so one workflow
+	cannot split across multiple upstream revisions.

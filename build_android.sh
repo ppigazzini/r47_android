@@ -133,6 +133,26 @@ detect_android_sdk_root() {
     return 1
 }
 
+resolve_upstream_state() {
+    local resolved_env=""
+
+    resolved_env=$(bash "$PROJECT_ROOT/tools/upstream.sh" resolve --auto --write-lock)
+    eval "$resolved_env"
+
+    RESOLVED_UPSTREAM_URL="$R47_RESOLVED_UPSTREAM_URL"
+    RESOLVED_UPSTREAM_COMMIT="$R47_RESOLVED_UPSTREAM_COMMIT"
+    RESOLVED_UPSTREAM_SHORT_COMMIT=$(printf '%.8s\n' "$RESOLVED_UPSTREAM_COMMIT")
+}
+
+ensure_upstream_core_hydrated() {
+    if [ -d "$PROJECT_ROOT/src/c47" ]; then
+        return 0
+    fi
+
+    echo "--- Hydrating resolved upstream core ---"
+    bash "$PROJECT_ROOT/tools/upstream.sh" sync --auto --write-lock --if-missing
+}
+
 ensure_xlsxio_toolchain() {
     local xlsxio_prefix="${R47_XLSXIO_PREFIX:-$HOME/.cache/r47/xlsxio/$R47_XLSXIO_COMMIT}"
     local xlsxio_dir="${TMPDIR:-/tmp}/r47-xlsxio-$R47_XLSXIO_COMMIT"
@@ -247,6 +267,9 @@ resolve_cmake_bin() {
 }
 
 PROJECT_ROOT="$(pwd)"
+resolve_upstream_state
+ensure_upstream_core_hydrated
+
 if ANDROID_SDK_ROOT_CANDIDATE=$(detect_android_sdk_root); then
     export ANDROID_SDK_ROOT="$ANDROID_SDK_ROOT_CANDIDATE"
 else
@@ -314,11 +337,9 @@ echo "NDK: $ANDROID_NDK_ROOT"
 echo "Jobs: $R47_BUILD_JOBS"
 echo "======================================================="
 
-# --- 2. Update Version from Upstream (c43 Core) ---
-# We pull the hash from SwissMicros. 
-# Public repo uses 'upstream', Private repo uses 'origin'.
-COMMIT_HASH=$(git rev-parse --short upstream/master 2>/dev/null || git rev-parse --short origin/master 2>/dev/null || echo "unknown")
-echo "--- SwissMicros Core Version: $COMMIT_HASH ---"
+# --- 2. Update Version from Resolved Upstream (c43 Core) ---
+COMMIT_HASH="$RESOLVED_UPSTREAM_SHORT_COMMIT"
+echo "--- SwissMicros Core Version (resolved): $COMMIT_HASH ---"
 
 # --- 3. Generate Assets (make sim) ---
 echo "--- Generating Core Assets (running make sim) ---"
@@ -332,7 +353,7 @@ fi
 make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
 
 # --- 4. Stage Native Source Code ---
-if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_PROJECT_DIR/stage_native_sources.sh"; then
+if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_PROJECT_DIR/stage_native_sources.sh" --cpp-dir "$ANDROID_PROJECT_DIR/.staged-native/cpp"; then
     echo "ERROR: Android native staging failed."
     exit 1
 fi
@@ -370,6 +391,13 @@ UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE=${R47_UPSTREAM_SOURCE_REPOSITORY_URL-}
 UPSTREAM_SOURCE_COMMIT_OVERRIDE=${R47_UPSTREAM_SOURCE_COMMIT-}
 XLSXIO_SOURCE_REPOSITORY_URL_VALUE=${R47_XLSXIO_URL-}
 XLSXIO_SOURCE_COMMIT_VALUE=${R47_XLSXIO_COMMIT-}
+
+if [ -z "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" ]; then
+    UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE="$RESOLVED_UPSTREAM_URL"
+fi
+if [ -z "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" ]; then
+    UPSTREAM_SOURCE_COMMIT_OVERRIDE="$RESOLVED_UPSTREAM_COMMIT"
+fi
 
 if [ -n "$COMPILE_SDK_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.compileSdk=$COMPILE_SDK_OVERRIDE"; fi
 if [ -n "$VERSION_CODE_OVERRIDE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.versionCode=$VERSION_CODE_OVERRIDE"; fi

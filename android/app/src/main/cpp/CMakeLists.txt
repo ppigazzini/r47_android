@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.22.1)
 project("c47-android")
 
+set(R47_TRACKED_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+
+if("${R47_STAGED_CPP_DIR}" STREQUAL "")
+    get_filename_component(R47_STAGED_CPP_DIR "${R47_TRACKED_CPP_DIR}/../../../../.staged-native/cpp" ABSOLUTE)
+endif()
+
+set(R47_STAGED_C47_DIR "${R47_STAGED_CPP_DIR}/c47")
+set(R47_STAGED_DECNUMBER_DIR "${R47_STAGED_CPP_DIR}/decNumberICU")
+set(R47_STAGED_GENERATED_DIR "${R47_STAGED_CPP_DIR}/generated")
+set(R47_STAGED_GMP_DIR "${R47_STAGED_CPP_DIR}/gmp")
+
 # Android Build Definitions
 add_definitions(
     -DANDROID_BUILD
@@ -22,47 +33,72 @@ add_compile_options("-include" "${CMAKE_CURRENT_SOURCE_DIR}/c47-android/android_
 # Include directories
 include_directories(
     c47-android/stubs
-    c47
-    c47/core
-    c47/hal
-    c47/ui
-    c47/logicalOps
-    c47/mathematics
-    c47/programming
-    c47/solver
-    c47/browsers
-    c47/distributions
-    c47/c47Extensions
-    decNumberICU
-    generated
+    ${R47_STAGED_C47_DIR}
+    ${R47_STAGED_C47_DIR}/core
+    ${R47_STAGED_C47_DIR}/hal
+    ${R47_STAGED_C47_DIR}/ui
+    ${R47_STAGED_C47_DIR}/logicalOps
+    ${R47_STAGED_C47_DIR}/mathematics
+    ${R47_STAGED_C47_DIR}/programming
+    ${R47_STAGED_C47_DIR}/solver
+    ${R47_STAGED_C47_DIR}/browsers
+    ${R47_STAGED_C47_DIR}/distributions
+    ${R47_STAGED_C47_DIR}/c47Extensions
+    ${R47_STAGED_DECNUMBER_DIR}
+    ${R47_STAGED_GENERATED_DIR}
     c47-android
-    gmp
+    ${R47_STAGED_GMP_DIR}
 )
 
-# Source files - Recursively find all C files in c47 subdirectories
-file(GLOB_RECURSE C47_SOURCES "c47/*.c")
-
-file(GLOB DEC_SOURCES 
-    decNumberICU/decContext.c
-    decNumberICU/decDouble.c
-    decNumberICU/decNumber.c
-    decNumberICU/decPacked.c
-    decNumberICU/decQuad.c
-    decNumberICU/decimal128.c
-    decNumberICU/decimal32.c
-    decNumberICU/decimal64.c
+set(R47_STAGED_METADATA_SCRIPT
+    "${R47_TRACKED_CPP_DIR}/../../../../generate_staged_native_metadata.sh"
 )
-file(GLOB_RECURSE GEN_SOURCES "generated/*.c")
-file(GLOB_RECURSE ANDROID_SOURCES "c47-android/*.c")
-file(GLOB GMP_SOURCES "gmp/*.c")
+
+execute_process(
+    COMMAND bash "${R47_STAGED_METADATA_SCRIPT}" --cpp-dir "${R47_STAGED_CPP_DIR}"
+    RESULT_VARIABLE R47_STAGED_METADATA_RESULT
+    ERROR_VARIABLE R47_STAGED_METADATA_ERROR
+)
+
+if(NOT R47_STAGED_METADATA_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to generate staged native metadata: ${R47_STAGED_METADATA_ERROR}")
+endif()
+
+include("${R47_STAGED_CPP_DIR}/staged_native_sources.cmake")
+
+set(DEC_SOURCES
+    ${R47_STAGED_DECNUMBER_DIR}/decContext.c
+    ${R47_STAGED_DECNUMBER_DIR}/decDouble.c
+    ${R47_STAGED_DECNUMBER_DIR}/decNumber.c
+    ${R47_STAGED_DECNUMBER_DIR}/decPacked.c
+    ${R47_STAGED_DECNUMBER_DIR}/decQuad.c
+    ${R47_STAGED_DECNUMBER_DIR}/decimal128.c
+    ${R47_STAGED_DECNUMBER_DIR}/decimal32.c
+    ${R47_STAGED_DECNUMBER_DIR}/decimal64.c
+)
+
+set(ANDROID_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/android_helpers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/clipboard_utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/audio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/gui.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/io.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/lcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/print_ir.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_display.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_input.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_lifecycle.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_storage.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/native-lib.c
+)
 
 # Shared library
 add_library(c47-android SHARED
-    ${C47_SOURCES}
+    ${R47_STAGED_C47_SOURCES}
     ${DEC_SOURCES}
-    ${GEN_SOURCES}
+    ${R47_STAGED_GENERATED_SOURCES}
     ${ANDROID_SOURCES}
-    ${GMP_SOURCES}
+    ${R47_STAGED_GMP_SOURCES}
 )
 
 # Link libraries
