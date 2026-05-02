@@ -45,6 +45,8 @@ def androidSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r
 def androidSourceCommit = (project.findProperty('r47.sourceCommit') ?: readGitOutput(['rev-parse', 'HEAD']) ?: 'unknown').toString()
 def upstreamSourceRepositoryUrl = normalizeRepositoryUrl(project.findProperty('r47.upstreamSourceRepositoryUrl')?.toString())
 def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toString()?.trim()
+def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: 'https://github.com/brechtsanders/xlsxio.git').toString())
+def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: 'a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9').toString()
 def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
 
 android {
@@ -140,11 +142,46 @@ tasks.register('copyGplLicense', Copy) {
     into generatedComplianceAssetsDir
 }
 
+tasks.register('generateXlsxioLicense') {
+    inputs.property('xlsxioSourceRepositoryUrl', xlsxioSourceRepositoryUrl ?: '')
+    inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
+    outputs.file("${generatedComplianceAssetsDir}/LICENSE.txt")
+
+    doLast {
+        def generatedAssetsDir = file(generatedComplianceAssetsDir)
+        generatedAssetsDir.mkdirs()
+
+        file("${generatedAssetsDir}/LICENSE.txt").text = '''Copyright (C) 2016 Brecht Sanders All Rights Reserved
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+'''
+    }
+}
+
 tasks.register('generateSourceManifest') {
     inputs.property('androidSourceRepositoryUrl', androidSourceRepositoryUrl ?: '')
     inputs.property('androidSourceCommit', androidSourceCommit ?: '')
     inputs.property('upstreamSourceRepositoryUrl', upstreamSourceRepositoryUrl ?: '')
     inputs.property('upstreamSourceCommit', upstreamSourceCommit ?: '')
+    inputs.property('xlsxioSourceRepositoryUrl', xlsxioSourceRepositoryUrl ?: '')
+    inputs.property('xlsxioSourceCommit', xlsxioSourceCommit ?: '')
     outputs.file("${generatedComplianceAssetsDir}/SOURCE")
 
     doLast {
@@ -153,14 +190,14 @@ tasks.register('generateSourceManifest') {
         def sourceLines = []
 
         if (upstreamSourceRepositoryUrl && upstreamSourceCommit) {
-            sourceLines << "Source repository: ${upstreamSourceRepositoryUrl}"
-            sourceLines << "Commit: ${upstreamSourceCommit}"
-            sourceLines << "Android source repository: ${androidSourceRepositoryUrl}"
-            sourceLines << "Android commit: ${androidSourceCommit}"
-        } else {
-            sourceLines << "Source repository: ${androidSourceRepositoryUrl}"
-            sourceLines << "Commit: ${androidSourceCommit}"
+            sourceLines << "upstream_url=${upstreamSourceRepositoryUrl}"
+            sourceLines << "upstream_commit=${upstreamSourceCommit}"
         }
+
+        sourceLines << "android_source_repository_url=${androidSourceRepositoryUrl}"
+        sourceLines << "android_source_commit=${androidSourceCommit}"
+        sourceLines << "xlsxio_url=${xlsxioSourceRepositoryUrl}"
+        sourceLines << "xlsxio_commit=${xlsxioSourceCommit}"
 
         file("${generatedAssetsDir}/SOURCE").text = sourceLines.join('\n') + '\n'
     }
@@ -168,5 +205,6 @@ tasks.register('generateSourceManifest') {
 
 tasks.named('preBuild').configure {
     dependsOn tasks.named('copyGplLicense')
+    dependsOn tasks.named('generateXlsxioLicense')
     dependsOn tasks.named('generateSourceManifest')
 }
