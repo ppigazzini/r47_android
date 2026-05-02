@@ -1,5 +1,19 @@
 # Official References
 
+## Spring 2026 toolchain references
+
+- [Android Gradle plugin 9.2.0 release notes](https://developer.android.com/build/releases/agp-9-2-0-release-notes):
+  official Android build release notes for the AGP line used by this repo;
+  the current page lists JDK `17` as the supported minimum and default.
+- [Kotlin release process](https://kotlinlang.org/docs/releases.html):
+  official JetBrains release page showing Kotlin `2.3.21` as the latest
+  version in Spring 2026; relevant as the Kotlin Gradle plugin version pinned
+  over AGP `9.2.0` runtime Kotlin integration in this repo.
+- [Gradle 9.5.0 release notes](https://docs.gradle.org/9.5.0/release-notes.html):
+  official Gradle release notes for the wrapper version now checked in.
+- [Android 16](https://developer.android.com/about/versions/16): official
+  platform overview for API `36`, the checked-in compile and target SDK level.
+
 ## Architecture and Kotlin
 
 - [Guide to app architecture](https://developer.android.com/topic/architecture):

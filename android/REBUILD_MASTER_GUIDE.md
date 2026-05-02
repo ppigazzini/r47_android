@@ -2,7 +2,7 @@
 
 **Version:** 3.14 (Property-Backed Package And Version Contract)
 **Status:** Maintainer reference for the current debug-build Android shell
-**Target Platform:** Android (API Level 24+), current checked-in defaults target API 35 and arm64-v8a
+**Target Platform:** Android (API Level 24+), current checked-in defaults target API 36 and arm64-v8a
 
 ---
 
@@ -25,8 +25,10 @@
 - `build_android.sh` always passes `-Pr47.coreVersion=<sha>` and may also pass
   `-Pr47.versionCode=<n>` and `-Pr47.versionName=<name>` from the environment
   variables `R47_VERSION_CODE` and `R47_VERSION_NAME`.
-- The debug APK output name remains `R47calculator-debug.apk`. That file name is
-  a build artifact name, not the app identity.
+- The checked-in Gradle debug APK path is
+  `android/app/build/outputs/apk/debug/app-debug.apk`.
+- CI may restage that file under `R47calculator-debug.apk` for release assets.
+  That artifact name is not the app identity.
 
 ---
 
@@ -239,7 +241,7 @@ contract. In this repo, `android/app/build.gradle` passes
 zip alignment and ELF `LOAD` segment alignment. Do not rely on a project-local
 hardcoded `-Wl,-z,max-page-size=16384` flag as the only contract.
 
-With AGP 8.7.3 and NDK 29, the repo intentionally uses the preferred
+With AGP 9.2.0 and NDK 29, the repo intentionally uses the preferred
 uncompressed-native-library path and no longer carries
 `useLegacyPackaging true`. Treat the current CI zip and ELF alignment checks as
 the artifact-level evidence that justifies that simpler packaging contract.

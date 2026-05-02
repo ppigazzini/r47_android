@@ -22,9 +22,13 @@ sudo apt-get install git build-essential meson ninja-build libgmp-dev libgtk-3-d
 **NOTE:** Please refer to the [Build instructions](https://gitlab.com/h2x/c47-wiki/-/wikis/Build-instructions) in the [C47-wiki](https://gitlab.com/h2x/c47-wiki/-/wikis/home) for further details on how to set up a development environment in Macos, Linux, Windows. 
 
 ### 2. Android Development
-- **Java**: OpenJDK 17 or higher.
-- **Android SDK & NDK**: The checked-in app defaults target compile SDK 35,
-  target SDK 35, NDK `29.0.14206865`, and CMake `3.22.1`.
+- **Java**: OpenJDK 17. AGP `9.2.0` still declares JDK `17` as its supported
+    minimum and default, so this repo keeps Java source and target compatibility
+    at `17` for the most conservative Android build contract.
+- **Android SDK & NDK**: The checked-in app defaults target compile SDK 36,
+    target SDK 36, NDK `29.0.14206865`, and CMake `3.22.1`.
+- **Android Gradle Toolchain**: The checked-in Android build uses the Gradle
+    `9.5.0` wrapper, AGP `9.2.0`, and Kotlin Gradle plugin `2.3.21`.
 - **Package Identity**: The checked-in base app identity is
     `com.example.r47`. Debug builds install as
     `com.example.r47.debug` so the snapshot lane stays separate from a
@@ -80,7 +84,7 @@ The checked-in release version inputs default to `r47.versionCode=1` and
 `r47.versionName=0.1.0`. Debug builds append the synchronized core revision as a
 `-snapshot.<core>` suffix automatically.
 The resulting debug APK is
-`android/app/build/outputs/apk/debug/R47calculator-debug.apk`.
+`android/app/build/outputs/apk/debug/app-debug.apk`.
 The debug APK packages a verbatim copy of the GNU GPL from `COPYING` at
 `assets/COPYING`, the pinned xlsxio MIT license at `assets/LICENSE.txt`, and a
 provenance manifest at `assets/SOURCE`. The GPL text is exposed in the app
@@ -92,8 +96,8 @@ If you have different versions of the Android SDK, NDK, or CMake installed (comm
 #### Option 1: Using gradle.properties (Most Reliable / Cross-Platform)
 Create or edit `android/gradle.properties`. This method works on all systems (Linux, macOS, Windows) and is the recommended approach:
 ```properties
-r47.compileSdk=35
-r47.targetSdk=35
+r47.compileSdk=36
+r47.targetSdk=36
 r47.ndkVersion=29.0.14206865
 r47.cmakeVersion=3.22.1
 r47.versionCode=1
@@ -105,7 +109,8 @@ r47.xlsxioSourceCommit=a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
 # r47.upstreamSourceRepositoryUrl=https://gitlab.com/rpncalculators/c43.git
 # r47.upstreamSourceCommit=<upstream commit>
 ```
-Note: You can also target **API 36 (Android 16 preview)** by setting `r47.compileSdk=36` and `r47.targetSdk=36` if you have the preview SDK installed.
+Note: **API 36 (Android 16)** is the checked-in default. Override these values
+only when you are intentionally validating against an older installed SDK set.
 
 #### Option 2: Environment Variables (Linux / macOS / WSL)
 You can pass the NDK version, an explicit worker count, and optional

@@ -2,11 +2,12 @@
 
 ## Checked-in defaults
 
-- AGP `8.7.3`
-- Kotlin `1.9.22`
-- Java `17`
-- `compileSdk 35`
-- `targetSdk 35`
+- AGP `9.2.0`
+- Kotlin Gradle plugin `2.3.21`, supplied through the AGP `9.2.0` runtime
+  Kotlin integration path
+- Java `17`, which matches the AGP `9.2.0` supported minimum and default JDK
+- `compileSdk 36`
+- `targetSdk 36`
 - `minSdk 24`
 - `ndkVersion 29.0.14206865`
 - CMake `3.22.1`
@@ -78,7 +79,7 @@ Build-safety rule:
 5. CMake builds the `c47-android` shared library from the staged core,
    generated files, Android bridge files, and mini-gmp.
 6. Gradle packages the debug APK as
-   `android/app/build/outputs/apk/debug/R47calculator-debug.apk`.
+  `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ## CI lane
 
