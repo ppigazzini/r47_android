@@ -23,6 +23,108 @@ extern jmethodID g_playToneId;
 extern jmethodID g_stopToneId;
 extern jmethodID g_processCoreTasksId;
 
+typedef struct {
+    JNIEnv *env;
+    bool attached_here;
+} jni_env_scope_t;
+
+static inline bool jni_check_and_clear_exception(JNIEnv *env,
+                                                                                                 const char *context) {
+    if (!env || !(*env)->ExceptionCheck(env)) {
+        return false;
+    }
+
+    LOGE("%s: pending Java exception", context);
+    (*env)->ExceptionDescribe(env);
+    (*env)->ExceptionClear(env);
+    return true;
+}
+
+static inline bool jni_result_ok(JNIEnv *env, const void *result,
+                                                                 const char *context) {
+    if (result == NULL) {
+        LOGE("%s returned NULL", context);
+    }
+    if (jni_check_and_clear_exception(env, context)) {
+        return false;
+    }
+    return result != NULL;
+}
+
+static inline bool jni_acquire_env(jni_env_scope_t *scope,
+                                                                     const char *context) {
+    if (scope == NULL) {
+        LOGE("%s: scope is NULL", context);
+        return false;
+    }
+
+    scope->env = NULL;
+    scope->attached_here = false;
+    if (g_jvm == NULL) {
+        LOGE("%s: JVM reference is NULL", context);
+        return false;
+    }
+
+    jint result = (*g_jvm)->GetEnv(g_jvm, (void **)&scope->env, JNI_VERSION_1_6);
+    if (result == JNI_OK && scope->env != NULL) {
+        return true;
+    }
+
+    if (result != JNI_EDETACHED) {
+        LOGE("%s: GetEnv failed (%d)", context, result);
+        return false;
+    }
+
+    jint attach_result = (*g_jvm)->AttachCurrentThread(g_jvm, &scope->env, NULL);
+    if (attach_result != JNI_OK || scope->env == NULL) {
+        LOGE("%s: AttachCurrentThread failed (%d)", context, attach_result);
+        scope->env = NULL;
+        return false;
+    }
+
+    scope->attached_here = true;
+    return true;
+}
+
+static inline void jni_release_env(jni_env_scope_t *scope,
+                                                                     const char *context) {
+    if (scope == NULL) {
+        return;
+    }
+
+    if (scope->attached_here && g_jvm != NULL) {
+        jint detach_result = (*g_jvm)->DetachCurrentThread(g_jvm);
+        if (detach_result != JNI_OK) {
+            LOGE("%s: DetachCurrentThread failed (%d)", context, detach_result);
+        }
+    }
+
+    scope->env = NULL;
+    scope->attached_here = false;
+}
+
+static inline jstring jni_new_string_utf(JNIEnv *env, const char *value,
+                                                                                 const char *fallback,
+                                                                                 const char *context) {
+    jstring result = (*env)->NewStringUTF(env, value ? value : "");
+    if (result != NULL && !jni_check_and_clear_exception(env, context)) {
+        return result;
+    }
+
+    if (fallback == NULL) {
+        return NULL;
+    }
+
+    LOGE("%s: falling back to a default Java string", context);
+    result = (*env)->NewStringUTF(env, fallback);
+    if (result != NULL &&
+            !jni_check_and_clear_exception(env, "jni_new_string_utf fallback")) {
+        return result;
+    }
+
+    return NULL;
+}
+
 extern pthread_mutex_t fileMutex;
 extern pthread_cond_t fileCond;
 extern pthread_mutex_t screenMutex;
@@ -59,10 +161,14 @@ void yieldToAndroid(void);
 int requestAndroidFile(int isSave, const char *defaultName, int fileType);
 void triggerQuit(void);
 int register_main_activity_natives(JNIEnv *env);
+void releaseNativeActivityReferences(JNIEnv *env);
 
 JNIEXPORT void JNICALL
 Java_com_example_r47_MainActivity_updateNativeActivityRef(JNIEnv *env,
                                                                  jobject thiz);
+JNIEXPORT void JNICALL
+Java_com_example_r47_MainActivity_releaseNativeRuntime(JNIEnv *env,
+                                                              jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_nativePreInit(
     JNIEnv *env, jobject thiz, jstring path_obj);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_initNative(

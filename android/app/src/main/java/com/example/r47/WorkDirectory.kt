@@ -6,7 +6,100 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
 
-object WorkDirectory {
+internal data class WorkDirectoryDocumentEntry(
+    val displayName: String,
+    val documentId: String,
+)
+
+internal interface WorkDirectoryDocumentAccess {
+    fun parseTreeUri(treeUriString: String): Uri?
+    fun hasPersistedWritePermission(contentResolver: ContentResolver, treeUri: Uri): Boolean
+    fun canQueryChildren(contentResolver: ContentResolver, treeUri: Uri): Boolean
+    fun listChildren(contentResolver: ContentResolver, treeUri: Uri): List<WorkDirectoryDocumentEntry>
+    fun buildDocumentUri(treeUri: Uri, documentId: String): Uri
+    fun createDirectory(contentResolver: ContentResolver, treeUri: Uri, displayName: String): Uri?
+}
+
+private object AndroidWorkDirectoryDocumentAccess : WorkDirectoryDocumentAccess {
+    override fun parseTreeUri(treeUriString: String): Uri? {
+        return try {
+            Uri.parse(treeUriString)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override fun hasPersistedWritePermission(
+        contentResolver: ContentResolver,
+        treeUri: Uri,
+    ): Boolean {
+        return contentResolver.persistedUriPermissions.any {
+            it.uri == treeUri && it.isWritePermission
+        }
+    }
+
+    override fun canQueryChildren(contentResolver: ContentResolver, treeUri: Uri): Boolean {
+        val documentId = DocumentsContract.getTreeDocumentId(treeUri)
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
+        return contentResolver.query(
+            childrenUri,
+            arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+            null,
+            null,
+            null,
+        )?.use {
+            true
+        } ?: false
+    }
+
+    override fun listChildren(
+        contentResolver: ContentResolver,
+        treeUri: Uri,
+    ): List<WorkDirectoryDocumentEntry> {
+        val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, rootDocId)
+        val children = mutableListOf<WorkDirectoryDocumentEntry>()
+        contentResolver.query(
+            childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            ),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                children += WorkDirectoryDocumentEntry(
+                    displayName = cursor.getString(0),
+                    documentId = cursor.getString(1),
+                )
+            }
+        }
+        return children
+    }
+
+    override fun buildDocumentUri(treeUri: Uri, documentId: String): Uri {
+        return DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId)
+    }
+
+    override fun createDirectory(
+        contentResolver: ContentResolver,
+        treeUri: Uri,
+        displayName: String,
+    ): Uri? {
+        val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
+        val rootDocumentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, rootDocId)
+        return DocumentsContract.createDocument(
+            contentResolver,
+            rootDocumentUri,
+            DocumentsContract.Document.MIME_TYPE_DIR,
+            displayName,
+        )
+    }
+}
+
+internal object WorkDirectory {
     private const val TAG = "R47WorkDir"
 
     const val PREFS_NAME = SlotStore.APP_PREFS_NAME
@@ -32,37 +125,27 @@ object WorkDirectory {
         return uriPath.replaceFirst("^/tree/.*?:".toRegex(), "/")
     }
 
-    fun isAccessible(contentResolver: ContentResolver, treeUriString: String?): Boolean {
+    fun isAccessible(
+        contentResolver: ContentResolver,
+        treeUriString: String?,
+        documentAccess: WorkDirectoryDocumentAccess = AndroidWorkDirectoryDocumentAccess,
+    ): Boolean {
         if (treeUriString.isNullOrEmpty()) {
             return false
         }
 
-        val treeUri = try {
-            Uri.parse(treeUriString)
-        } catch (error: Exception) {
-            Log.w(TAG, "Invalid work directory URI: ${error.message}")
+        val treeUri = documentAccess.parseTreeUri(treeUriString)
+        if (treeUri == null) {
+            Log.w(TAG, "Invalid work directory URI")
             return false
         }
 
         return try {
-            val hasPermission = contentResolver.persistedUriPermissions.any {
-                it.uri == treeUri && it.isWritePermission
-            }
-            if (!hasPermission) {
+            if (!documentAccess.hasPersistedWritePermission(contentResolver, treeUri)) {
                 return false
             }
 
-            val documentId = DocumentsContract.getTreeDocumentId(treeUri)
-            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
-            contentResolver.query(
-                childrenUri,
-                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
-                null,
-                null,
-                null
-            )?.use {
-                true
-            } ?: false
+            documentAccess.canQueryChildren(contentResolver, treeUri)
         } catch (error: Exception) {
             Log.w(TAG, "Work directory validation failed: ${error.message}")
             false
@@ -73,51 +156,26 @@ object WorkDirectory {
         contentResolver: ContentResolver,
         treeUriString: String?,
         fileType: Int,
+        documentAccess: WorkDirectoryDocumentAccess = AndroidWorkDirectoryDocumentAccess,
     ): Uri? {
         if (treeUriString.isNullOrEmpty()) {
             return null
         }
 
-        val treeUri = try {
-            Uri.parse(treeUriString)
-        } catch (error: Exception) {
-            Log.e(TAG, "Invalid work directory URI", error)
+        val treeUri = documentAccess.parseTreeUri(treeUriString)
+        if (treeUri == null) {
+            Log.e(TAG, "Invalid work directory URI")
             return null
         }
 
         val subfolderName = subfolderNameFor(fileType) ?: return treeUri
 
         return try {
-            val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
-            val rootDocumentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, rootDocId)
-            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, rootDocId)
-            var folderUri: Uri? = null
-
-            contentResolver.query(
-                childrenUri,
-                arrayOf(
-                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                ),
-                null,
-                null,
-                null,
-            )?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    if (cursor.getString(0) == subfolderName) {
-                        folderUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(1))
-                        break
-                    }
-                }
-            }
-
+            var folderUri = documentAccess.listChildren(contentResolver, treeUri)
+                .firstOrNull { it.displayName == subfolderName }
+                ?.let { documentAccess.buildDocumentUri(treeUri, it.documentId) }
             if (folderUri == null) {
-                folderUri = DocumentsContract.createDocument(
-                    contentResolver,
-                    rootDocumentUri,
-                    DocumentsContract.Document.MIME_TYPE_DIR,
-                    subfolderName,
-                )
+                folderUri = documentAccess.createDirectory(contentResolver, treeUri, subfolderName)
             }
 
             folderUri ?: treeUri

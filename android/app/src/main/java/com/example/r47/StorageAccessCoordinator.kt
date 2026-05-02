@@ -5,10 +5,12 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.util.Log
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -20,29 +22,42 @@ internal class StorageAccessCoordinator(
     private val launchSettings: () -> Unit,
     private val onNativeFileSelected: (Int) -> Unit,
     private val onNativeFileCancelled: () -> Unit,
+    private val openFileDescriptor: (Uri, String) -> ParcelFileDescriptor? = { uri, mode ->
+        activity.contentResolver.openFileDescriptor(uri, mode)
+    },
 ) {
     companion object {
         private const val TAG = "R47StorageAccess"
     }
 
-    private val saveLauncher = activity.registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        handleNativeFileResult(
-            resultCode = result.resultCode,
-            uri = result.data?.data,
-            mode = "wt",
-        )
-    }
+    private var saveLauncher: ActivityResultLauncher<Intent>? = null
 
-    private val loadLauncher = activity.registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        handleNativeFileResult(
-            resultCode = result.resultCode,
-            uri = result.data?.data,
-            mode = "r",
-        )
+    private var loadLauncher: ActivityResultLauncher<Intent>? = null
+
+    fun registerLaunchers() {
+        if (saveLauncher != null || loadLauncher != null) {
+            return
+        }
+
+        saveLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            deliverNativeFileResult(
+                resultCode = result.resultCode,
+                uri = result.data?.data,
+                mode = "wt",
+            )
+        }
+
+        loadLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            deliverNativeFileResult(
+                resultCode = result.resultCode,
+                uri = result.data?.data,
+                mode = "r",
+            )
+        }
     }
 
     fun handleResume() {
@@ -57,6 +72,16 @@ internal class StorageAccessCoordinator(
     }
 
     fun requestNativeFile(isSave: Boolean, defaultName: String, fileType: Int) {
+        val launcher = if (isSave) {
+            checkNotNull(saveLauncher) {
+                "StorageAccessCoordinator.registerLaunchers() must be called before requesting files."
+            }
+        } else {
+            checkNotNull(loadLauncher) {
+                "StorageAccessCoordinator.registerLaunchers() must be called before requesting files."
+            }
+        }
+
         try {
             val initialUri = WorkDirectory.resolveSubfolder(
                 contentResolver = activity.contentResolver,
@@ -65,9 +90,9 @@ internal class StorageAccessCoordinator(
             )
 
             if (isSave) {
-                saveLauncher.launch(buildSaveIntent(defaultName, initialUri))
+                launcher.launch(buildSaveIntent(defaultName, initialUri))
             } else {
-                loadLauncher.launch(buildLoadIntent(initialUri))
+                launcher.launch(buildLoadIntent(initialUri))
             }
         } catch (error: Exception) {
             Log.e(TAG, "Failed to launch SAF", error)
@@ -75,14 +100,14 @@ internal class StorageAccessCoordinator(
         }
     }
 
-    private fun handleNativeFileResult(resultCode: Int, uri: Uri?, mode: String) {
+    internal fun deliverNativeFileResult(resultCode: Int, uri: Uri?, mode: String) {
         if (resultCode != Activity.RESULT_OK || uri == null) {
             onNativeFileCancelled()
             return
         }
 
         try {
-            activity.contentResolver.openFileDescriptor(uri, mode)?.use { fileDescriptor ->
+            openFileDescriptor(uri, mode)?.use { fileDescriptor ->
                 onNativeFileSelected(fileDescriptor.detachFd())
             } ?: onNativeFileCancelled()
         } catch (error: Exception) {

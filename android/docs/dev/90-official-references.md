@@ -19,6 +19,11 @@
 - [Guide to app architecture](https://developer.android.com/topic/architecture):
   separation of concerns, state ownership, lifecycle boundaries, and
   single-source-of-truth guidance.
+- [Get a result from an activity](https://developer.android.com/training/basics/intents/result):
+  Activity Result API registration and lifecycle contract for SAF launchers.
+- [ActivityResultCaller](https://developer.android.com/reference/androidx/activity/result/ActivityResultCaller):
+  AndroidX API reference for `registerForActivityResult()` and unconditional
+  registration rules.
 - [Develop Android apps with Kotlin](https://developer.android.com/kotlin):
   Android-specific Kotlin guidance and tooling entry point.
 - [Kotlin language documentation](https://kotlinlang.org/docs/home.html):
@@ -39,6 +44,12 @@
 
 ## CI and release plumbing
 
+- [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle):
+  GitHub Actions guidance for Gradle cache setup, Java toolchain setup, and
+  Gradle-oriented workflow structure.
+- [Control workflow concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency):
+  workflow-level concurrency controls used to cancel superseded runs for the
+  same pull request or ref.
 - [Store and share data with workflow artifacts](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-what-your-workflow-does/storing-and-sharing-data-from-a-workflow):
   artifact upload and download behavior for GitHub Actions.
 - [Manage releases in a repository](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository):

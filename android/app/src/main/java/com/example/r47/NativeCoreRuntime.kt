@@ -20,6 +20,20 @@ internal class NativeCoreRuntime(
     private val getKeypadSnapshot: (IntArray) -> KeypadSnapshot,
     private val onLcdPixels: (IntArray) -> Unit,
     private val onDynamicRefresh: (KeypadSnapshot) -> Unit,
+    private val displayRefreshLoop: DisplayRefreshLoop = NativeDisplayRefreshLoop(
+        isAppRunning = { isAppRunningShared },
+        isNativeInitialized = { isNativeInitializedShared },
+        getDisplayPixels = getDisplayPixels,
+        getKeypadMetaNative = getKeypadMetaNative,
+        useSceneDrivenKeypadProvider = useSceneDrivenKeypadProvider,
+        getKeypadSnapshot = getKeypadSnapshot,
+        onLcdPixels = onLcdPixels,
+        onDynamicRefresh = onDynamicRefresh,
+    ),
+    private val startCoreThread: (Runnable) -> Unit = { runnable ->
+        Thread(runnable, "R47CoreRuntime").start()
+    },
+    private val sleepMillis: (Long) -> Unit = { durationMs -> Thread.sleep(durationMs) },
 ) {
     companion object {
         private const val TAG = "R47CoreRuntime"
@@ -36,17 +50,18 @@ internal class NativeCoreRuntime(
         private var isNativeInitializedShared = false
 
         fun isAppRunning(): Boolean = isAppRunningShared
+
+        internal fun isCoreThreadStartedForTest(): Boolean = isCoreThreadStarted
+
+        internal fun isNativeInitializedForTest(): Boolean = isNativeInitializedShared
+
+        internal fun resetSharedStateForTest() {
+            coreTasks.clear()
+            isCoreThreadStarted = false
+            isAppRunningShared = false
+            isNativeInitializedShared = false
+        }
     }
-    private val displayRefreshLoop = NativeDisplayRefreshLoop(
-        isAppRunning = { isAppRunningShared },
-        isNativeInitialized = { isNativeInitializedShared },
-        getDisplayPixels = getDisplayPixels,
-        getKeypadMetaNative = getKeypadMetaNative,
-        useSceneDrivenKeypadProvider = useSceneDrivenKeypadProvider,
-        getKeypadSnapshot = getKeypadSnapshot,
-        onLcdPixels = onLcdPixels,
-        onDynamicRefresh = onDynamicRefresh,
-    )
 
     fun attach() {
         isAppRunningShared = true
@@ -106,7 +121,8 @@ internal class NativeCoreRuntime(
     private fun startOrAttachCoreThread() {
         if (!isCoreThreadStarted) {
             isCoreThreadStarted = true
-            Thread {
+            startCoreThread(
+                Runnable {
                 try {
                     Log.i(TAG, "Core thread starting; nativeInitialized=$isNativeInitializedShared")
                     if (!isNativeInitializedShared) {
@@ -127,7 +143,7 @@ internal class NativeCoreRuntime(
 
                         drainCoreTasks()
                         tick()
-                        Thread.sleep(10)
+                        sleepMillis(10)
                     }
                     Log.i(TAG, "Core thread exiting")
                 } catch (error: Exception) {
@@ -135,7 +151,8 @@ internal class NativeCoreRuntime(
                 } finally {
                     isCoreThreadStarted = false
                 }
-            }.start()
+            }
+            )
         } else {
             Log.i(TAG, "Core thread already running; updating activity ref")
             updateNativeActivityRef()

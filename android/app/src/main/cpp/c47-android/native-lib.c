@@ -59,15 +59,15 @@ void _Buzz(uint32_t frequency, uint32_t ms_delay) {
   }
 
   if (frequency > 0) {
-    JNIEnv *env;
-    if ((*g_jvm)->GetEnv(g_jvm, (void **)&env, JNI_VERSION_1_6) ==
-        JNI_EDETACHED) {
-      if ((*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL) != JNI_OK) {
-        return;
-      }
+    jni_env_scope_t scope;
+    if (!jni_acquire_env(&scope, "_Buzz")) {
+      return;
     }
-    (*env)->CallVoidMethod(env, g_mainActivityObj, g_playToneId,
+
+    (*scope.env)->CallVoidMethod(scope.env, g_mainActivityObj, g_playToneId,
                            (jint)frequency, (jint)ms_delay);
+    jni_check_and_clear_exception(scope.env, "_Buzz CallVoidMethod(playTone)");
+    jni_release_env(&scope, "_Buzz");
   }
 
   usleep((ms_delay + 10) * 1000);
@@ -80,14 +80,16 @@ void processCoreTasksNative(void) {
     return;
   }
 
-  JNIEnv *env;
-  if ((*g_jvm)->GetEnv(g_jvm, (void **)&env, JNI_VERSION_1_6) ==
-      JNI_EDETACHED) {
-    if ((*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL) != JNI_OK) {
-      return;
-    }
+  jni_env_scope_t scope;
+  if (!jni_acquire_env(&scope, "processCoreTasksNative")) {
+    return;
   }
-  (*env)->CallVoidMethod(env, g_mainActivityObj, g_processCoreTasksId);
+
+  (*scope.env)->CallVoidMethod(scope.env, g_mainActivityObj,
+                               g_processCoreTasksId);
+  jni_check_and_clear_exception(scope.env,
+                                "processCoreTasksNative CallVoidMethod");
+  jni_release_env(&scope, "processCoreTasksNative");
 }
 
 void yieldToAndroidWithMs(int ms) {
@@ -160,6 +162,8 @@ int register_main_activity_natives(JNIEnv *env) {
   static const JNINativeMethod methods[] = {
       {"updateNativeActivityRef", "()V",
         (void *)Java_com_example_r47_MainActivity_updateNativeActivityRef},
+      {"releaseNativeRuntime", "()V",
+        (void *)Java_com_example_r47_MainActivity_releaseNativeRuntime},
       {"nativePreInit", "(Ljava/lang/String;)V",
         (void *)Java_com_example_r47_MainActivity_nativePreInit},
       {"initNative", "(Ljava/lang/String;I)V",
@@ -203,13 +207,14 @@ int register_main_activity_natives(JNIEnv *env) {
   };
 
   jclass clazz = (*env)->FindClass(env, MAIN_ACTIVITY_CLASS);
-  if (clazz == NULL) {
+  if (!jni_result_ok(env, clazz, "FindClass(MainActivity)")) {
     LOGE("Failed to find %s for RegisterNatives", MAIN_ACTIVITY_CLASS);
     return JNI_ERR;
   }
 
   if ((*env)->RegisterNatives(env, clazz, methods,
-                              sizeof(methods) / sizeof(methods[0])) != 0) {
+                              sizeof(methods) / sizeof(methods[0])) != 0 ||
+      jni_check_and_clear_exception(env, "RegisterNatives(MainActivity)")) {
     LOGE("RegisterNatives failed for %s", MAIN_ACTIVITY_CLASS);
     (*env)->DeleteLocalRef(env, clazz);
     return JNI_ERR;
