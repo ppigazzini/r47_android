@@ -1,17 +1,14 @@
 package com.example.r47
 
-import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.media.AudioManager
-import android.net.Uri
 import android.os.*
 import android.util.Log
 import android.util.Rational
 import android.view.*
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -30,15 +27,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var coreRuntime: NativeCoreRuntime
     private lateinit var storageAccessCoordinator: StorageAccessCoordinator
     private lateinit var displayActionController: DisplayActionController
+    private val hapticFeedbackController by lazy {
+        HapticFeedbackController(this, DEFAULT_HAPTIC_INTENSITY)
+    }
     private val appPreferences by lazy {
         getSharedPreferences(SlotStore.APP_PREFS_NAME, MODE_PRIVATE)
     }
-    private val slotStore by lazy { SlotStore(this) }
+    private lateinit var slotSessionController: SlotSessionController
     
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var isHapticEnabled = true
-    private var isHighFidelityHapticEnabled = true
-    private var hapticIntensity = DEFAULT_HAPTIC_INTENSITY
     private var beeperVolume = 20
 
     companion object {
@@ -54,10 +51,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private var isMovingToPiP = false
 
-    private var slotsList = mutableListOf<CalculatorSlot>()
-    private var currentSlotId = 0
-    private var pendingSlotId: Int? = null 
-
     private var chromeMode = DEFAULT_CHROME_MODE
     private var lcdMode = DEFAULT_LCD_MODE
     private var scalingMode = DEFAULT_SCALING_MODE
@@ -70,64 +63,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private var isBeeperEnabled = true
     private var showTouchZones = false
-    private fun performHapticClick() {
-        if (!isHapticEnabled || hapticIntensity <= 0) return
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            vibratorManager?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        } ?: return
-
-        if (!vibrator.hasVibrator()) return
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val effect = if (isHighFidelityHapticEnabled) {
-                // Modern powerful haptics: Custom waveform scaled by intensity
-                VibrationEffect.createWaveform(
-                    longArrayOf(0, 10, 20, 5),
-                    intArrayOf(0, hapticIntensity, 0, hapticIntensity / 2),
-                    -1
-                )
-            } else {
-                // Standard mode: Simple one-shot pulse scaled by intensity
-                VibrationEffect.createOneShot(15, hapticIntensity)
-            }
-            vibrator.vibrate(effect)
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(15)
-        }
-    }
 
     private fun syncAudioSettings() {
         AudioEngine.updateSettings(isBeeperEnabled, beeperVolume)
-    }
-
-    private fun applySelectedSlotUri(uri: Uri, loadState: Boolean) {
-        contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-        )
-
-        val id = pendingSlotId ?: return
-        slotsList[id].uri = uri.toString()
-        slotStore.saveSlots(slotsList)
-        currentSlotId = id
-        setSlotNative(id)
-        slotStore.writeCurrentSlotId(id)
-
-        offerCoreTask {
-            if (loadState) {
-                loadStateNative()
-            } else {
-                saveStateNative()
-            }
-        }
-
-        val verb = if (loadState) "Loaded" else "Created"
-        android.widget.Toast.makeText(this, "$verb ${slotsList[id].name}", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     @Keep
@@ -185,10 +123,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
         if (prefs == null || key == null) return
+        if (hapticFeedbackController.onPreferenceChanged(prefs, key)) return
+
         when (key) {
-            "haptic_enabled" -> isHapticEnabled = prefs.getBoolean(key, true)
-            "haptic_hifi_enabled" -> isHighFidelityHapticEnabled = prefs.getBoolean(key, true)
-            "haptic_intensity" -> hapticIntensity = prefs.getInt(key, DEFAULT_HAPTIC_INTENSITY)
             "beeper_volume" -> {
                 beeperVolume = prefs.getInt(key, 20)
                 syncAudioSettings()
@@ -326,6 +263,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             sendSimKeyNative = ::sendSimKeyNative,
             enterPiP = ::enterPiP,
         )
+
+        slotSessionController = SlotSessionController(
+            context = this,
+            mainHandler = mainHandler,
+            offerCoreTask = ::offerCoreTask,
+            saveStateNative = ::saveStateNative,
+            loadStateNative = ::loadStateNative,
+            setSlotNative = ::setSlotNative,
+        )
         
         window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         val isFullscreen = prefs.getBoolean("fullscreen_mode", true)
@@ -336,9 +282,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             offerCoreTask { sendKey(code) }
         }
         
-        isHapticEnabled = prefs.getBoolean("haptic_enabled", true)
-        isHighFidelityHapticEnabled = prefs.getBoolean("haptic_hifi_enabled", true)
-        hapticIntensity = prefs.getInt("haptic_intensity", DEFAULT_HAPTIC_INTENSITY)
+        hapticFeedbackController.syncFromPreferences(prefs)
         beeperVolume = prefs.getInt("beeper_volume", 20)
         val storedChromeMode = prefs.getString("chrome_mode", DEFAULT_CHROME_MODE)
         chromeMode = normalizeChromeMode(storedChromeMode)
@@ -354,12 +298,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         
         replicaOverlay.setChromeMode(chromeMode)
         setupInteractiveZones()
-        slotsList = slotStore.loadSlots()
-        currentSlotId = slotStore.readCurrentSlotId()
 
         coreRuntime = NativeCoreRuntime(
             filesDirPath = filesDir.absolutePath,
-            currentSlotIdProvider = { currentSlotId },
+            currentSlotIdProvider = slotSessionController::currentSlotId,
             nativePreInit = ::nativePreInit,
             initNative = ::initNative,
             updateNativeActivityRef = ::updateNativeActivityRef,
@@ -423,42 +365,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    private val slotCreateLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                applySelectedSlotUri(uri, loadState = false)
-            }
-        }
-    }
-
-    private val slotLoadLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                applySelectedSlotUri(uri, loadState = true)
-            }
-        }
-    }
-
-    private fun switchSlot(id: Int) {
-        if (id !in slotsList.indices || id == currentSlotId) return
-        
-        val targetName = slotsList[id].name
-        offerCoreTask {
-            try {
-                saveStateNative()
-                currentSlotId = id
-                setSlotNative(id)
-                loadStateNative()
-                mainHandler.post {
-                    slotStore.writeCurrentSlotId(id)
-                    android.widget.Toast.makeText(this, "Switched to $targetName", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Slot switch failed", e)
-            }
-        }
-    }
-
     @Keep
     fun requestFile(isSave: Boolean, defaultName: String, fileType: Int) {
         mainHandler.post {
@@ -509,7 +415,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             activity = this,
             overlay = replicaOverlay,
             chromeMode = chromeMode,
-            performHapticClick = ::performHapticClick,
+            performHapticClick = hapticFeedbackController::performClick,
             dispatchKey = { keyCode -> offerCoreTask { sendKey(keyCode) } },
         )
     }
