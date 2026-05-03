@@ -31,12 +31,20 @@ internal object ReplicaKeypadLayout {
         chromeMode: String,
         performHapticClick: () -> Unit,
         dispatchKey: (Int) -> Unit,
+        initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
         overlay.removeAllViews()
         if (chromeMode == CHROME_MODE_TEXTURE) {
             addClassicKeypad(activity, overlay, performHapticClick, dispatchKey)
         } else {
-            addDynamicKeypad(activity, overlay, chromeMode, performHapticClick, dispatchKey)
+            addDynamicKeypad(
+                activity,
+                overlay,
+                chromeMode,
+                performHapticClick,
+                dispatchKey,
+                initialSnapshotProvider,
+            )
         }
     }
 
@@ -75,13 +83,14 @@ internal object ReplicaKeypadLayout {
         chromeMode: String,
         performHapticClick: () -> Unit,
         dispatchKey: (Int) -> Unit,
+        initialSnapshotProvider: () -> KeypadSnapshot,
     ) {
         val fonts = KeypadFontSet(
             standard = loadTypeface(activity, "fonts/C47__StandardFont.ttf"),
             numeric = loadTypeface(activity, "fonts/C47__NumericFont.ttf"),
             tiny = loadTypeface(activity, "fonts/C47__TinyFont.ttf"),
         )
-        val initialSnapshot = activity.currentKeypadSnapshot().takeIf {
+        val initialSnapshot = initialSnapshotProvider().takeIf {
             it.sceneContractVersion > 0
         }
 

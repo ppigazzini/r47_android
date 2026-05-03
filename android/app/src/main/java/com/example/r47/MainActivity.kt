@@ -23,7 +23,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var storageAccessCoordinator: StorageAccessCoordinator
     private lateinit var displayActionController: DisplayActionController
     private lateinit var factoryResetController: FactoryResetController
+    private lateinit var physicalKeyboardInputController: PhysicalKeyboardInputController
     private lateinit var preferenceController: MainActivityPreferenceController
+    private lateinit var replicaOverlayController: ReplicaOverlayController
     private val hapticFeedbackController by lazy {
         HapticFeedbackController(this, DEFAULT_HAPTIC_INTENSITY)
     }
@@ -72,97 +74,23 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         else setLcdColors(BW_TEXT.toInt(), BW_BG.toInt())
     }
 
-    private fun normalizeChromeMode(mode: String?): String {
-        return when {
-            mode == null -> MainActivityPreferenceController.DEFAULT_CHROME_MODE
-            mode == ReplicaOverlay.CHROME_MODE_NATIVE ||
-                mode == ReplicaOverlay.CHROME_MODE_TEXTURE ||
-                mode == ReplicaOverlay.CHROME_MODE_BACKGROUND -> mode
-            else -> MainActivityPreferenceController.DEFAULT_CHROME_MODE
-        }
-    }
-
-    private fun applyChromeMode(mode: String) {
-        if (::replicaOverlay.isInitialized) {
-            replicaOverlay.setChromeMode(mode)
-            setupInteractiveZones()
-            if (::coreRuntime.isInitialized && mode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
-                updateDynamicKeys()
-            }
-        }
-    }
-
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
         if (prefs == null || key == null) return
         preferenceController.onPreferenceChanged(key)
     }
 
-    private var isPhysicalShiftHeld = false
-    private var isPhysicalCtrlHeld = false
-    private var interceptedWhileHeld = false
-    private val activeKeyIdMap = mutableMapOf<Int, PhysicalKeyboardAction>()
-
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) return false
-        if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
-            isPhysicalShiftHeld = true; interceptedWhileHeld = false; return true
-        }
-        if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT) {
-            isPhysicalCtrlHeld = true; interceptedWhileHeld = false; return true
-        }
-        if (isPhysicalShiftHeld || isPhysicalCtrlHeld) interceptedWhileHeld = true
-        if (event?.repeatCount ?: 0 > 0) return true
-
-        PhysicalKeyboardMapper.resolve(keyCode, event)?.let { action ->
-            activeKeyIdMap[keyCode] = action
-            when (action) {
-                is PhysicalKeyboardAction.NativeKey -> {
-                    offerCoreTask { sendSimKeyNative(action.id, action.isFunctionKey, false) }
-                }
-                is PhysicalKeyboardAction.Shortcut -> {
-                    PhysicalKeyboardShortcuts.dispatch(
-                        action,
-                        ::offerCoreTask,
-                        ::sendSimKeyNative,
-                        ::sendSimMenuNative,
-                    )
-                }
-            }
+        if (physicalKeyboardInputController.onKeyDown(keyCode, event)) {
             return true
         }
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) return false
-        if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
-            if (!interceptedWhileHeld) { sendSimKeyNative("10", false, false); sendSimKeyNative("10", false, true) }
-            isPhysicalShiftHeld = false; return true
-        }
-        if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT) {
-            if (!interceptedWhileHeld) { sendSimKeyNative("11", false, false); sendSimKeyNative("11", false, true) }
-            isPhysicalCtrlHeld = false; return true
-        }
-        activeKeyIdMap.remove(keyCode)?.let { action ->
-            if (action is PhysicalKeyboardAction.NativeKey) {
-                offerCoreTask { sendSimKeyNative(action.id, action.isFunctionKey, true) }
-            }
+        if (physicalKeyboardInputController.onKeyUp(keyCode)) {
             return true
         }
         return super.onKeyUp(keyCode, event)
-    }
-
-    internal fun currentKeypadSnapshot(meta: IntArray? = null): KeypadSnapshot {
-        val resolvedMeta = meta ?: getKeypadMetaNative(true)
-        return KeypadSnapshot.fromNative(
-            resolvedMeta,
-            getKeypadLabelsNative(true),
-        )
-    }
-
-    private fun updateDynamicKeys(snapshot: KeypadSnapshot? = null) {
-        val resolvedSnapshot = snapshot ?: currentKeypadSnapshot()
-        ReplicaKeypadLayout.updateDynamicKeys(replicaOverlay, resolvedSnapshot)
     }
 
     private fun offerCoreTask(task: Runnable) {
@@ -229,6 +157,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             enterPiP = windowModeController::enterPictureInPicture,
         )
 
+        physicalKeyboardInputController = PhysicalKeyboardInputController(
+            offerCoreTask = ::offerCoreTask,
+            sendSimKeyNative = ::sendSimKeyNative,
+            sendSimMenuNative = ::sendSimMenuNative,
+        )
+
         slotSessionController = SlotSessionController(
             context = this,
             mainHandler = mainHandler,
@@ -241,9 +175,17 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
 
         replicaOverlay = binding.replicaOverlay
-        replicaOverlay.onPiPKeyEvent = { code ->
-            offerCoreTask { sendKey(code) }
-        }
+        replicaOverlayController = ReplicaOverlayController(
+            activity = this,
+            overlay = replicaOverlay,
+            performHapticClick = hapticFeedbackController::performClick,
+            offerCoreTask = ::offerCoreTask,
+            sendKey = ::sendKey,
+            getKeypadMetaNative = ::getKeypadMetaNative,
+            getKeypadLabelsNative = ::getKeypadLabelsNative,
+            isRuntimeReady = { ::coreRuntime.isInitialized },
+        )
+        replicaOverlayController.bindOverlay()
 
         preferenceController = MainActivityPreferenceController(
             preferences = prefs,
@@ -252,10 +194,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             windowModeController = windowModeController,
             syncAudioSettings = ::syncAudioSettings,
             applyLcdMode = ::applyLcdMode,
-            applyChromeMode = ::applyChromeMode,
+            applyChromeMode = replicaOverlayController::applyChromeMode,
             applyScalingMode = replicaOverlay::setScalingMode,
             applyShowTouchZones = replicaOverlay::setShowTouchZones,
-            normalizeChromeMode = ::normalizeChromeMode,
+            normalizeChromeMode = replicaOverlayController::normalizeChromeMode,
         )
         prefs.registerOnSharedPreferenceChangeListener(this)
         preferenceController.applyInitialPreferences()
@@ -272,15 +214,15 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             getDisplayPixels = ::getDisplayPixels,
             getKeypadMetaNative = ::getKeypadMetaNative,
             useSceneDrivenKeypadProvider = { true },
-            getKeypadSnapshot = ::currentKeypadSnapshot,
+            getKeypadSnapshot = replicaOverlayController::currentKeypadSnapshot,
             onLcdPixels = { pixels -> replicaOverlay.updateLcd(pixels) },
-            onDynamicRefresh = ::updateDynamicKeys,
+            onDynamicRefresh = replicaOverlayController::refreshDynamicKeys,
         )
         
         replicaOverlay.post {
             preferenceController.applyDeferredOverlayPreferences()
             if (preferenceController.chromeMode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
-                updateDynamicKeys()
+                replicaOverlayController.refreshDynamicKeys()
             }
         }
 
@@ -363,16 +305,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         windowModeController.handlePictureInPictureModeChanged(isInPictureInPictureMode)
-    }
-
-    private fun setupInteractiveZones() {
-        ReplicaKeypadLayout.rebuild(
-            activity = this,
-            overlay = replicaOverlay,
-            chromeMode = preferenceController.chromeMode,
-            performHapticClick = hapticFeedbackController::performClick,
-            dispatchKey = { keyCode -> offerCoreTask { sendKey(keyCode) } },
-        )
     }
 
     private external fun nativePreInit(storagePath: String)
