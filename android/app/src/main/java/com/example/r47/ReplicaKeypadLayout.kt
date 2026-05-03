@@ -152,6 +152,17 @@ internal object ReplicaKeypadLayout {
         val keyView = CalculatorKeyView(activity)
         keyView.setKey(slot, fonts)
         keyView.setDrawKeySurfaces(chromeMode != ReplicaOverlay.CHROME_MODE_BACKGROUND)
+        keyView.isClickable = true
+        keyView.isFocusable = true
+        keyView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        keyView.setOnClickListener {
+            if (!it.isEnabled) {
+                return@setOnClickListener
+            }
+            performHapticClick()
+            dispatchKey(slot.code)
+            dispatchKey(0)
+        }
         initialSnapshot?.let { keyView.updateLabels(it) }
         addTouchZone(
             activity = activity,

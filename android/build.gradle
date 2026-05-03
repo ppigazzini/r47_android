@@ -1,25 +1,3 @@
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:9.2.0'
-        classpath('org.jetbrains.kotlin:kotlin-gradle-plugin') {
-            version {
-                strictly '2.3.21'
-            }
-        }
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
 tasks.register('clean', Delete) {
     delete rootProject.layout.buildDirectory
 }

@@ -2,9 +2,10 @@
 
 ## Checked-in defaults
 
+- settings-owned repositories via `android/settings.gradle`
+- version catalog `android/gradle/libs.versions.toml`
+- Jetifier explicitly disabled in `android/gradle.properties`
 - AGP `9.2.0`
-- Kotlin Gradle plugin `2.3.21`, supplied through the AGP `9.2.0` runtime
-  Kotlin integration path
 - Java `17`, which matches the AGP `9.2.0` supported minimum and default JDK
 - `compileSdk 36`
 - `targetSdk 36`
@@ -16,6 +17,10 @@
 - debug builds add `applicationIdSuffix ".debug"`
 - release version inputs come from `r47.versionCode`, `r47.versionName`, and
   `r47.coreVersion`
+- release minify and resource shrinking default to on via
+  `r47.releaseMinify` and `r47.releaseShrinkResources`
+- release native debug symbols default to `FULL` via
+  `r47.releaseNativeDebugSymbolLevel`
 
 ## Build entry points
 
@@ -34,10 +39,17 @@ Public maintainer entrypoints:
   regenerates staged native metadata there, copies fonts, writes
   `android/local.properties`, and runs Gradle clean plus `assembleDebug`. It
   also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, which
-  is how hosted CI applies the temporary multi-ABI emulator override.
+  is how hosted CI applies the temporary multi-ABI emulator override. Add
+  `--verify-packaging` when you want the local build to write the same release
+  evidence files CI publishes for the debug APK.
 - `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
+- `cd android && ./gradlew :app:bundleRelease` or
+  `cd android && ./gradlew :app:assembleRelease` is the module-local release
+  lane only when the staged build-only native tree is already current. Release
+  builds remain unsigned unless all `r47.releaseStore*` and `r47.releaseKey*`
+  inputs are supplied together.
 - `cd android && ./gradlew :app:testDebugUnitTest` validates the Robolectric
   and fixture-backed Android JVM suite when the build-only staged native tree
   is already current.
@@ -120,6 +132,9 @@ Build-safety rule:
   without using recursive globs.
 6. Gradle packages the debug APK as
   `android/app/build/outputs/apk/debug/app-debug.apk`.
+7. When the caller requests packaging verification, the repo-owned helper
+  `android/collect_packaging_evidence.sh` copies the artifact and writes ABI,
+  zipalign, ELF `LOAD` segment, SHA256, and provenance evidence beside it.
 
 ## CI lane
 
@@ -135,7 +150,8 @@ ownership model as the local build:
 - `android-debug` installs the pinned SDK, CMake, and NDK versions, runs
   `./build_android.sh`, verifies that build-only staged metadata exists under
   `android/.staged-native/cpp` while the tracked staging snapshots stay clean,
-  and records packaging evidence for the default `arm64-v8a` debug APK.
+  and records packaging evidence for the default `arm64-v8a` debug APK through
+  `android/collect_packaging_evidence.sh`.
 - `android-tests` uses the same resolved upstream commit and staged-native
   build path, applies `-Pr47.abiFilters=arm64-v8a,x86_64` only for the hosted
   test lane, assembles `:app:assembleDebugAndroidTest`, runs
@@ -155,6 +171,24 @@ ownership model as the local build:
 The CI lane verifies packaged ABIs and 16 KB alignment. It is not a store-release
 lane.
 
+## Release and packaging policy
+
+- The Android app keeps the default checked-in lane debug-first. Release work is
+  opt-in and remains a maintainer lane.
+- `android/app/build.gradle` defines release signing from
+  `r47.releaseStoreFile`, `r47.releaseStorePassword`, `r47.releaseKeyAlias`,
+  and `r47.releaseKeyPassword`. Supplying only some of those values is a hard
+  configuration error.
+- Release builds default `minifyEnabled` and `shrinkResources` to `true` and
+  request `ndk.debugSymbolLevel "FULL"`.
+- `bundleRelease` is the canonical AAB command. `assembleRelease` remains
+  available when an APK is required for local inspection.
+- `android/collect_packaging_evidence.sh` is the canonical provenance collector
+  for both CI and local packaging checks. For debug it verifies ABI contents,
+  zip alignment, and ELF `LOAD` segment alignment. For release it also accepts a
+  bundle, mapping file, and native-symbol archive so provenance can travel with
+  the output.
+
 ## Verification by change type
 
 - Kotlin-only Android UI changes: `cd android && ./gradlew assembleDebug` when
@@ -167,6 +201,7 @@ lane.
   `:app:connectedDebugAndroidTest` on a device or emulator. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`.
 - JNI, HAL, CMake, or packaging changes: `./build_android.sh`.
+- packaging evidence changes with local proof: `./build_android.sh --verify-packaging`
 - root core or generator changes: `make test` and then `./build_android.sh`.
 - CI-only changes: verify `.github/workflows/android-ci.yml` against the local
   build contract and the artifact names described above.
@@ -191,6 +226,8 @@ Use `./build_android.sh` after any of the following:
 ## Practical maintenance rules
 
 - Treat the debug APK as a derived artifact, not as the source of truth.
+- Keep `android/settings.gradle`, `android/gradle/libs.versions.toml`, and the
+  app module in sync when dependency ownership changes.
 - Keep `README.md`, Gradle literals, and shell-script defaults aligned when
   toolchain versions or package identity change.
 - If a change affects both the canonical root tree and the staged Android tree,
