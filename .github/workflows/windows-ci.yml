@@ -32,6 +32,7 @@ jobs:
 
       - name: Load shared Android defaults
         id: defaults
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -85,6 +86,7 @@ jobs:
 
       - name: Load shared Android defaults
         id: defaults
+        shell: bash
         run: |
           set -euo pipefail
 

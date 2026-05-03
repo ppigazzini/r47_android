@@ -60,6 +60,10 @@
 - [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle):
   GitHub Actions guidance for Gradle cache setup, Java toolchain setup, and
   Gradle-oriented workflow structure.
+- [Passing information between jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs):
+  GitHub Actions guidance for promoting step outputs through
+  `jobs.<job_id>.outputs` and consuming them in dependent jobs through
+  `needs.<job_id>.outputs.*`.
 - [Control workflow concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency):
   workflow-level concurrency controls used to cancel superseded runs for the
   same pull request or ref.

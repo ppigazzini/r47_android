@@ -174,6 +174,9 @@ ownership model as the local build:
   nightly runs, and manual `workflow_dispatch`
 - `resolve-upstream-core` resolves the latest upstream commit once per workflow
   run through `tools/upstream.sh resolve --latest`.
+- each consuming job recreates its own `Load shared Android defaults` step.
+  Step outputs stay local to the current job unless they are promoted through
+  `jobs.<job_id>.outputs` and consumed via `needs.<job_id>.outputs.*`.
 - `simulator-tests` syncs that resolved revision into the workspace through
   `sync_public.sh --commit ...` and runs `make test`.
 - `android-debug` installs the pinned SDK, CMake, and NDK versions, runs
@@ -191,6 +194,9 @@ ownership model as the local build:
   a given workflow run.
 - Android build logs, Android test logs, and test reports are uploaded with
   `if: always()` where later steps can fail.
+- the Windows lane keeps any bootstrap step that runs before
+  `msys2/setup-msys2` on an explicit host shell, then uses the job-level
+  `msys2 {0}` default only after MSYS2 is installed.
 - `publish-main-snapshot` waits for `simulator-tests`, `android-debug`, and
   `android-tests` before publishing a main-branch prerelease.
 - the uploaded Android artifact contains the debug APK plus `SHA256SUMS.txt`,
@@ -236,8 +242,12 @@ lane.
 - JNI, HAL, CMake, or packaging changes: `./build_android.sh`.
 - packaging evidence changes with local proof: `./build_android.sh --verify-packaging`
 - root core or generator changes: `make test` and then `./build_android.sh`.
-- CI-only changes: verify `.github/workflows/android-ci.yml` against the local
-  build contract and the artifact names described above.
+- CI-only changes: verify the touched workflow files against the local build
+  contract and the artifact names described above. When one job needs data from
+  another, promote it through `jobs.<job_id>.outputs` and consume it via
+  `needs.<job_id>.outputs.*` instead of reading another job's
+  `steps.<step_id>.outputs.*`. In the Windows lane, keep any step that runs
+  before `msys2/setup-msys2` on a host shell such as `pwsh` or `bash`.
 - sync or restore-boundary changes: confirm restore logic still excludes `^src/`
   and does not reintroduce tracked local overrides under `src/**`; confirm the
   build-only staged metadata under `android/.staged-native/cpp` regenerates and
