@@ -9,6 +9,15 @@ internal object ReplicaKeypadLayout {
     private const val SOFTKEY_WIDTH = R47ReferenceGeometry.STANDARD_KEY_WIDTH
     private const val SOFTKEY_HEIGHT = R47ReferenceGeometry.ROW_HEIGHT
     private const val NON_SOFTKEY_VIEW_HEIGHT = R47AndroidChromeGeometry.NON_SOFTKEY_VIEW_HEIGHT
+    private val adaptiveTopLabelLanes = listOf(
+        KeypadLane.SMALL_ROW_1,
+        KeypadLane.SMALL_ROW_2,
+        KeypadLane.ENTER_ROW,
+        KeypadLane.MATRIX_ROW_1,
+        KeypadLane.MATRIX_ROW_2,
+        KeypadLane.MATRIX_ROW_3,
+        KeypadLane.MATRIX_ROW_4,
+    )
     private val UPPER_COLUMN_BOUNDARIES = floatArrayOf(94.0f, 366.0f, 638.0f, 910.0f, 1182.0f, 1454.0f, 1726.0f)
     private val UPPER_ROW_BOUNDARIES = floatArrayOf(1232.0f, 1492.0f, 1752.0f, 2012.0f, 2272.0f)
     private val LOWER_COLUMN_BOUNDARIES = floatArrayOf(82.5f, 413.5f, 744.5f, 1075.5f, 1406.5f, 1737.5f)
@@ -57,6 +66,12 @@ internal object ReplicaKeypadLayout {
             if (child is CalculatorKeyView) {
                 child.updateLabels(snapshot)
             }
+        }
+
+        if (overlay.width > 0 && overlay.height > 0) {
+            applyAdaptiveTopLabelPlacements(overlay)
+        } else {
+            overlay.post { applyAdaptiveTopLabelPlacements(overlay) }
         }
     }
 
@@ -141,6 +156,38 @@ internal object ReplicaKeypadLayout {
                 performHapticClick = performHapticClick,
                 dispatchKey = dispatchKey,
             )
+        }
+
+        if (initialSnapshot != null) {
+            overlay.post { applyAdaptiveTopLabelPlacements(overlay) }
+        }
+    }
+
+    private fun applyAdaptiveTopLabelPlacements(overlay: ReplicaOverlay) {
+        val keyViewsByCode = mutableMapOf<Int, CalculatorKeyView>()
+        for (index in 0 until overlay.childCount) {
+            val child = overlay.getChildAt(index)
+            if (child is CalculatorKeyView && child.keyCode in 1..37) {
+                keyViewsByCode[child.keyCode] = child
+            }
+        }
+
+        if (keyViewsByCode.isEmpty()) {
+            return
+        }
+
+        val placementsByCode = mutableMapOf<Int, TopLabelLanePlacement>()
+        for (lane in adaptiveTopLabelLanes) {
+            val laneGroups = KeypadTopology.slotsForLane(lane)
+                .mapNotNull { slot -> keyViewsByCode[slot.code]?.buildTopLabelLaneInput() }
+            if (laneGroups.isEmpty()) {
+                continue
+            }
+            placementsByCode.putAll(TopLabelLaneLayout.solve(laneGroups))
+        }
+
+        keyViewsByCode.values.forEach { keyView ->
+            keyView.applyTopLabelPlacement(placementsByCode[keyView.keyCode])
         }
     }
 
