@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var storageAccessCoordinator: StorageAccessCoordinator
     private lateinit var displayActionController: DisplayActionController
     private lateinit var factoryResetController: FactoryResetController
+    private lateinit var preferenceController: MainActivityPreferenceController
     private val hapticFeedbackController by lazy {
         HapticFeedbackController(this, DEFAULT_HAPTIC_INTENSITY)
     }
@@ -33,13 +34,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var windowModeController: WindowModeController
     
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var beeperVolume = 20
 
     companion object {
         private const val DEFAULT_HAPTIC_INTENSITY = 64
-        private const val DEFAULT_CHROME_MODE = ReplicaOverlay.CHROME_MODE_BACKGROUND
-        private const val DEFAULT_LCD_MODE = "vintage"
-        private const val DEFAULT_SCALING_MODE = "full_width"
 
         init {
             System.loadLibrary("c47-android")
@@ -50,20 +47,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    private var chromeMode = DEFAULT_CHROME_MODE
-    private var lcdMode = DEFAULT_LCD_MODE
-    private var scalingMode = DEFAULT_SCALING_MODE
-
     private val VINTAGE_TEXT = 0xFF303030.toInt()
     private val VINTAGE_BG = 0xFFDFF5CC.toInt()
     private val BW_TEXT = Color.BLACK
     private val BW_BG = Color.parseColor("#E0E0E0")
     private val YELLOW_SHIFT = Color.parseColor("#FFBF00")
 
-    private var isBeeperEnabled = true
-    private var showTouchZones = false
-
-    private fun syncAudioSettings() {
+    private fun syncAudioSettings(isBeeperEnabled: Boolean, beeperVolume: Int) {
         AudioEngine.updateSettings(isBeeperEnabled, beeperVolume)
     }
 
@@ -76,27 +66,27 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     fun stopTone() {}
 
     private fun applyLcdMode(mode: String) {
-        lcdMode = mode
-        if (mode == DEFAULT_LCD_MODE) setLcdColors(VINTAGE_TEXT, VINTAGE_BG)
+        if (mode == MainActivityPreferenceController.DEFAULT_LCD_MODE) {
+            setLcdColors(VINTAGE_TEXT, VINTAGE_BG)
+        }
         else setLcdColors(BW_TEXT.toInt(), BW_BG.toInt())
     }
 
     private fun normalizeChromeMode(mode: String?): String {
         return when {
-            mode == null -> DEFAULT_CHROME_MODE
+            mode == null -> MainActivityPreferenceController.DEFAULT_CHROME_MODE
             mode == ReplicaOverlay.CHROME_MODE_NATIVE ||
                 mode == ReplicaOverlay.CHROME_MODE_TEXTURE ||
                 mode == ReplicaOverlay.CHROME_MODE_BACKGROUND -> mode
-            else -> DEFAULT_CHROME_MODE
+            else -> MainActivityPreferenceController.DEFAULT_CHROME_MODE
         }
     }
 
     private fun applyChromeMode(mode: String) {
-        chromeMode = normalizeChromeMode(mode)
         if (::replicaOverlay.isInitialized) {
-            replicaOverlay.setChromeMode(chromeMode)
+            replicaOverlay.setChromeMode(mode)
             setupInteractiveZones()
-            if (::coreRuntime.isInitialized && chromeMode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
+            if (::coreRuntime.isInitialized && mode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
                 updateDynamicKeys()
             }
         }
@@ -104,41 +94,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
         if (prefs == null || key == null) return
-        if (hapticFeedbackController.onPreferenceChanged(prefs, key)) return
-
-        when (key) {
-            "beeper_volume" -> {
-                beeperVolume = prefs.getInt(key, 20)
-                syncAudioSettings()
-            }
-            "keep_screen_on" -> {
-                val enabled = prefs.getBoolean(key, false)
-                if (enabled) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                else window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            }
-            "beeper_enabled" -> {
-                isBeeperEnabled = prefs.getBoolean(key, true)
-                syncAudioSettings()
-            }
-            "lcd_mode" -> {
-                lcdMode = prefs.getString(key, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
-                applyLcdMode(lcdMode)
-            }
-            "chrome_mode" -> {
-                applyChromeMode(prefs.getString(key, DEFAULT_CHROME_MODE) ?: DEFAULT_CHROME_MODE)
-            }
-            "scaling_mode" -> {
-                scalingMode = prefs.getString(key, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
-                replicaOverlay.setScalingMode(scalingMode)
-            }
-            "show_touch_zones" -> {
-                showTouchZones = prefs.getBoolean(key, false)
-                replicaOverlay.setShowTouchZones(showTouchZones)
-            }
-            "fullscreen_mode" -> {
-                windowModeController.applyFullscreenMode(prefs.getBoolean(key, true))
-            }
-        }
+        preferenceController.onPreferenceChanged(key)
     }
 
     private var isPhysicalShiftHeld = false
@@ -220,7 +176,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         setContentView(binding.root)
         
         val prefs = appPreferences
-        prefs.registerOnSharedPreferenceChangeListener(this)
 
         windowModeController = WindowModeController(
             activity = this,
@@ -284,31 +239,27 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         )
         
         window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        val isFullscreen = prefs.getBoolean("fullscreen_mode", true)
-        windowModeController.applyFullscreenMode(isFullscreen)
 
         replicaOverlay = binding.replicaOverlay
         replicaOverlay.onPiPKeyEvent = { code ->
             offerCoreTask { sendKey(code) }
         }
-        
-        hapticFeedbackController.syncFromPreferences(prefs)
-        beeperVolume = prefs.getInt("beeper_volume", 20)
-        val storedChromeMode = prefs.getString("chrome_mode", DEFAULT_CHROME_MODE)
-        chromeMode = normalizeChromeMode(storedChromeMode)
-        if (storedChromeMode != chromeMode) {
-            prefs.edit().putString("chrome_mode", chromeMode).apply()
-        }
-        lcdMode = prefs.getString("lcd_mode", DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
-        scalingMode = prefs.getString("scaling_mode", DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
-        isBeeperEnabled = prefs.getBoolean("beeper_enabled", true)
-        showTouchZones = prefs.getBoolean("show_touch_zones", false)
-        if (prefs.getBoolean("keep_screen_on", false)) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        syncAudioSettings()
-        
-        replicaOverlay.setChromeMode(chromeMode)
-        setupInteractiveZones()
 
+        preferenceController = MainActivityPreferenceController(
+            preferences = prefs,
+            window = window,
+            hapticFeedbackController = hapticFeedbackController,
+            windowModeController = windowModeController,
+            syncAudioSettings = ::syncAudioSettings,
+            applyLcdMode = ::applyLcdMode,
+            applyChromeMode = ::applyChromeMode,
+            applyScalingMode = replicaOverlay::setScalingMode,
+            applyShowTouchZones = replicaOverlay::setShowTouchZones,
+            normalizeChromeMode = ::normalizeChromeMode,
+        )
+        prefs.registerOnSharedPreferenceChangeListener(this)
+        preferenceController.applyInitialPreferences()
+        
         coreRuntime = NativeCoreRuntime(
             filesDirPath = filesDir.absolutePath,
             currentSlotIdProvider = slotSessionController::currentSlotId,
@@ -327,10 +278,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         )
         
         replicaOverlay.post {
-            replicaOverlay.setShowTouchZones(showTouchZones)
-            replicaOverlay.setScalingMode(scalingMode)
-            applyLcdMode(lcdMode)
-            if (chromeMode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
+            preferenceController.applyDeferredOverlayPreferences()
+            if (preferenceController.chromeMode != ReplicaOverlay.CHROME_MODE_TEXTURE) {
                 updateDynamicKeys()
             }
         }
@@ -420,7 +369,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         ReplicaKeypadLayout.rebuild(
             activity = this,
             overlay = replicaOverlay,
-            chromeMode = chromeMode,
+            chromeMode = preferenceController.chromeMode,
             performHapticClick = hapticFeedbackController::performClick,
             dispatchKey = { keyCode -> offerCoreTask { sendKey(keyCode) } },
         )
