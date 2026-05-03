@@ -10,6 +10,38 @@
 
 ---
 
+## Repository Ownership And Entrypoints
+
+Use these commands as the public maintainer entrypoints for the current repo:
+
+- `./sync_public.sh` hydrates the authoritative upstream core.
+- `./build_android.sh` is the canonical Android debug-build path.
+- `make sim` and `make test` are the canonical root simulator and generator
+  validation paths.
+- `cd android && ./gradlew ...` is a module-local maintenance lane only when
+  the build-only staged native tree is already current.
+
+Repository ownership split:
+
+- canonical shared sources live in hydrated `src/c47`, `dep/decNumberICU`, and
+  generated outputs from `build.sim`
+- tracked Android-owned code lives in `android/app/src/main/java/...` and
+  `android/app/src/main/cpp/c47-android`
+- the authoritative Android staged native build root is
+  `android/.staged-native/cpp`
+- the tracked directories
+  `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are legacy
+  non-authoritative content and should stay untouched during normal builds
+
+Internal helpers:
+
+- `tools/upstream.sh`, `android/stage_native_sources.sh`, and
+  `android/generate_staged_native_metadata.sh` are implementation helpers behind
+  the public entrypoints above. Document them directly only when the task is
+  specifically about sync or staging internals.
+
+---
+
 ## 0. Package Identity And Version Contract
 
 - The stable checked-in Android package identity MUST be
@@ -231,7 +263,9 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
   through as `r47.xlsxioSourceRepositoryUrl` and `r47.xlsxioSourceCommit` so
   the packaged APK provenance matches the host toolchain that generated the
   fonts.
-- After `make sim`, it MUST delegate native staging to `android/stage_native_sources.sh`.
+- After `make sim`, it MUST delegate native staging to
+  `android/stage_native_sources.sh`, which remains an internal helper rather
+  than a primary maintainer-facing build command.
 - That staging step copies the synced `src/c47` tree, `dep/decNumberICU`, generated files, and mini-gmp inputs into the ignored build-only staging root `android/.staged-native/cpp`.
 - That staging step MUST also regenerate `android/.staged-native/cpp/STAGED-SOURCE-MANIFEST.txt`
   and `android/.staged-native/cpp/staged_native_sources.cmake`.
