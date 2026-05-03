@@ -2,17 +2,16 @@
 
 ## Checked-in defaults
 
+- machine-readable Android tool defaults live in
+  `android/r47-defaults.properties`; the checked-in values currently cover
+  Java `17`, `compileSdk 36`, `targetSdk 36`, `minSdk 24`, build tools
+  `36.0.0`, `ndkVersion 29.0.14206865`, CMake `3.22.1`, default ABI filter
+  `arm64-v8a`, hosted Android test API `34`, hosted Android test ABI filters
+  `arm64-v8a,x86_64`, and the pinned xlsxio URL plus commit.
 - settings-owned repositories via `android/settings.gradle`
-- version catalog `android/gradle/libs.versions.toml`
+- version catalog `android/gradle/libs.versions.toml`, which owns the checked-in
+  AGP `9.2.0` plugin coordinate plus AndroidX and Material library versions.
 - Jetifier explicitly disabled in `android/gradle.properties`
-- AGP `9.2.0`
-- Java `17`, which matches the AGP `9.2.0` supported minimum and default JDK
-- `compileSdk 36`
-- `targetSdk 36`
-- `minSdk 24`
-- `ndkVersion 29.0.14206865`
-- CMake `3.22.1`
-- default ABI filter `arm64-v8a` with optional `r47.abiFilters` override
 - base `namespace` and `applicationId` `com.example.r47`
 - debug builds add `applicationIdSuffix ".debug"`
 - release version inputs come from `r47.versionCode`, `r47.versionName`, and
@@ -21,6 +20,25 @@
   `r47.releaseMinify` and `r47.releaseShrinkResources`
 - release native debug symbols default to `FULL` via
   `r47.releaseNativeDebugSymbolLevel`
+
+## Dependency update cadence
+
+- Update `android/r47-defaults.properties` when SDK, NDK, CMake, build-tools,
+  hosted-emulator, or xlsxio pins change, then rerun `./build_android.sh --doctor`
+  before a broader build.
+- Review AGP compatibility and JDK requirements whenever a new AGP stable line
+  is adopted; keep `android/gradle/libs.versions.toml`, the Gradle wrapper, and
+  `android/r47-defaults.properties` aligned when that happens.
+- Review compile and target SDK levels when Android publishes the next stable
+  API level, and keep local plus hosted test lanes on explicit API images.
+- Review NDK and CMake pins when Android's AGP/NDK guidance or CMake release
+  notes move, and rerun packaging checks before landing the update.
+- Review Kotlin's current stable line on the JetBrains release page during
+  quarterly maintenance or when build-tool work is already in flight, even
+  though this repo currently uses AGP's built-in Kotlin integration instead of
+  a standalone Kotlin plugin.
+- Review the xlsxio pin only when upstream font-generation behavior, security
+  fixes, or CI breakage require it.
 
 ## Build entry points
 
@@ -38,10 +56,17 @@ Public maintainer entrypoints:
   runs `make sim`, stages native inputs into `android/.staged-native/cpp`,
   regenerates staged native metadata there, copies fonts, writes
   `android/local.properties`, and runs Gradle clean plus `assembleDebug`. It
+  also exposes `--doctor` for SDK, NDK, CMake, xlsxio, upstream-lock, and
+  staged-input status plus `--android-only` for the fast module-local lane that
+  refuses stale staged native inputs.
   also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, which
   is how hosted CI applies the temporary multi-ABI emulator override. Add
   `--verify-packaging` when you want the local build to write the same release
   evidence files CI publishes for the debug APK.
+- `./build_android.sh --android-only` is the preferred fast Android-only path.
+  It skips `make sim`, skips native restaging, and refuses to continue unless
+  `android/.staged-native/cpp/STAGED-INPUTS.properties` still matches the
+  canonical root plus generated inputs.
 - `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
@@ -72,6 +97,9 @@ Internal helpers:
   `STAGED-SOURCE-MANIFEST.txt` and `staged_native_sources.cmake` inside the
   build-only staging root. It is an internal helper, not a primary maintainer
   entrypoint.
+- `android/compute_staged_native_inputs.sh` fingerprints the canonical root,
+  generated, and mini-gmp inputs behind `--android-only` freshness checks and
+  writes `STAGED-INPUTS.properties` during staging.
 
 ## Canonical versus staged native inputs
 
@@ -122,7 +150,8 @@ Build-safety rule:
 3. `android/stage_native_sources.sh` copies the synced core tree,
   `dep/decNumberICU`, generated outputs, `vcs.h`, and mini-gmp inputs into
   `android/.staged-native/cpp`, then regenerates
-  `STAGED-SOURCE-MANIFEST.txt` and `staged_native_sources.cmake` there.
+  `STAGED-SOURCE-MANIFEST.txt`, `staged_native_sources.cmake`, and
+  `STAGED-INPUTS.properties` there.
 4. `android/app/build.gradle` invokes CMake at
    `android/app/src/main/cpp/CMakeLists.txt` and passes
    `-DR47_STAGED_CPP_DIR=<repo>/android/.staged-native/cpp`.
@@ -145,6 +174,9 @@ ownership model as the local build:
   nightly runs, and manual `workflow_dispatch`
 - `resolve-upstream-core` resolves the latest upstream commit once per workflow
   run through `tools/upstream.sh resolve --latest`.
+- each consuming job recreates its own `Load shared Android defaults` step.
+  Step outputs stay local to the current job unless they are promoted through
+  `jobs.<job_id>.outputs` and consumed via `needs.<job_id>.outputs.*`.
 - `simulator-tests` syncs that resolved revision into the workspace through
   `sync_public.sh --commit ...` and runs `make test`.
 - `android-debug` installs the pinned SDK, CMake, and NDK versions, runs
@@ -153,14 +185,18 @@ ownership model as the local build:
   and records packaging evidence for the default `arm64-v8a` debug APK through
   `android/collect_packaging_evidence.sh`.
 - `android-tests` uses the same resolved upstream commit and staged-native
-  build path, applies `-Pr47.abiFilters=arm64-v8a,x86_64` only for the hosted
+  build path, applies the defaults-file `android_test_abi_filters` override
+  only for the hosted
   test lane, assembles `:app:assembleDebugAndroidTest`, runs
   `:app:testDebugUnitTest`, enables KVM, and runs
-  `:app:connectedDebugAndroidTest` on a hosted `x86_64` emulator.
+  `:app:connectedDebugAndroidTest` on the defaults-file hosted emulator API.
 - the simulator and Android jobs consume the same resolved upstream commit for
   a given workflow run.
 - Android build logs, Android test logs, and test reports are uploaded with
   `if: always()` where later steps can fail.
+- the Windows lane keeps any bootstrap step that runs before
+  `msys2/setup-msys2` on an explicit host shell, then uses the job-level
+  `msys2 {0}` default only after MSYS2 is installed.
 - `publish-main-snapshot` waits for `simulator-tests`, `android-debug`, and
   `android-tests` before publishing a main-branch prerelease.
 - the uploaded Android artifact contains the debug APK plus `SHA256SUMS.txt`,
@@ -193,6 +229,9 @@ lane.
 
 - Kotlin-only Android UI changes: `cd android && ./gradlew assembleDebug` when
   the build-only staged native tree is already current.
+- Android module-only changes with the staged tree already current:
+  `./build_android.sh --android-only`.
+- Host or cache diagnosis before building: `./build_android.sh --doctor`.
 - Robolectric, fixture, or runtime-seam changes:
   `cd android && ./gradlew :app:testDebugUnitTest` when the build-only staged
   native tree is already current.
@@ -203,8 +242,12 @@ lane.
 - JNI, HAL, CMake, or packaging changes: `./build_android.sh`.
 - packaging evidence changes with local proof: `./build_android.sh --verify-packaging`
 - root core or generator changes: `make test` and then `./build_android.sh`.
-- CI-only changes: verify `.github/workflows/android-ci.yml` against the local
-  build contract and the artifact names described above.
+- CI-only changes: verify the touched workflow files against the local build
+  contract and the artifact names described above. When one job needs data from
+  another, promote it through `jobs.<job_id>.outputs` and consume it via
+  `needs.<job_id>.outputs.*` instead of reading another job's
+  `steps.<step_id>.outputs.*`. In the Windows lane, keep any step that runs
+  before `msys2/setup-msys2` on a host shell such as `pwsh` or `bash`.
 - sync or restore-boundary changes: confirm restore logic still excludes `^src/`
   and does not reintroduce tracked local overrides under `src/**`; confirm the
   build-only staged metadata under `android/.staged-native/cpp` regenerates and
@@ -228,8 +271,9 @@ Use `./build_android.sh` after any of the following:
 - Treat the debug APK as a derived artifact, not as the source of truth.
 - Keep `android/settings.gradle`, `android/gradle/libs.versions.toml`, and the
   app module in sync when dependency ownership changes.
-- Keep `README.md`, Gradle literals, and shell-script defaults aligned when
-  toolchain versions or package identity change.
+- Keep `README.md`, `android/r47-defaults.properties`,
+  `android/gradle/libs.versions.toml`, and CI defaults aligned when toolchain
+  versions or package identity change.
 - If a change affects both the canonical root tree and the staged Android tree,
   change the canonical owner first and restage the build-only Android tree.
 - Keep artifact naming stable unless the workflow, docs, and release notes all

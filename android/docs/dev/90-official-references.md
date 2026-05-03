@@ -4,11 +4,12 @@
 
 - [Android Gradle plugin 9.2.0 release notes](https://developer.android.com/build/releases/agp-9-2-0-release-notes):
   official Android build release notes for the AGP line used by this repo;
-  the current page lists JDK `17` as the supported minimum and default.
+  the current compatibility table lists JDK `17`, SDK Build Tools `36.0.0`,
+  and API `36.1` support for the checked-in AGP line.
 - [Kotlin release process](https://kotlinlang.org/docs/releases.html):
-  official JetBrains release page showing Kotlin `2.3.21` as the latest
-  version in Spring 2026; relevant as the Kotlin Gradle plugin version pinned
-  over AGP `9.2.0` runtime Kotlin integration in this repo.
+  official JetBrains release page documenting the language, tooling, and bug-fix
+  cadence; the current page shows Kotlin `2.3.21` as the latest stable line in
+  Spring 2026.
 - [Gradle 9.5.0 release notes](https://docs.gradle.org/9.5.0/release-notes.html):
   official Gradle release notes for the wrapper version now checked in.
 - [Version catalogs](https://docs.gradle.org/current/userguide/version_catalogs.html):
@@ -16,6 +17,9 @@
   `gradle/libs.versions.toml` and consuming them through `libs` accessors.
 - [Android 16](https://developer.android.com/about/versions/16): official
   platform overview for API `36`, the checked-in compile and target SDK level.
+- [CMake release notes index](https://cmake.org/cmake/help/latest/release/index.html):
+  official release-note index for tracking when it is worth leaving the current
+  checked-in CMake line.
 
 ## Architecture and Kotlin
 
@@ -39,7 +43,8 @@
 - [Add C and C++ code to your project](https://developer.android.com/studio/projects/add-native-code):
   the official Gradle plus CMake integration path.
 - [Configure the NDK for the Android Gradle plugin](https://developer.android.com/studio/projects/configure-agp-ndk):
-  `ndkVersion` guidance for AGP-based projects.
+  `ndkVersion` guidance for AGP-based projects, including the command-line
+  `sdkmanager` package syntax this repo uses in CI.
 - [JNI tips](https://developer.android.com/ndk/guides/jni-tips): explicit
   registration, thread attachment, reference management, and exception rules.
 - [Support 16 KB page sizes](https://developer.android.com/guide/practices/page-sizes):
@@ -55,6 +60,10 @@
 - [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle):
   GitHub Actions guidance for Gradle cache setup, Java toolchain setup, and
   Gradle-oriented workflow structure.
+- [Passing information between jobs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs):
+  GitHub Actions guidance for promoting step outputs through
+  `jobs.<job_id>.outputs` and consuming them in dependent jobs through
+  `needs.<job_id>.outputs.*`.
 - [Control workflow concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency):
   workflow-level concurrency controls used to cancel superseded runs for the
   same pull request or ref.

@@ -1,6 +1,6 @@
 # R47 Android Port: Master Design & Rebuild Guide
 
-**Version:** 3.15 (Version Catalog, Backup, and Release Policy Contract)
+**Version:** 3.16 (Defaults, Doctor, and Android-Only Build Contract)
 **Status:** Maintainer reference for the current debug-build Android shell
 **Target Platform:** Android (API Level 24+), current checked-in defaults target API 36 and arm64-v8a
 
@@ -16,6 +16,10 @@ Use these commands as the public maintainer entrypoints for the current repo:
 
 - `./sync_public.sh` hydrates the authoritative upstream core.
 - `./build_android.sh` is the canonical Android debug-build path.
+- `./build_android.sh --doctor` reports host SDK, NDK, CMake, xlsxio,
+  upstream-lock, and staged-input status against the checked-in defaults.
+- `./build_android.sh --android-only` is the fast Android-only lane and MUST
+  refuse stale staged native inputs.
 - `make sim` and `make test` are the canonical root simulator and generator
   validation paths.
 - `cd android && ./gradlew ...` is a module-local maintenance lane only when
@@ -37,8 +41,26 @@ Internal helpers:
 
 - `tools/upstream.sh`, `android/stage_native_sources.sh`, and
   `android/generate_staged_native_metadata.sh` are implementation helpers behind
-  the public entrypoints above. Document them directly only when the task is
-  specifically about sync or staging internals.
+  the public entrypoints above.
+- `android/compute_staged_native_inputs.sh` fingerprints canonical Android
+  inputs for the `--android-only` freshness check.
+- Document these helpers directly only when the task is specifically about sync
+  or staging internals.
+
+## Toolchain Defaults And Cadence
+
+- `android/r47-defaults.properties` is the machine-readable source of truth for
+  shared Android SDK, NDK, CMake, build-tools, hosted-emulator, and xlsxio
+  defaults used by local scripts and CI.
+- `android/gradle/libs.versions.toml` owns AGP and Android library/plugin
+  coordinates, while the checked-in Gradle wrapper owns the wrapper version.
+- Review the defaults file whenever Android API, NDK, CMake, xlsxio, or hosted
+  emulator pins need to move, and rerun `./build_android.sh --doctor` plus the
+  relevant build lane after that edit.
+- Review AGP and JDK compatibility whenever a new AGP stable line is adopted.
+- Review Kotlin's release page during scheduled maintenance or when build-tool
+  work is already in flight, even though this repo currently relies on AGP's
+  built-in Kotlin integration.
 
 ---
 
@@ -276,6 +298,11 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
 ### 8.1. Android Native Staging
 
 - `build_android.sh` remains the top-level Android debug-build entry point.
+- `build_android.sh --doctor` MUST inspect the checked-in defaults plus local
+  host state without running `make sim` or Gradle.
+- `build_android.sh --android-only` MUST skip `make sim` and native restaging
+  but MUST fail when `android/.staged-native/cpp/STAGED-INPUTS.properties` no
+  longer matches canonical root plus generated inputs.
 - `build_android.sh` MUST resolve one worker count from `R47_BUILD_JOBS`, then
   `CMAKE_BUILD_PARALLEL_LEVEL`, then the host CPU count, export that value as
   `CMAKE_BUILD_PARALLEL_LEVEL`, and thread it through `make`, `NINJAFLAGS`, and
@@ -302,9 +329,13 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
 - After `make sim`, it MUST delegate native staging to
   `android/stage_native_sources.sh`, which remains an internal helper rather
   than a primary maintainer-facing build command.
-- That staging step copies the synced `src/c47` tree, `dep/decNumberICU`, generated files, and mini-gmp inputs into the ignored build-only staging root `android/.staged-native/cpp`.
-- That staging step MUST also regenerate `android/.staged-native/cpp/STAGED-SOURCE-MANIFEST.txt`
-  and `android/.staged-native/cpp/staged_native_sources.cmake`.
+- That staging step copies the synced `src/c47` tree, `dep/decNumberICU`,
+  generated files, and mini-gmp inputs into the ignored build-only staging root
+  `android/.staged-native/cpp`.
+- That staging step MUST also regenerate
+  `android/.staged-native/cpp/STAGED-SOURCE-MANIFEST.txt`,
+  `android/.staged-native/cpp/staged_native_sources.cmake`, and
+  `android/.staged-native/cpp/STAGED-INPUTS.properties`.
 - The tracked directories `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` MUST remain untouched during normal builds; they are no longer the authoritative Android staging output.
 - `android/app/src/main/cpp/CMakeLists.txt` MUST consume the generated staged
   source list for the staged upstream trees via `R47_STAGED_CPP_DIR` instead of recursive globs.
