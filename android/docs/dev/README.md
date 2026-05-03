@@ -24,8 +24,13 @@ debug APK, run Android JVM plus emulator-backed instrumentation tests, then
 publish a main-branch snapshot prerelease only after those jobs pass.
 
 The public maintainer entrypoints are `./sync_public.sh` and
-`./build_android.sh`. Staging helpers stay internal unless the task is
-specifically about sync or staging internals.
+`./build_android.sh`. Use `./build_android.sh --doctor` to inspect host and
+staging readiness, and `./build_android.sh --android-only` for the fast
+module-local lane when staged native inputs are current. Staging helpers stay
+internal unless the task is specifically about sync or staging internals.
+
+Shared Android SDK, NDK, CMake, build-tools, hosted-emulator, and xlsxio pins
+live in `android/r47-defaults.properties`.
 
 Two rules govern most Android work in this repository:
 

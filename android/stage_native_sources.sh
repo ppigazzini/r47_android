@@ -9,6 +9,7 @@ LEGACY_CPP_DIR="$ANDROID_PROJECT_DIR/app/src/main/cpp"
 CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$ANDROID_PROJECT_DIR/.staged-native/cpp}"
 CORE_HASH="${R47_CORE_HASH:-unknown}"
 METADATA_SCRIPT="$ANDROID_PROJECT_DIR/generate_staged_native_metadata.sh"
+INPUTS_SCRIPT="$ANDROID_PROJECT_DIR/compute_staged_native_inputs.sh"
 
 usage() {
         cat <<'EOF'
@@ -149,5 +150,8 @@ fi
 
 echo "--- Writing staged native source metadata ---"
 bash "$METADATA_SCRIPT" --cpp-dir "$CPP_DIR"
+
+echo "--- Recording staged native input fingerprint ---"
+R47_STAGED_CORE_VERSION="$CORE_HASH" bash "$INPUTS_SCRIPT" --output "$CPP_DIR/STAGED-INPUTS.properties"
 
 echo "--- Android native staging complete ---"
