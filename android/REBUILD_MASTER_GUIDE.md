@@ -1,6 +1,6 @@
 # R47 Android Port: Master Design & Rebuild Guide
 
-**Version:** 3.14 (Property-Backed Package And Version Contract)
+**Version:** 3.15 (Version Catalog, Backup, and Release Policy Contract)
 **Status:** Maintainer reference for the current debug-build Android shell
 **Target Platform:** Android (API Level 24+), current checked-in defaults target API 36 and arm64-v8a
 
@@ -61,6 +61,17 @@ Internal helpers:
   `android/app/build/outputs/apk/debug/app-debug.apk`.
 - CI may restage that file under `R47calculator-debug.apk` for release assets.
   That artifact name is not the app identity.
+- The checked-in release lane is unsigned until all of
+  `r47.releaseStoreFile`, `r47.releaseStorePassword`, `r47.releaseKeyAlias`,
+  and `r47.releaseKeyPassword` are supplied together.
+- Release builds default `minifyEnabled` plus `shrinkResources` to `true` and
+  request `ndk.debugSymbolLevel "FULL"`.
+- `bundleRelease` is the canonical AAB task. `assembleRelease` remains a local
+  inspection path.
+- `android/collect_packaging_evidence.sh` is the repo-owned provenance helper
+  for debug and release outputs. It copies the artifact, writes `SOURCE`,
+  `BUILD-METADATA.txt`, `SHA256SUMS.txt`, and the packaged license files, and
+  for APKs it also verifies ABI contents plus 16 KB zip and ELF alignment.
 
 ---
 
@@ -109,9 +120,11 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 
 ### 1.5. Kotlin Ownership Boundaries
 
-- The checked-in AGP `9.2.0`, Kotlin `2.3.21`, and Gradle `9.5.0` contract now
-  passes `:app:compileDebugKotlin`. Treat future Kotlin work as ownership
-  cleanup, not as a repo-wide syntax migration.
+- The checked-in AGP `9.2.0` and Gradle `9.5.0` contract now centralizes
+  repositories in `android/settings.gradle` and dependency coordinates in
+  `android/gradle/libs.versions.toml`.
+- Jetifier stays explicitly off in `android/gradle.properties` unless a concrete
+  dependency forces it back on.
 - `HapticFeedbackController` now owns haptic preference state and vibration
   effect construction instead of `MainActivity` doing that work inline.
 - `SlotSessionController` now owns current-slot restoration and slot-switch
@@ -132,6 +145,9 @@ To prevent Application Not Responding (ANR) errors and deadlocks:
 - `ReplicaOverlay` SHOULD own view hosting and LCD composition, but chrome-spec
   resolution, projection math, and touch routing are the next extraction seams
   if more shell modes or geometry policies are added.
+- `WorkDirectory` now owns migration of the SAF tree URI out of the general app
+  preference file so backup rules can exclude device-specific URI grants
+  without dropping the rest of the shell settings.
 
 ---
 
@@ -186,6 +202,15 @@ To maintain parity with the hardware and simulator structures, users can select 
 
 SAF descriptors are slow. Data is assembled in a local 16KB buffer and written in a single block operation.
 
+### 4.3. Backup And Restore Contract
+
+- The manifest MUST declare `android:allowBackup`,
+  `android:fullBackupContent`, and `android:dataExtractionRules` explicitly.
+- The checked-in rules exclude `R47WorkDirPrefs.xml` and `R47Slots.xml`
+  because SAF grants and slot URIs are device-specific and are not reliable
+  restore inputs across devices.
+- General shell preferences remain backed up through `R47Prefs`.
+
 ---
 
 ## 5. Persistence & Lifecycle
@@ -213,6 +238,17 @@ A "Full Screen Mode" toggle in preferences handles immersive vs. normal window c
 ### 7.2. EXIT Logic
 
 The `quitApp()` function respects the `force_close_on_exit` preference, allowing for either minimizing the app or terminating the process.
+
+### 7.3. Large-Screen And Foldable Policy
+
+- `MainActivity` remains portrait-first because the shell contract is tuned to a
+  single portrait calculator body.
+- The manifest now makes `resizeableActivity` explicit. On large screens and
+  foldables, Android compatibility behavior may still letterbox or window the
+  shell, especially on API 36 where portrait requests can be treated as a
+  suggestion on wide form factors.
+- Treat adaptive large-screen redesign as future product work, not as an
+  implicit requirement of the current shell.
 
 ---
 
@@ -293,6 +329,9 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
   once per workflow run, hydrate every downstream job through
   `sync_public.sh --commit ...`, and verify that regenerating the staged Android
   native tree leaves no diffs under the tracked staging directories.
+- The Android GitHub Actions workflow and the local maintainer lane MUST both
+  use `android/collect_packaging_evidence.sh` when packaging evidence is needed,
+  so ABI, zipalign, ELF, SHA256, and provenance outputs stay aligned.
 - Android compatibility for upstream GTK, GDK, and Cairo includes MUST live in tracked Android stub headers under `android/app/src/main/cpp/c47-android/stubs` plus `android_mocks.h`. Do not reintroduce post-copy `sed` rewrites of staged sources.
 - The About-version preference summary MUST come from the Gradle property `r47.coreVersion`, not from build-time edits of tracked XML resources.
 
@@ -360,4 +399,6 @@ the artifact-level evidence that justifies that simpler packaging contract.
 ### 14.1. Factory Reset Protocol
 
 - **Scope**: Deletes application data while preserving user files in the external Work Directory.
-- **Process**: Triggers an `intent` restart to ensure all static state is purged.
+- **Process**: Schedules a relaunch intent, stops the shared runtime, clears
+  internal files plus shared preferences, and avoids `killProcess()` and
+  `System.exit()`.

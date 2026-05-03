@@ -102,19 +102,31 @@ private object AndroidWorkDirectoryDocumentAccess : WorkDirectoryDocumentAccess 
 internal object WorkDirectory {
     private const val TAG = "R47WorkDir"
 
-    const val PREFS_NAME = SlotStore.APP_PREFS_NAME
+    const val PREFS_NAME = "R47WorkDirPrefs"
+    private const val LEGACY_PREFS_NAME = SlotStore.APP_PREFS_NAME
     const val KEY_TREE_URI = "work_directory_uri"
 
+    private fun prefs(context: Context) =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun legacyPrefs(context: Context) =
+        context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun migrateLegacyTreeUriIfNeeded(context: Context): String? {
+        val migratedValue = legacyPrefs(context).getString(KEY_TREE_URI, null) ?: return null
+        prefs(context).edit().putString(KEY_TREE_URI, migratedValue).commit()
+        legacyPrefs(context).edit().remove(KEY_TREE_URI).apply()
+        return migratedValue
+    }
+
     fun readTreeUriString(context: Context): String? {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_TREE_URI, null)
+        val currentValue = prefs(context).getString(KEY_TREE_URI, null)
+        return currentValue ?: migrateLegacyTreeUriIfNeeded(context)
     }
 
     fun writeTreeUriString(context: Context, uri: Uri) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_TREE_URI, uri.toString())
-            .apply()
+        prefs(context).edit().putString(KEY_TREE_URI, uri.toString()).apply()
+        legacyPrefs(context).edit().remove(KEY_TREE_URI).apply()
     }
 
     fun formatDisplayPath(uriPath: String?): String {

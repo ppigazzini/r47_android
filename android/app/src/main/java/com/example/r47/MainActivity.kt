@@ -1,5 +1,7 @@
 package com.example.r47
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
@@ -17,6 +19,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.example.r47.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import java.io.File
 
 @Keep
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
@@ -39,6 +42,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private var beeperVolume = 20
 
     companion object {
+        private const val ACTION_FACTORY_RESET = "com.example.r47.action.FACTORY_RESET"
+        private const val FACTORY_RESET_RESTART_DELAY_MS = 250L
+        private const val FACTORY_RESET_RESTART_REQUEST_CODE = 4701
         private const val DEFAULT_HAPTIC_INTENSITY = 64
         private const val DEFAULT_CHROME_MODE = ReplicaOverlay.CHROME_MODE_BACKGROUND
         private const val DEFAULT_LCD_MODE = "vintage"
@@ -47,9 +53,17 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         init {
             System.loadLibrary("c47-android")
         }
+
+        fun createFactoryResetIntent(context: Context): Intent {
+            return Intent(context, MainActivity::class.java).apply {
+                action = ACTION_FACTORY_RESET
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+        }
     }
 
     private var isMovingToPiP = false
+    private var isFactoryResetInProgress = false
 
     private var chromeMode = DEFAULT_CHROME_MODE
     private var lcdMode = DEFAULT_LCD_MODE
@@ -335,19 +349,37 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         coreRuntime.attach()
         AudioEngine.start { NativeCoreRuntime.isAppRunning() }
+
+        if (intent?.action == ACTION_FACTORY_RESET) {
+            binding.root.post { handleFactoryResetRequest() }
+        }
     }
 
     private external fun updateNativeActivityRef()
 
     override fun onDestroy() { 
-        Log.i(TAG, "onDestroy: isFinishing=$isFinishing")
-        coreRuntime.dispose(stopApp = isFinishing)
-        if (isFinishing) {
+        Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=$isFactoryResetInProgress")
+        val shouldStopApp = isFinishing || isFactoryResetInProgress
+        coreRuntime.dispose(stopApp = shouldStopApp)
+        appPreferences.unregisterOnSharedPreferenceChangeListener(this)
+        if (isFactoryResetInProgress) {
+            AudioEngine.stop()
+            releaseNativeRuntime()
+            NativeCoreRuntime.resetSharedState()
+            clearInternalAppData()
+        } else if (shouldStopApp) {
             AudioEngine.stop()
             releaseNativeRuntime()
         }
-        appPreferences.unregisterOnSharedPreferenceChangeListener(this)
         super.onDestroy() 
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == ACTION_FACTORY_RESET) {
+            handleFactoryResetRequest()
+        }
     }
 
     override fun onResume() {
@@ -361,7 +393,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         val isEnteringPiP = isMovingToPiP || (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false)
         Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP isMovingToPiP=$isMovingToPiP")
         
-        if (!isEnteringPiP && appPreferences.getBoolean("auto_save_minimize", true)) {
+        if (!isEnteringPiP && !isFactoryResetInProgress && appPreferences.getBoolean("auto_save_minimize", true)) {
             Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
             coreRuntime.saveStateOnPause(autoSaveEnabled = true)
         }
@@ -420,6 +452,59 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             performHapticClick = hapticFeedbackController::performClick,
             dispatchKey = { keyCode -> offerCoreTask { sendKey(keyCode) } },
         )
+    }
+
+    private fun handleFactoryResetRequest() {
+        if (isFactoryResetInProgress) {
+            return
+        }
+
+        val relaunchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+
+        if (relaunchIntent == null) {
+            Log.e(TAG, "Factory reset requested without a launch intent")
+            return
+        }
+
+        isFactoryResetInProgress = true
+        scheduleFactoryResetRestart(relaunchIntent)
+        coreRuntime.dispose(stopApp = true)
+        AudioEngine.stop()
+        finishAffinity()
+        finishAndRemoveTask()
+    }
+
+    private fun scheduleFactoryResetRestart(relaunchIntent: Intent) {
+        val alarmManager = getSystemService(AlarmManager::class.java) ?: return
+        val restartIntent = PendingIntent.getActivity(
+            this,
+            FACTORY_RESET_RESTART_REQUEST_CODE,
+            relaunchIntent,
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val triggerAtMillis = System.currentTimeMillis() + FACTORY_RESET_RESTART_DELAY_MS
+        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC, triggerAtMillis, restartIntent)
+    }
+
+    private fun clearInternalAppData() {
+        deleteSharedPreferences(SlotStore.APP_PREFS_NAME)
+        deleteSharedPreferences(SlotStore.SLOT_PREFS_NAME)
+        deleteSharedPreferences(WorkDirectory.PREFS_NAME)
+        databaseList().forEach { deleteDatabase(it) }
+        clearDirectoryContents(filesDir)
+        clearDirectoryContents(cacheDir)
+        clearDirectoryContents(codeCacheDir)
+        clearDirectoryContents(noBackupFilesDir)
+    }
+
+    private fun clearDirectoryContents(directory: File?) {
+        directory?.listFiles()?.forEach { child ->
+            if (!child.deleteRecursively()) {
+                Log.w(TAG, "Factory reset could not delete ${child.absolutePath}")
+            }
+        }
     }
 
     private external fun nativePreInit(storagePath: String)

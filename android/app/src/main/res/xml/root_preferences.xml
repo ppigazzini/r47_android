@@ -92,7 +92,7 @@
         <Preference
             app:key="factory_reset"
             app:title="Reset to Factory Defaults"
-            app:summary="Wipe all data and restart app" />
+            app:summary="Wipe internal app data and relaunch R47" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="About R47">

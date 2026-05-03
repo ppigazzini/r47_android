@@ -517,126 +517,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          artifact_dir="$PWD/ci-artifacts"
-          unpack_dir="$artifact_dir/apk-unpacked"
-          release_dir="$artifact_dir/release"
-          apk_name="R47calculator-debug.apk"
-
-          mkdir -p "$unpack_dir" "$release_dir"
-          printf '%s\n' arm64-v8a > "$artifact_dir/expected-abis.txt"
-
-          original_apk="android/app/build/outputs/apk/debug/app-debug.apk"
-          apk="$original_apk"
-          release_apk="$release_dir/$apk_name"
-          zipalign_bin=$(find "${ANDROID_SDK_ROOT:?}/build-tools" -type f -name zipalign | sort -V | tail -n 1)
-          llvm_objdump="${ANDROID_SDK_ROOT}/ndk/${{ steps.versions.outputs.ndk_version }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump"
-          elf_report="$release_dir/elf-load-segments.txt"
-          below_16k_report="$release_dir/elf-load-segments-below-16k.txt"
-
-          cp "$apk" "$release_apk"
-          unzip -q "$apk" -d "$unpack_dir"
-
-          find "$unpack_dir/lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tee "$release_dir/abis.txt"
-          diff -u "$artifact_dir/expected-abis.txt" "$release_dir/abis.txt"
-
-          "$zipalign_bin" -c -P 16 -v 4 "$apk" | tee "$release_dir/zipalign.txt"
-
-          : > "$elf_report"
-          while IFS= read -r -d '' so_file; do
-            {
-              echo "== ${so_file#$unpack_dir/} =="
-              "$llvm_objdump" -p "$so_file" | grep 'LOAD'
-              echo
-            } >> "$elf_report"
-          done < <(find "$unpack_dir/lib" -type f -name '*.so' -print0)
-
-          awk '
-            /^== / {
-              current = $0
-              next
-            }
-
-            /align 2\*\*[0-9]+/ {
-              if (match($0, /align 2\*\*[0-9]+/)) {
-                exponent_text = $0
-                sub(/.*align 2\*\*/, "", exponent_text)
-                sub(/[^0-9].*$/, "", exponent_text)
-                exponent = exponent_text + 0
-                if (exponent < 14) {
-                  if (current != "" && current != last_header) {
-                    print current
-                    last_header = current
-                  }
-                  print $0
-                }
-              }
-            }
-          ' "$elf_report" > "$below_16k_report"
-
-          if [[ -s "$below_16k_report" ]]; then
-            cat "$below_16k_report" >&2
-            echo "Detected a native library LOAD segment aligned below 16 KB." >&2
-            exit 1
-          fi
-
-          rm -f "$below_16k_report"
-          sha256sum "$release_apk" > "$release_dir/SHA256SUMS.txt"
-
-          cat > "$release_dir/BUILD-METADATA.txt" <<EOF
-          ref=${GITHUB_REF}
-          sha=${GITHUB_SHA}
-          run_id=${GITHUB_RUN_ID}
-          run_attempt=${GITHUB_RUN_ATTEMPT}
-          upstream_url=${{ steps.upstream.outputs.upstream_url }}
-          upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
-          upstream_license_file=COPYING
-          android_source_repository_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
-          android_source_commit=${GITHUB_SHA}
-          source_manifest_file=SOURCE
-          xlsxio_url=${{ steps.xlsxio.outputs.xlsxio_url }}
-          xlsxio_commit=${{ steps.xlsxio.outputs.xlsxio_commit }}
-          xlsxio_license_file=LICENSE.txt
-          compile_sdk=${{ steps.versions.outputs.compile_sdk }}
-          cmake_version=${{ steps.versions.outputs.cmake_version }}
-          ndk_version=${{ steps.versions.outputs.ndk_version }}
-          android_variant=debug
-          debug_apk_name=${apk_name}
-          debug_apk_signed=debug
-          EOF
-
-          cat > "$release_dir/SOURCE" <<EOF
-          upstream_url=${{ steps.upstream.outputs.upstream_url }}
-          upstream_commit=${{ steps.upstream.outputs.upstream_commit }}
-          android_source_repository_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
-          android_source_commit=${GITHUB_SHA}
-          xlsxio_url=${{ steps.xlsxio.outputs.xlsxio_url }}
-          xlsxio_commit=${{ steps.xlsxio.outputs.xlsxio_commit }}
-          EOF
-
-          cp COPYING "$release_dir/COPYING"
-
-          cat > "$release_dir/LICENSE.txt" <<'EOF'
-          Copyright (C) 2016 Brecht Sanders All Rights Reserved
-
-          Permission is hereby granted, free of charge, to any person obtaining
-          a copy of this software and associated documentation files (the
-          "Software"), to deal in the Software without restriction, including
-          without limitation the rights to use, copy, modify, merge, publish,
-          distribute, sublicense, and/or sell copies of the Software, and to
-          permit persons to whom the Software is furnished to do so, subject to
-          the following conditions:
-
-          The above copyright notice and this permission notice shall be
-          included in all copies or substantial portions of the Software.
-
-          THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-          EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-          MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-          IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-          CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-          TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-          SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-          EOF
+          bash ./android/collect_packaging_evidence.sh \
+            --variant debug \
+            --apk android/app/build/outputs/apk/debug/app-debug.apk \
+            --output-dir ci-artifacts/release \
+            --artifact-name R47calculator-debug.apk \
+            --expected-abis arm64-v8a \
+            --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
+            --ndk-version "${{ steps.versions.outputs.ndk_version }}" \
+            --compile-sdk "${{ steps.versions.outputs.compile_sdk }}" \
+            --cmake-version "${{ steps.versions.outputs.cmake_version }}" \
+            --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --android-source-commit "${GITHUB_SHA}" \
+            --upstream-source-repository-url "${{ steps.upstream.outputs.upstream_url }}" \
+            --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
+            --xlsxio-source-repository-url "${{ steps.xlsxio.outputs.xlsxio_url }}" \
+            --xlsxio-source-commit "${{ steps.xlsxio.outputs.xlsxio_commit }}" \
+            --signing-mode debug \
+            --ref "${GITHUB_REF}" \
+            --sha "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}"
 
       - name: Upload Android build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

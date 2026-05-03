@@ -11,6 +11,9 @@
   over AGP `9.2.0` runtime Kotlin integration in this repo.
 - [Gradle 9.5.0 release notes](https://docs.gradle.org/9.5.0/release-notes.html):
   official Gradle release notes for the wrapper version now checked in.
+- [Version catalogs](https://docs.gradle.org/current/userguide/version_catalogs.html):
+  Gradle guidance for centralizing dependency coordinates in
+  `gradle/libs.versions.toml` and consuming them through `libs` accessors.
 - [Android 16](https://developer.android.com/about/versions/16): official
   platform overview for API `36`, the checked-in compile and target SDK level.
 
@@ -44,6 +47,11 @@
 
 ## CI and release plumbing
 
+- [Build your app for release to users](https://developer.android.com/build/build-for-release):
+  APK, AAB, and signing guidance for the release lane defined by this repo.
+- [Enable app optimization with R8](https://developer.android.com/build/shrink-code):
+  current Android guidance to enable minify and resource shrinking for release
+  builds.
 - [Building and testing Java with Gradle](https://docs.github.com/en/actions/tutorials/build-and-test-code/java-with-gradle):
   GitHub Actions guidance for Gradle cache setup, Java toolchain setup, and
   Gradle-oriented workflow structure.
@@ -59,6 +67,15 @@
 
 - [Access documents and other files from shared storage](https://developer.android.com/training/data-storage/shared/documents-files):
   SAF create, open, tree access, and persistable URI permissions.
+- [Back up user data with Auto Backup](https://developer.android.com/identity/data/autobackup):
+  backup defaults plus the `fullBackupContent` and `dataExtractionRules`
+  formats used by the manifest.
+
+## Manifest and platform behavior
+
+- [<activity>](https://developer.android.com/guide/topics/manifest/activity-element):
+  exported, `resizeableActivity`, `screenOrientation`, `configChanges`, and
+  `onNewIntent()`-relevant launch-mode behavior.
 
 ## View-based UI and rendering
 
@@ -68,3 +85,6 @@
   breakpoint model for adaptive layouts.
 - [Create a custom drawing](https://developer.android.com/develop/ui/views/layout/custom-views/custom-drawing):
   `Canvas`, `Paint`, measurement, and drawing guidance for custom views.
+- [Make custom views more accessible](https://developer.android.com/guide/topics/ui/accessibility/custom-views):
+  directional-controller, click-action, and accessibility-node guidance for
+  custom interactive views.

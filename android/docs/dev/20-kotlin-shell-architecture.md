@@ -19,8 +19,9 @@ engine loop.
 - `StorageAccessCoordinator`: owns SAF create and open launcher registration
   during activity initialization, native file request handoff, direct result
   delivery used by tests, and work-directory validation on resume.
-- `WorkDirectory`: stores the persisted tree URI and resolves the `STATE`,
-  `PROGRAMS`, `SAVFILES`, and `SCREENS` subfolders.
+- `WorkDirectory`: stores the persisted tree URI in dedicated no-backup
+  preferences and resolves the `STATE`, `PROGRAMS`, `SAVFILES`, and `SCREENS`
+  subfolders.
 - `DisplayActionController`: owns display long-press actions such as copy X
   register, paste number, and entry into Picture-in-Picture.
 - `ReplicaOverlay` and `ReplicaKeypadLayout`: host the shell chrome modes, the
@@ -31,8 +32,9 @@ engine loop.
 - `KeypadTopology`: owns the Android-local 43-key row, lane, and family
   contract used by layout, touch-grid row membership, and per-key family
   policy.
-- `SettingsActivity`: owns the settings UI and preference-driven Android shell
-  options.
+- `SettingsActivity`: owns the non-exported settings UI and preference-driven
+  Android shell options, then delegates destructive reset work back to
+  `MainActivity`.
 
 ## Model boundary
 
@@ -75,12 +77,15 @@ in the shell.
 
 - `onCreate()` wires the overlay, helpers, SAF launchers, keypad, and native
   runtime, then attaches the core thread.
+- `onNewIntent()` is the reuse path for root-activity actions such as the
+  controlled factory-reset request.
 - `onResume()` requests a native refresh and revalidates the work-directory
   contract.
 - `onPause()` performs a synchronous native save when auto-save on minimize is
-  enabled and the app is not moving into PiP.
-- `onDestroy()` only stops the shared runtime when the activity is actually
-  finishing.
+  enabled and the app is not moving into PiP or a reset-driven relaunch.
+- `onDestroy()` stops the shared runtime when the activity is actually
+  finishing, and the factory-reset path also clears internal app data after the
+  runtime has been told to stop.
 - `onPictureInPictureModeChanged()` switches the overlay between normal shell
   mode and PiP mode.
 
@@ -94,6 +99,7 @@ without violating the Activity Result lifecycle contract.
 The Kotlin shell currently accepts input from four paths:
 
 - on-screen keys built by `ReplicaKeypadLayout`
+- accessibility click activation on those same key views once they hold focus
 - physical keyboard mappings handled in `MainActivity`
 - display long-press actions coordinated by `DisplayActionController`
 - PiP touch mapping handled by `ReplicaOverlay`
@@ -109,13 +115,18 @@ Each path ultimately resolves to core-thread work or a small Android-side action
 - SAF-backed user files remain outside the internal app directory contract
 - the work-directory contract is a user-facing SAF tree, not a replacement for
   the app-internal native base path
+- manifest backup rules intentionally exclude `R47Slots` and the work-directory
+  URI preferences because slot URIs and SAF grants are device-specific; general
+  shell preferences remain migratable
 
 ## Current platform shape
 
 - the app is view-based and uses view binding
-- `MainActivity` is portrait-only in the manifest
+- `MainActivity` remains portrait-first in the manifest for shell fidelity
+- the application is explicitly resizable, so large screens and foldables may
+  letterbox or window the shell according to Android compatibility behavior
 - Picture-in-Picture is enabled
-- settings live in a separate `SettingsActivity`
+- settings live in a separate non-exported `SettingsActivity`
 - haptics, audio, fullscreen state, scaling mode, and touch-zone overlays are
   preference-driven Android concerns
 

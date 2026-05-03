@@ -2,6 +2,49 @@
 
 set -Eeuo pipefail
 
+VERIFY_PACKAGING=false
+VERIFY_PACKAGING_DIR=""
+
+usage() {
+    cat <<'EOF'
+Usage: ./build_android.sh [--verify-packaging] [--verify-packaging-dir <dir>]
+EOF
+}
+
+is_truthy() {
+    case "${1:-}" in
+        1|true|TRUE|yes|YES|on|ON)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --verify-packaging)
+            VERIFY_PACKAGING=true
+            shift
+            ;;
+        --verify-packaging-dir)
+            VERIFY_PACKAGING=true
+            VERIFY_PACKAGING_DIR="$2"
+            shift 2
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
+
 on_error() {
     local exit_code="$?"
     local line_no="${1:-${BASH_LINENO[0]:-$LINENO}}"
@@ -410,6 +453,14 @@ if [ -n "$XLSXIO_SOURCE_REPOSITORY_URL_VALUE" ]; then GRADLE_PROPS="$GRADLE_PROP
 if [ -n "$XLSXIO_SOURCE_COMMIT_VALUE" ]; then GRADLE_PROPS="$GRADLE_PROPS -Pr47.xlsxioSourceCommit=$XLSXIO_SOURCE_COMMIT_VALUE"; fi
 GRADLE_EXTRA_ARGS=${R47_GRADLE_ARGS-}
 
+if [ -z "$SOURCE_REPOSITORY_URL_OVERRIDE" ]; then
+    SOURCE_REPOSITORY_URL_OVERRIDE=$(git -C "$PROJECT_ROOT" config --get remote.origin.url 2>/dev/null || true)
+fi
+if [ -z "$SOURCE_COMMIT_OVERRIDE" ]; then
+    SOURCE_COMMIT_OVERRIDE=$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || true)
+fi
+COMPILE_SDK_VALUE=${COMPILE_SDK_OVERRIDE:-36}
+
 # Clean cxx to ensure fresh cmake run
 rm -rf app/.cxx
 $GRADLE_CMD clean $GRADLE_EXTRA_ARGS
@@ -421,4 +472,26 @@ if [ -f "$APK_PATH" ]; then
 else
     echo "ERROR: APK build failed."
     exit 1
+fi
+
+if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
+    PACKAGING_OUTPUT_DIR=${VERIFY_PACKAGING_DIR:-${R47_VERIFY_PACKAGING_DIR:-$ANDROID_PROJECT_DIR/build/outputs/packaging/debug}}
+    PACKAGING_EXPECTED_ABIS=${R47_VERIFY_PACKAGING_ABIS:-arm64-v8a}
+    bash "$ANDROID_PROJECT_DIR/collect_packaging_evidence.sh" \
+        --variant debug \
+        --apk "$ANDROID_PROJECT_DIR/$APK_PATH" \
+        --output-dir "$PACKAGING_OUTPUT_DIR" \
+        --artifact-name "R47calculator-debug.apk" \
+        --expected-abis "$PACKAGING_EXPECTED_ABIS" \
+        --android-sdk-root "$ANDROID_SDK_ROOT" \
+        --ndk-version "$IF_NDK_VERSION" \
+        --compile-sdk "$COMPILE_SDK_VALUE" \
+        --cmake-version "$R47_CMAKE_VERSION" \
+        --android-source-repository-url "$SOURCE_REPOSITORY_URL_OVERRIDE" \
+        --android-source-commit "$SOURCE_COMMIT_OVERRIDE" \
+        --upstream-source-repository-url "$UPSTREAM_SOURCE_REPOSITORY_URL_OVERRIDE" \
+        --upstream-source-commit "$UPSTREAM_SOURCE_COMMIT_OVERRIDE" \
+        --xlsxio-source-repository-url "$XLSXIO_SOURCE_REPOSITORY_URL_VALUE" \
+        --xlsxio-source-commit "$XLSXIO_SOURCE_COMMIT_VALUE" \
+        --signing-mode debug
 fi

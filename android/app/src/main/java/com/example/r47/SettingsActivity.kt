@@ -1,8 +1,8 @@
 package com.example.r47
 
-import android.graphics.Typeface
 import android.content.Context
 import android.content.Intent
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.widget.ScrollView
@@ -139,7 +139,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.sharedPreferencesName = WorkDirectory.PREFS_NAME
+        preferenceManager.sharedPreferencesName = SlotStore.APP_PREFS_NAME
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
         // Automatic trigger if coming from validation Snackbar
@@ -165,28 +165,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<Preference>("factory_reset")?.setOnPreferenceClickListener {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Confirm Reset")
-                .setMessage("Wipe all internal data and restart app?\n\nNote: This will NOT delete any files in your selected Work Directory (STATE, PROGRAMS, etc.).")
+                .setMessage("Wipe all internal app data and relaunch R47?\n\nNote: This will NOT delete any files in your selected Work Directory (STATE, PROGRAMS, SAVFILES, SCREENS).")
                 .setPositiveButton("Reset") { _, _ ->
-                    // 1. Clear SharedPreferences in memory first
-                    requireContext().getSharedPreferences(SlotStore.APP_PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
-                    requireContext().getSharedPreferences(SlotStore.SLOT_PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
-                    
-                    // 2. Delete all files in the app's internal data directory (except lib)
-                    val dataDir = requireContext().filesDir.parentFile
-                    dataDir?.listFiles()?.forEach { file ->
-                        if (file.name != "lib") {
-                            file.deleteRecursively()
-                        }
-                    }
-
-                    // 3. Force a clean restart
-                    val intent = requireContext().packageManager.getLaunchIntentForPackage(requireContext().packageName)
-                    intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    startActivity(intent)
-                    
-                    // Kill the process to ensure all static state is cleared
-                    android.os.Process.killProcess(android.os.Process.myPid())
-                    java.lang.System.exit(0)
+                    startActivity(MainActivity.createFactoryResetIntent(requireContext()))
+                    requireActivity().finish()
                 }
                 .setNegativeButton("Cancel", null)
                 .show()

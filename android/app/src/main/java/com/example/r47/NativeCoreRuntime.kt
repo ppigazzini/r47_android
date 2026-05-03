@@ -55,11 +55,15 @@ internal class NativeCoreRuntime(
 
         internal fun isNativeInitializedForTest(): Boolean = isNativeInitializedShared
 
-        internal fun resetSharedStateForTest() {
+        internal fun resetSharedState() {
             coreTasks.clear()
             isCoreThreadStarted = false
             isAppRunningShared = false
             isNativeInitializedShared = false
+        }
+
+        internal fun resetSharedStateForTest() {
+            resetSharedState()
         }
     }
 
