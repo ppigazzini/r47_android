@@ -78,6 +78,7 @@ set(DEC_SOURCES
 )
 
 set(ANDROID_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/android_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/android_helpers.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/clipboard_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/audio.c
@@ -85,12 +86,12 @@ set(ANDROID_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/io.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/lcd.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/hal/print_ir.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_activity_bridge.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_display.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_input.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_lifecycle.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_registration.c
     ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/jni_storage.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/c47-android/native-lib.c
 )
 
 # Shared library
