@@ -1,25 +1,17 @@
 package com.example.r47
 
-import android.app.AlarmManager
-import android.app.PendingIntent
-import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.media.AudioManager
 import android.os.*
 import android.util.Log
-import android.util.Rational
 import android.view.*
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import com.example.r47.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
-import java.io.File
 
 @Keep
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
@@ -30,6 +22,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private lateinit var coreRuntime: NativeCoreRuntime
     private lateinit var storageAccessCoordinator: StorageAccessCoordinator
     private lateinit var displayActionController: DisplayActionController
+    private lateinit var factoryResetController: FactoryResetController
     private val hapticFeedbackController by lazy {
         HapticFeedbackController(this, DEFAULT_HAPTIC_INTENSITY)
     }
@@ -37,14 +30,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         getSharedPreferences(SlotStore.APP_PREFS_NAME, MODE_PRIVATE)
     }
     private lateinit var slotSessionController: SlotSessionController
+    private lateinit var windowModeController: WindowModeController
     
     private val mainHandler = Handler(Looper.getMainLooper())
     private var beeperVolume = 20
 
     companion object {
-        private const val ACTION_FACTORY_RESET = "com.example.r47.action.FACTORY_RESET"
-        private const val FACTORY_RESET_RESTART_DELAY_MS = 250L
-        private const val FACTORY_RESET_RESTART_REQUEST_CODE = 4701
         private const val DEFAULT_HAPTIC_INTENSITY = 64
         private const val DEFAULT_CHROME_MODE = ReplicaOverlay.CHROME_MODE_BACKGROUND
         private const val DEFAULT_LCD_MODE = "vintage"
@@ -55,15 +46,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
 
         fun createFactoryResetIntent(context: Context): Intent {
-            return Intent(context, MainActivity::class.java).apply {
-                action = ACTION_FACTORY_RESET
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            }
+            return FactoryResetController.createIntent(context)
         }
     }
-
-    private var isMovingToPiP = false
-    private var isFactoryResetInProgress = false
 
     private var chromeMode = DEFAULT_CHROME_MODE
     private var lcdMode = DEFAULT_LCD_MODE
@@ -117,24 +102,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    private fun applyFullscreenMode(isFullscreen: Boolean) {
-        val win = window ?: return
-        try {
-            WindowCompat.setDecorFitsSystemWindows(win, !isFullscreen)
-            val decorView = win.decorView
-            WindowInsetsControllerCompat(win, decorView).apply {
-                if (isFullscreen) {
-                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                    hide(WindowInsetsCompat.Type.systemBars())
-                    win.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-                } else {
-                    show(WindowInsetsCompat.Type.systemBars())
-                    win.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-                }
-            }
-        } catch (e: Exception) { Log.e(TAG, "Failed to apply fullscreen mode", e) }
-    }
-
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
         if (prefs == null || key == null) return
         if (hapticFeedbackController.onPreferenceChanged(prefs, key)) return
@@ -169,7 +136,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 replicaOverlay.setShowTouchZones(showTouchZones)
             }
             "fullscreen_mode" -> {
-                applyFullscreenMode(prefs.getBoolean(key, true))
+                windowModeController.applyFullscreenMode(prefs.getBoolean(key, true))
             }
         }
     }
@@ -255,6 +222,34 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         val prefs = appPreferences
         prefs.registerOnSharedPreferenceChangeListener(this)
 
+        windowModeController = WindowModeController(
+            activity = this,
+            mainHandler = mainHandler,
+            onPiPModeChanged = { isInPictureInPictureMode ->
+                Log.i(TAG, "Updating overlay for pipMode=$isInPictureInPictureMode")
+                if (::replicaOverlay.isInitialized) {
+                    replicaOverlay.setPiPMode(isInPictureInPictureMode)
+                }
+            },
+        )
+
+        factoryResetController = FactoryResetController(
+            activity = this,
+            onResetRequested = {
+                coreRuntime.dispose(stopApp = true)
+                AudioEngine.stop()
+            },
+            onDestroyFactoryReset = {
+                AudioEngine.stop()
+                releaseNativeRuntime()
+                NativeCoreRuntime.resetSharedState()
+            },
+            onDestroyFinish = {
+                AudioEngine.stop()
+                releaseNativeRuntime()
+            },
+        )
+
         storageAccessCoordinator = StorageAccessCoordinator(
             activity = this,
             appPreferences = prefs,
@@ -276,7 +271,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             getXRegisterNative = ::getXRegisterNative,
             sendSimFuncNative = ::sendSimFuncNative,
             sendSimKeyNative = ::sendSimKeyNative,
-            enterPiP = ::enterPiP,
+            enterPiP = windowModeController::enterPictureInPicture,
         )
 
         slotSessionController = SlotSessionController(
@@ -290,7 +285,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         
         window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         val isFullscreen = prefs.getBoolean("fullscreen_mode", true)
-        applyFullscreenMode(isFullscreen)
+        windowModeController.applyFullscreenMode(isFullscreen)
 
         replicaOverlay = binding.replicaOverlay
         replicaOverlay.onPiPKeyEvent = { code ->
@@ -350,35 +345,27 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         coreRuntime.attach()
         AudioEngine.start { NativeCoreRuntime.isAppRunning() }
 
-        if (intent?.action == ACTION_FACTORY_RESET) {
-            binding.root.post { handleFactoryResetRequest() }
+        if (factoryResetController.isFactoryResetIntent(intent)) {
+            binding.root.post { factoryResetController.handleResetRequest() }
         }
     }
 
     private external fun updateNativeActivityRef()
 
     override fun onDestroy() { 
-        Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=$isFactoryResetInProgress")
-        val shouldStopApp = isFinishing || isFactoryResetInProgress
+        Log.i(TAG, "onDestroy: isFinishing=$isFinishing isFactoryResetInProgress=${factoryResetController.isResetInProgress}")
+        val shouldStopApp = isFinishing || factoryResetController.isResetInProgress
         coreRuntime.dispose(stopApp = shouldStopApp)
         appPreferences.unregisterOnSharedPreferenceChangeListener(this)
-        if (isFactoryResetInProgress) {
-            AudioEngine.stop()
-            releaseNativeRuntime()
-            NativeCoreRuntime.resetSharedState()
-            clearInternalAppData()
-        } else if (shouldStopApp) {
-            AudioEngine.stop()
-            releaseNativeRuntime()
-        }
+        factoryResetController.handleDestroy(shouldStopApp)
         super.onDestroy() 
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == ACTION_FACTORY_RESET) {
-            handleFactoryResetRequest()
+        if (factoryResetController.isFactoryResetIntent(intent)) {
+            factoryResetController.handleResetRequest()
         }
     }
 
@@ -390,10 +377,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     override fun onPause() {
         super.onPause()
-        val isEnteringPiP = isMovingToPiP || (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false)
-        Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP isMovingToPiP=$isMovingToPiP")
+        val isEnteringPiP = windowModeController.isEnteringPictureInPicture()
+        Log.i(TAG, "onPause: isEnteringPiP=$isEnteringPiP")
         
-        if (!isEnteringPiP && !isFactoryResetInProgress && appPreferences.getBoolean("auto_save_minimize", true)) {
+        if (!isEnteringPiP && !factoryResetController.isResetInProgress && appPreferences.getBoolean("auto_save_minimize", true)) {
             Log.i(TAG, "Auto-saving state on pause (synchronous via core thread)...")
             coreRuntime.saveStateOnPause(autoSaveEnabled = true)
         }
@@ -424,24 +411,9 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         coreRuntime.processCoreTasks()
     }
 
-    private fun enterPiP() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            isMovingToPiP = true
-            val params = PictureInPictureParams.Builder()
-                .setAspectRatio(Rational(4860, 2667)) 
-                .build()
-            enterPictureInPictureMode(params)
-        }
-    }
-
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        Log.i(TAG, "onPictureInPictureModeChanged: isInPictureInPictureMode=$isInPictureInPictureMode")
-        isMovingToPiP = false
-        mainHandler.post {
-            Log.i(TAG, "Updating overlay for pipMode=$isInPictureInPictureMode")
-            replicaOverlay.setPiPMode(isInPictureInPictureMode)
-        }
+        windowModeController.handlePictureInPictureModeChanged(isInPictureInPictureMode)
     }
 
     private fun setupInteractiveZones() {
@@ -452,59 +424,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             performHapticClick = hapticFeedbackController::performClick,
             dispatchKey = { keyCode -> offerCoreTask { sendKey(keyCode) } },
         )
-    }
-
-    private fun handleFactoryResetRequest() {
-        if (isFactoryResetInProgress) {
-            return
-        }
-
-        val relaunchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        }
-
-        if (relaunchIntent == null) {
-            Log.e(TAG, "Factory reset requested without a launch intent")
-            return
-        }
-
-        isFactoryResetInProgress = true
-        scheduleFactoryResetRestart(relaunchIntent)
-        coreRuntime.dispose(stopApp = true)
-        AudioEngine.stop()
-        finishAffinity()
-        finishAndRemoveTask()
-    }
-
-    private fun scheduleFactoryResetRestart(relaunchIntent: Intent) {
-        val alarmManager = getSystemService(AlarmManager::class.java) ?: return
-        val restartIntent = PendingIntent.getActivity(
-            this,
-            FACTORY_RESET_RESTART_REQUEST_CODE,
-            relaunchIntent,
-            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val triggerAtMillis = System.currentTimeMillis() + FACTORY_RESET_RESTART_DELAY_MS
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC, triggerAtMillis, restartIntent)
-    }
-
-    private fun clearInternalAppData() {
-        deleteSharedPreferences(SlotStore.APP_PREFS_NAME)
-        deleteSharedPreferences(SlotStore.SLOT_PREFS_NAME)
-        deleteSharedPreferences(WorkDirectory.PREFS_NAME)
-        databaseList().forEach { deleteDatabase(it) }
-        clearDirectoryContents(filesDir)
-        clearDirectoryContents(cacheDir)
-        clearDirectoryContents(codeCacheDir)
-        clearDirectoryContents(noBackupFilesDir)
-    }
-
-    private fun clearDirectoryContents(directory: File?) {
-        directory?.listFiles()?.forEach { child ->
-            if (!child.deleteRecursively()) {
-                Log.w(TAG, "Factory reset could not delete ${child.absolutePath}")
-            }
-        }
     }
 
     private external fun nativePreInit(storagePath: String)
