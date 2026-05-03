@@ -23,12 +23,19 @@ authoritative upstream core revision, run the root simulator tests, build the
 debug APK, run Android JVM plus emulator-backed instrumentation tests, then
 publish a main-branch snapshot prerelease only after those jobs pass.
 
+The public maintainer entrypoints are `./sync_public.sh` and
+`./build_android.sh`. Staging helpers stay internal unless the task is
+specifically about sync or staging internals.
+
 Two rules govern most Android work in this repository:
 
 1. The preferred source of truth for shared calculator behavior is the synced
    root tree plus generated outputs from `build.sim`.
-2. `android/app/src/main/cpp` is the staged Android native input tree that CMake
-   builds. Refresh it through `android/stage_native_sources.sh`.
+2. The build-only staged Android native input tree lives under
+  `android/.staged-native/cpp`. The tracked
+  `android/app/src/main/cpp/{c47,generated,decNumberICU,gmp}` tree is legacy
+  non-authoritative content, while `android/app/src/main/cpp/c47-android`
+  stays the Android-owned bridge, HAL, and stub surface.
 
 If a change crosses both Kotlin and native boundaries, read the build page and
 the JNI page before editing.

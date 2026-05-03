@@ -19,6 +19,8 @@
 
 ## Build entry points
 
+Public maintainer entrypoints:
+
 - `./sync_public.sh` is the authoritative upstream hydration entry point. It
   reads Git-tracked defaults from `upstream.source`, uses a Git-ignored local
   `upstream.lock` only when it contains `upstream_commit`, otherwise resolves
@@ -46,6 +48,18 @@
 - `make sim` is the generator step behind Android native staging. It produces
   the simulator build plus generated files consumed by the build-only Android
   staging root under `android/.staged-native/cpp/generated`.
+
+Internal helpers:
+
+- `tools/upstream.sh` is the shared implementation behind `sync_public.sh` and
+  `build_android.sh`. Document it directly only when the task is about upstream
+  resolution or restore-boundary internals.
+- `android/stage_native_sources.sh` stages canonical native inputs into
+  `android/.staged-native/cpp` and is normally invoked by `build_android.sh`.
+- `android/generate_staged_native_metadata.sh` refreshes
+  `STAGED-SOURCE-MANIFEST.txt` and `staged_native_sources.cmake` inside the
+  build-only staging root. It is an internal helper, not a primary maintainer
+  entrypoint.
 
 ## Canonical versus staged native inputs
 

@@ -7,16 +7,26 @@ loads it from a static initializer via `System.loadLibrary("c47-android")`.
 
 CMake builds the library from:
 
-- staged core sources under `android/app/src/main/cpp/c47`
-- staged decNumber sources under `android/app/src/main/cpp/decNumberICU`
-- staged generated sources under `android/app/src/main/cpp/generated`
+- build-only staged core sources under `android/.staged-native/cpp/c47`
+- build-only staged decNumber sources under
+  `android/.staged-native/cpp/decNumberICU`
+- build-only staged generated sources under
+  `android/.staged-native/cpp/generated`
 - Android-specific bridge and HAL files under
   `android/app/src/main/cpp/c47-android`
-- staged mini-gmp sources under `android/app/src/main/cpp/gmp`
+- build-only staged mini-gmp sources under `android/.staged-native/cpp/gmp`
 
 Tracked Android stub headers under `c47-android/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo
 includes without rewriting staged source files during the Gradle build.
+
+`android/app/src/main/cpp/CMakeLists.txt` passes and consumes
+`R47_STAGED_CPP_DIR` so the live Android native build reads shared-native inputs
+from the build-only staging root rather than the tracked app-module snapshots.
+
+The tracked directories `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}`
+are legacy non-authoritative snapshots and should stay untouched during normal
+builds.
 
 The Android bridge code is intentionally split by responsibility:
 
@@ -124,11 +134,11 @@ data organized through SAF.
 ## Change ownership
 
 - For shared calculator behavior, change the canonical root core and restage it
-  into the Android tree.
+  into `android/.staged-native/cpp` through the normal Android build flow.
 - Change `android/app/src/main/cpp/c47-android` directly only for Android
   bridge, HAL, or stub behavior.
-- Do not patch staged upstream C files in place when a tracked Android stub or
-  bridge-layer fix can own the compatibility rule.
+- Do not patch build-only staged upstream C files in place when a tracked
+  Android stub or bridge-layer fix can own the compatibility rule.
 
 ## 16 KB and packaging contract
 
