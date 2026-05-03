@@ -17,12 +17,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  XLSXIO_URL: https://github.com/brechtsanders/xlsxio.git
-  XLSXIO_COMMIT: a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
-  ANDROID_TEST_API_LEVEL: '34'
-  ANDROID_TEST_ABI_FILTERS: arm64-v8a,x86_64
-
 jobs:
   resolve-upstream-core:
     name: Resolve authoritative upstream core revision
@@ -36,6 +30,18 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Resolve latest upstream core
         id: resolve
@@ -153,30 +159,20 @@ jobs:
             unzip \
             zip
 
-      - name: Set pinned xlsxio revision
-        id: xlsxio
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "xlsxio_url=$XLSXIO_URL" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
-          path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
-          key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
+          path: ${{ steps.defaults.outputs.xlsxio_prefix }}
+          key: ${{ runner.os }}-xlsxio-${{ steps.defaults.outputs.xlsxio_commit }}-static-tools-v1
 
       - name: Build upstream xlsxio toolchain
         if: steps.xlsxio-cache.outputs.cache-hit != 'true'
         shell: bash
         env:
-          XLSXIO_URL: ${{ steps.xlsxio.outputs.xlsxio_url }}
-          XLSXIO_COMMIT: ${{ steps.xlsxio.outputs.xlsxio_commit }}
-          XLSXIO_PREFIX: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+          XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+          XLSXIO_PREFIX: ${{ steps.defaults.outputs.xlsxio_prefix }}
         run: |
           set -euo pipefail
 
@@ -206,8 +202,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
-          export PATH="${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin:$PATH"
+          echo "${{ steps.defaults.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
+          export PATH="${{ steps.defaults.outputs.xlsxio_prefix }}/bin:$PATH"
           xlsxio_xlsx2csv -h > /dev/null
 
       - name: Sync authoritative upstream core
@@ -252,27 +248,23 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Read Android tool versions
-        id: versions
+      - name: Load shared Android defaults
+        id: defaults
         shell: bash
         run: |
           set -euo pipefail
 
-          ndk_version=$(sed -n "s/.*ndkVersion project.findProperty('r47.ndkVersion') ?: \"\\([^\"]*\\)\".*/\\1/p" android/app/build.gradle)
-          cmake_version=$(sed -n "s/.*version project.findProperty('r47.cmakeVersion') ?: \"\\([^\"]*\\)\".*/\\1/p" android/app/build.gradle)
-          compile_sdk=$(sed -n "s/.*compileSdk .*?: \\([0-9][0-9]*\\).*/\\1/p" android/app/build.gradle)
+          . ./android/r47-defaults.properties
 
-          if [[ -z "$ndk_version" || -z "$cmake_version" || -z "$compile_sdk" ]]; then
-            echo "Failed to extract Android tool versions from android/app/build.gradle" >&2
-            exit 1
-          fi
-
-          build_tools_version="${compile_sdk}.0.0"
-
-          echo "ndk_version=$ndk_version" >> "$GITHUB_OUTPUT"
-          echo "cmake_version=$cmake_version" >> "$GITHUB_OUTPUT"
-          echo "compile_sdk=$compile_sdk" >> "$GITHUB_OUTPUT"
-          echo "build_tools_version=$build_tools_version" >> "$GITHUB_OUTPUT"
+          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "android_test_api_level=$R47_DEFAULT_ANDROID_TEST_API_LEVEL" >> "$GITHUB_OUTPUT"
+          echo "android_test_abi_filters=$R47_DEFAULT_ANDROID_TEST_ABI_FILTERS" >> "$GITHUB_OUTPUT"
 
       - name: Detect runner build concurrency
         id: jobs
@@ -349,11 +341,11 @@ jobs:
           path: |
             ${{ steps.android-sdk.outputs.sdk_root }}/licenses
             ${{ steps.android-sdk.outputs.sdk_root }}/platform-tools
-            ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ steps.versions.outputs.compile_sdk }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.versions.outputs.build_tools_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.versions.outputs.cmake_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.versions.outputs.ndk_version }}
-          key: ${{ runner.os }}-android-sdk-${{ steps.versions.outputs.compile_sdk }}-${{ steps.versions.outputs.build_tools_version }}-${{ steps.versions.outputs.cmake_version }}-${{ steps.versions.outputs.ndk_version }}-v1
+            ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ steps.defaults.outputs.compile_sdk }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.defaults.outputs.build_tools_version }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.defaults.outputs.cmake_version }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}
+          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-v1
 
       - name: Install Android SDK packages
         if: steps.android-sdk-cache.outputs.cache-hit != 'true'
@@ -362,10 +354,10 @@ jobs:
           set -euo pipefail
 
           sdkmanager \
-            "platforms;android-${{ steps.versions.outputs.compile_sdk }}" \
-            "build-tools;${{ steps.versions.outputs.build_tools_version }}" \
-            "cmake;${{ steps.versions.outputs.cmake_version }}" \
-            "ndk;${{ steps.versions.outputs.ndk_version }}"
+            "platforms;android-${{ steps.defaults.outputs.compile_sdk }}" \
+            "build-tools;${{ steps.defaults.outputs.build_tools_version }}" \
+            "cmake;${{ steps.defaults.outputs.cmake_version }}" \
+            "ndk;${{ steps.defaults.outputs.ndk_version }}"
 
       - name: Make scripts executable
         shell: bash
@@ -374,30 +366,20 @@ jobs:
           chmod +x build_android.sh
           chmod +x android/gradlew
 
-      - name: Set pinned xlsxio revision
-        id: xlsxio
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "xlsxio_url=$XLSXIO_URL" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
-          path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
-          key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
+          path: ${{ steps.defaults.outputs.xlsxio_prefix }}
+          key: ${{ runner.os }}-xlsxio-${{ steps.defaults.outputs.xlsxio_commit }}-static-tools-v1
 
       - name: Build upstream xlsxio toolchain
         if: steps.xlsxio-cache.outputs.cache-hit != 'true'
         shell: bash
         env:
-          XLSXIO_URL: ${{ steps.xlsxio.outputs.xlsxio_url }}
-          XLSXIO_COMMIT: ${{ steps.xlsxio.outputs.xlsxio_commit }}
-          XLSXIO_PREFIX: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+          XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+          XLSXIO_PREFIX: ${{ steps.defaults.outputs.xlsxio_prefix }}
         run: |
           set -euo pipefail
 
@@ -427,8 +409,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
-          export PATH="${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin:$PATH"
+          echo "${{ steps.defaults.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
+          export PATH="${{ steps.defaults.outputs.xlsxio_prefix }}/bin:$PATH"
           xlsxio_xlsx2csv -h > /dev/null
 
       - name: Sync authoritative upstream core
@@ -468,7 +450,7 @@ jobs:
       - name: Build Android debug APK
         shell: bash
         env:
-          R47_NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+          R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
           R47_GRADLE_ARGS: '--no-daemon --stacktrace --console=plain'
@@ -476,8 +458,8 @@ jobs:
           R47_SOURCE_COMMIT: ${{ github.sha }}
           R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
           R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
-          R47_XLSXIO_URL: ${{ steps.xlsxio.outputs.xlsxio_url }}
-          R47_XLSXIO_COMMIT: ${{ steps.xlsxio.outputs.xlsxio_commit }}
+          R47_XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          R47_XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
           GRADLE_OPTS: '-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}'
         run: |
           set -euo pipefail
@@ -524,15 +506,15 @@ jobs:
             --artifact-name R47calculator-debug.apk \
             --expected-abis arm64-v8a \
             --android-sdk-root "${ANDROID_SDK_ROOT:?}" \
-            --ndk-version "${{ steps.versions.outputs.ndk_version }}" \
-            --compile-sdk "${{ steps.versions.outputs.compile_sdk }}" \
-            --cmake-version "${{ steps.versions.outputs.cmake_version }}" \
+            --ndk-version "${{ steps.defaults.outputs.ndk_version }}" \
+            --compile-sdk "${{ steps.defaults.outputs.compile_sdk }}" \
+            --cmake-version "${{ steps.defaults.outputs.cmake_version }}" \
             --android-source-repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --android-source-commit "${GITHUB_SHA}" \
             --upstream-source-repository-url "${{ steps.upstream.outputs.upstream_url }}" \
             --upstream-source-commit "${{ steps.upstream.outputs.upstream_commit }}" \
-            --xlsxio-source-repository-url "${{ steps.xlsxio.outputs.xlsxio_url }}" \
-            --xlsxio-source-commit "${{ steps.xlsxio.outputs.xlsxio_commit }}" \
+            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
+            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}" \
             --signing-mode debug \
             --ref "${GITHUB_REF}" \
             --sha "${GITHUB_SHA}" \
@@ -568,27 +550,23 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Read Android tool versions
-        id: versions
+      - name: Load shared Android defaults
+        id: defaults
         shell: bash
         run: |
           set -euo pipefail
 
-          ndk_version=$(sed -n "s/.*ndkVersion project.findProperty('r47.ndkVersion') ?: \"\([^\"]*\)\".*/\1/p" android/app/build.gradle)
-          cmake_version=$(sed -n "s/.*version project.findProperty('r47.cmakeVersion') ?: \"\([^\"]*\)\".*/\1/p" android/app/build.gradle)
-          compile_sdk=$(sed -n "s/.*compileSdk .*?: \([0-9][0-9]*\).*/\1/p" android/app/build.gradle)
+          . ./android/r47-defaults.properties
 
-          if [[ -z "$ndk_version" || -z "$cmake_version" || -z "$compile_sdk" ]]; then
-            echo "Failed to extract Android tool versions from android/app/build.gradle" >&2
-            exit 1
-          fi
-
-          build_tools_version="${compile_sdk}.0.0"
-
-          echo "ndk_version=$ndk_version" >> "$GITHUB_OUTPUT"
-          echo "cmake_version=$cmake_version" >> "$GITHUB_OUTPUT"
-          echo "compile_sdk=$compile_sdk" >> "$GITHUB_OUTPUT"
-          echo "build_tools_version=$build_tools_version" >> "$GITHUB_OUTPUT"
+          echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
+          echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "android_test_api_level=$R47_DEFAULT_ANDROID_TEST_API_LEVEL" >> "$GITHUB_OUTPUT"
+          echo "android_test_abi_filters=$R47_DEFAULT_ANDROID_TEST_ABI_FILTERS" >> "$GITHUB_OUTPUT"
 
       - name: Detect runner build concurrency
         id: jobs
@@ -665,11 +643,11 @@ jobs:
           path: |
             ${{ steps.android-sdk.outputs.sdk_root }}/licenses
             ${{ steps.android-sdk.outputs.sdk_root }}/platform-tools
-            ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ steps.versions.outputs.compile_sdk }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.versions.outputs.build_tools_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.versions.outputs.cmake_version }}
-            ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.versions.outputs.ndk_version }}
-          key: ${{ runner.os }}-android-sdk-${{ steps.versions.outputs.compile_sdk }}-${{ steps.versions.outputs.build_tools_version }}-${{ steps.versions.outputs.cmake_version }}-${{ steps.versions.outputs.ndk_version }}-v1
+            ${{ steps.android-sdk.outputs.sdk_root }}/platforms/android-${{ steps.defaults.outputs.compile_sdk }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/build-tools/${{ steps.defaults.outputs.build_tools_version }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/cmake/${{ steps.defaults.outputs.cmake_version }}
+            ${{ steps.android-sdk.outputs.sdk_root }}/ndk/${{ steps.defaults.outputs.ndk_version }}
+          key: ${{ runner.os }}-android-sdk-${{ steps.defaults.outputs.compile_sdk }}-${{ steps.defaults.outputs.build_tools_version }}-${{ steps.defaults.outputs.cmake_version }}-${{ steps.defaults.outputs.ndk_version }}-v1
 
       - name: Install Android SDK packages
         if: steps.android-sdk-cache.outputs.cache-hit != 'true'
@@ -678,10 +656,10 @@ jobs:
           set -euo pipefail
 
           sdkmanager \
-            "platforms;android-${{ steps.versions.outputs.compile_sdk }}" \
-            "build-tools;${{ steps.versions.outputs.build_tools_version }}" \
-            "cmake;${{ steps.versions.outputs.cmake_version }}" \
-            "ndk;${{ steps.versions.outputs.ndk_version }}"
+            "platforms;android-${{ steps.defaults.outputs.compile_sdk }}" \
+            "build-tools;${{ steps.defaults.outputs.build_tools_version }}" \
+            "cmake;${{ steps.defaults.outputs.cmake_version }}" \
+            "ndk;${{ steps.defaults.outputs.ndk_version }}"
 
       - name: Make scripts executable
         shell: bash
@@ -690,30 +668,20 @@ jobs:
           chmod +x build_android.sh
           chmod +x android/gradlew
 
-      - name: Set pinned xlsxio revision
-        id: xlsxio
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "xlsxio_url=$XLSXIO_URL" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "xlsxio_prefix=$HOME/.cache/r47/xlsxio/$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
-
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
-          path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
-          key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
+          path: ${{ steps.defaults.outputs.xlsxio_prefix }}
+          key: ${{ runner.os }}-xlsxio-${{ steps.defaults.outputs.xlsxio_commit }}-static-tools-v1
 
       - name: Build upstream xlsxio toolchain
         if: steps.xlsxio-cache.outputs.cache-hit != 'true'
         shell: bash
         env:
-          XLSXIO_URL: ${{ steps.xlsxio.outputs.xlsxio_url }}
-          XLSXIO_COMMIT: ${{ steps.xlsxio.outputs.xlsxio_commit }}
-          XLSXIO_PREFIX: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+          XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
+          XLSXIO_PREFIX: ${{ steps.defaults.outputs.xlsxio_prefix }}
         run: |
           set -euo pipefail
 
@@ -743,8 +711,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
-          export PATH="${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin:$PATH"
+          echo "${{ steps.defaults.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
+          export PATH="${{ steps.defaults.outputs.xlsxio_prefix }}/bin:$PATH"
           xlsxio_xlsx2csv -h > /dev/null
 
       - name: Sync authoritative upstream core
@@ -777,16 +745,16 @@ jobs:
       - name: Prepare Android debug build inputs
         shell: bash
         env:
-          R47_NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+          R47_NDK_VERSION: ${{ steps.defaults.outputs.ndk_version }}
           R47_BUILD_JOBS: ${{ steps.jobs.outputs.jobs }}
           CMAKE_BUILD_PARALLEL_LEVEL: ${{ steps.jobs.outputs.jobs }}
-          R47_GRADLE_ARGS: --no-daemon --stacktrace --console=plain -Pr47.abiFilters=${{ env.ANDROID_TEST_ABI_FILTERS }}
+          R47_GRADLE_ARGS: --no-daemon --stacktrace --console=plain -Pr47.abiFilters=${{ steps.defaults.outputs.android_test_abi_filters }}
           R47_SOURCE_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           R47_SOURCE_COMMIT: ${{ github.sha }}
           R47_UPSTREAM_SOURCE_REPOSITORY_URL: ${{ steps.upstream.outputs.upstream_url }}
           R47_UPSTREAM_SOURCE_COMMIT: ${{ steps.upstream.outputs.upstream_commit }}
-          R47_XLSXIO_URL: ${{ steps.xlsxio.outputs.xlsxio_url }}
-          R47_XLSXIO_COMMIT: ${{ steps.xlsxio.outputs.xlsxio_commit }}
+          R47_XLSXIO_URL: ${{ steps.defaults.outputs.xlsxio_url }}
+          R47_XLSXIO_COMMIT: ${{ steps.defaults.outputs.xlsxio_commit }}
           GRADLE_OPTS: -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=${{ steps.jobs.outputs.jobs }}
         run: |
           set -euo pipefail
@@ -806,15 +774,15 @@ jobs:
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:assembleDebugAndroidTest \
             --no-daemon --stacktrace --console=plain \
-            -Pr47.ndkVersion=${{ steps.versions.outputs.ndk_version }} \
-            -Pr47.abiFilters=${{ env.ANDROID_TEST_ABI_FILTERS }} \
+            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+            -Pr47.abiFilters=${{ steps.defaults.outputs.android_test_abi_filters }} \
             -Pr47.coreVersion="$core_version" \
             -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
             -Pr47.sourceCommit=${{ github.sha }} \
             -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
             -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
-            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.xlsxio.outputs.xlsxio_url }} \
-            -Pr47.xlsxioSourceCommit=${{ steps.xlsxio.outputs.xlsxio_commit }} \
+            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
+            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-assemble-debug-android-test.log
 
       - name: Run Android JVM tests
@@ -829,15 +797,15 @@ jobs:
           ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:testDebugUnitTest \
             --no-daemon --stacktrace --console=plain \
-            -Pr47.ndkVersion=${{ steps.versions.outputs.ndk_version }} \
-            -Pr47.abiFilters=${{ env.ANDROID_TEST_ABI_FILTERS }} \
+            -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
+            -Pr47.abiFilters=${{ steps.defaults.outputs.android_test_abi_filters }} \
             -Pr47.coreVersion="$core_version" \
             -Pr47.sourceRepositoryUrl=${{ github.server_url }}/${{ github.repository }} \
             -Pr47.sourceCommit=${{ github.sha }} \
             -Pr47.upstreamSourceRepositoryUrl=${{ steps.upstream.outputs.upstream_url }} \
             -Pr47.upstreamSourceCommit=${{ steps.upstream.outputs.upstream_commit }} \
-            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.xlsxio.outputs.xlsxio_url }} \
-            -Pr47.xlsxioSourceCommit=${{ steps.xlsxio.outputs.xlsxio_commit }} \
+            -Pr47.xlsxioSourceRepositoryUrl=${{ steps.defaults.outputs.xlsxio_url }} \
+            -Pr47.xlsxioSourceCommit=${{ steps.defaults.outputs.xlsxio_commit }} \
             2>&1 | tee ../ci-artifacts/logs/android-test-debug-unit.log
 
       - name: Enable KVM access for Android emulator
@@ -852,7 +820,7 @@ jobs:
       - name: Run Android instrumentation tests on emulator
         uses: ReactiveCircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
         with:
-          api-level: ${{ env.ANDROID_TEST_API_LEVEL }}
+          api-level: ${{ steps.defaults.outputs.android_test_api_level }}
           target: default
           arch: x86_64
           profile: pixel_7
@@ -865,7 +833,7 @@ jobs:
             mkdir -p ../ci-artifacts/logs;
             log_file=../ci-artifacts/logs/android-connected-debug-android-test.log;
             gradle_status=0;
-            ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" :app:connectedDebugAndroidTest --no-daemon --stacktrace --console=plain -Pr47.ndkVersion=${{ steps.versions.outputs.ndk_version }} -Pr47.abiFilters="${{ env.ANDROID_TEST_ABI_FILTERS }}" -Pr47.coreVersion="$core_version" -Pr47.sourceRepositoryUrl="${{ github.server_url }}/${{ github.repository }}" -Pr47.sourceCommit="${{ github.sha }}" -Pr47.upstreamSourceRepositoryUrl="${{ steps.upstream.outputs.upstream_url }}" -Pr47.upstreamSourceCommit="${{ steps.upstream.outputs.upstream_commit }}" -Pr47.xlsxioSourceRepositoryUrl="${{ steps.xlsxio.outputs.xlsxio_url }}" -Pr47.xlsxioSourceCommit="${{ steps.xlsxio.outputs.xlsxio_commit }}" >"$log_file" 2>&1 || gradle_status=$?;
+            ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" :app:connectedDebugAndroidTest --no-daemon --stacktrace --console=plain -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} -Pr47.abiFilters="${{ steps.defaults.outputs.android_test_abi_filters }}" -Pr47.coreVersion="$core_version" -Pr47.sourceRepositoryUrl="${{ github.server_url }}/${{ github.repository }}" -Pr47.sourceCommit="${{ github.sha }}" -Pr47.upstreamSourceRepositoryUrl="${{ steps.upstream.outputs.upstream_url }}" -Pr47.upstreamSourceCommit="${{ steps.upstream.outputs.upstream_commit }}" -Pr47.xlsxioSourceRepositoryUrl="${{ steps.defaults.outputs.xlsxio_url }}" -Pr47.xlsxioSourceCommit="${{ steps.defaults.outputs.xlsxio_commit }}" >"$log_file" 2>&1 || gradle_status=$?;
             cat "$log_file";
             test "$gradle_status" -eq 0
 

@@ -1,5 +1,28 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
+}
+
+def defaultsProperties = new Properties()
+def defaultsPropertiesFile = rootProject.file('r47-defaults.properties')
+
+if (!defaultsPropertiesFile.exists()) {
+    throw new GradleException("Missing Android defaults file: ${defaultsPropertiesFile}")
+}
+
+defaultsPropertiesFile.withInputStream { defaultsProperties.load(it) }
+
+def readDefaultValue = { String key ->
+    def value = defaultsProperties.getProperty(key)?.trim()
+    if (!value) {
+        throw new GradleException("Missing ${key} in ${defaultsPropertiesFile}")
+    }
+    return value
+}
+
+def readDefaultInteger = { String key ->
+    return Integer.parseInt(readDefaultValue(key))
 }
 
 def readOptionalProperty(String propertyName, String envName = null) {
@@ -56,12 +79,13 @@ def normalizeRepositoryUrl(String url) {
 }
 
 def inferredAndroidSourceRepositoryUrl = normalizeRepositoryUrl(readGitOutput(['config', '--get', 'remote.origin.url']))
+def defaultApplicationId = readDefaultValue('R47_DEFAULT_ANDROID_APPLICATION_ID')
 def androidSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.sourceRepositoryUrl') ?: inferredAndroidSourceRepositoryUrl ?: "https://github.com/ppigazzini/r47_android").toString())
 def androidSourceCommit = (project.findProperty('r47.sourceCommit') ?: readGitOutput(['rev-parse', 'HEAD']) ?: 'unknown').toString()
 def upstreamSourceRepositoryUrl = normalizeRepositoryUrl(project.findProperty('r47.upstreamSourceRepositoryUrl')?.toString())
 def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toString()?.trim()
-def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: 'https://github.com/brechtsanders/xlsxio.git').toString())
-def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: 'a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9').toString()
+def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: readDefaultValue('R47_DEFAULT_XLSXIO_URL')).toString())
+def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: readDefaultValue('R47_DEFAULT_XLSXIO_COMMIT')).toString()
 def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
 def stagedNativeCppDir = rootProject.file('.staged-native/cpp').absolutePath
 def releaseMinifyEnabled = readBooleanProperty('r47.releaseMinify', true)
@@ -82,7 +106,7 @@ if (!(releaseNativeDebugSymbolLevel in ['NONE', 'SYMBOL_TABLE', 'FULL'])) {
     throw new GradleException("Unsupported r47.releaseNativeDebugSymbolLevel value: ${releaseNativeDebugSymbolLevel}")
 }
 
-def configuredAbiFilters = (project.findProperty('r47.abiFilters') ?: 'arm64-v8a')
+def configuredAbiFilters = (project.findProperty('r47.abiFilters') ?: readDefaultValue('R47_DEFAULT_ANDROID_ABI_FILTERS'))
     .toString()
     .split(',')
     .collect { it.trim() }
@@ -93,12 +117,12 @@ if (configuredAbiFilters.isEmpty()) {
 }
 
 android {
-    namespace 'com.example.r47'
-    compileSdk project.findProperty('r47.compileSdk')?.toInteger() ?: 36
+    namespace defaultApplicationId
+    compileSdk project.findProperty('r47.compileSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_COMPILE_SDK')
     def coreVersion = (project.findProperty('r47.coreVersion') ?: "unknown").toString()
     def normalizedCoreVersion = coreVersion.replaceAll(/[^0-9A-Za-z._-]/, "_")
-    def releaseVersionCode = Integer.parseInt((project.findProperty('r47.versionCode') ?: "1").toString())
-    def releaseVersionName = (project.findProperty('r47.versionName') ?: "0.1.0").toString()
+    def releaseVersionCode = Integer.parseInt((project.findProperty('r47.versionCode') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_CODE')).toString())
+    def releaseVersionName = (project.findProperty('r47.versionName') ?: readDefaultValue('R47_DEFAULT_ANDROID_VERSION_NAME')).toString()
 
     signingConfigs {
         if (isReleaseSigningConfigured) {
@@ -116,9 +140,9 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.r47"
-        minSdk project.findProperty('r47.minSdk')?.toInteger() ?: 24
-        targetSdk project.findProperty('r47.targetSdk')?.toInteger() ?: 36
+        applicationId defaultApplicationId
+        minSdk project.findProperty('r47.minSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_MIN_SDK')
+        targetSdk project.findProperty('r47.targetSdk')?.toInteger() ?: readDefaultInteger('R47_DEFAULT_ANDROID_TARGET_SDK')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         versionCode releaseVersionCode
         versionName releaseVersionName
@@ -127,7 +151,7 @@ android {
         
         // Use property override if provided, otherwise default to a verified version
         // To use system default, user can pass -Pr47.ndkVersion=
-        ndkVersion project.findProperty('r47.ndkVersion') ?: "29.0.14206865"
+        ndkVersion project.findProperty('r47.ndkVersion') ?: readDefaultValue('R47_DEFAULT_ANDROID_NDK_VERSION')
 
         externalNativeBuild {
             cmake {
@@ -169,13 +193,13 @@ android {
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
-            version project.findProperty('r47.cmakeVersion') ?: "3.22.1"
+            version project.findProperty('r47.cmakeVersion') ?: readDefaultValue('R47_DEFAULT_ANDROID_CMAKE_VERSION')
         }
     }
     
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.toVersion(readDefaultValue('R47_DEFAULT_ANDROID_JAVA_VERSION'))
+        targetCompatibility JavaVersion.toVersion(readDefaultValue('R47_DEFAULT_ANDROID_JAVA_VERSION'))
     }
 
     sourceSets {

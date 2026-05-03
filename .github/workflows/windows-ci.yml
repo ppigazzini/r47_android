@@ -15,10 +15,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  XLSXIO_URL: https://github.com/brechtsanders/xlsxio.git
-  XLSXIO_COMMIT: a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
-
 jobs:
   resolve-upstream-core:
     name: Resolve authoritative upstream core revision
@@ -33,6 +29,16 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+
+      - name: Load shared Android defaults
+        id: defaults
+        run: |
+          set -euo pipefail
+
+          . ./android/r47-defaults.properties
+
+          echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$R47_DEFAULT_XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Resolve latest upstream core
         id: resolve
@@ -250,8 +256,8 @@ jobs:
           upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}
           upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           upstream_license_file=COPYING
-          xlsxio_url=$XLSXIO_URL
-          xlsxio_commit=$XLSXIO_COMMIT
+          xlsxio_url=${{ steps.defaults.outputs.xlsxio_url }}
+          xlsxio_commit=${{ steps.defaults.outputs.xlsxio_commit }}
           xlsxio_license_file=LICENSE.txt
           EOF
 
@@ -262,8 +268,8 @@ jobs:
           upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           upstream_license_file=COPYING
           source_manifest_file=SOURCE
-          xlsxio_url=$XLSXIO_URL
-          xlsxio_commit=$XLSXIO_COMMIT
+          xlsxio_url=${{ steps.defaults.outputs.xlsxio_url }}
+          xlsxio_commit=${{ steps.defaults.outputs.xlsxio_commit }}
           xlsxio_license_file=LICENSE.txt
           make_target=dist_windows
           msystem=${{ matrix.msystem }}

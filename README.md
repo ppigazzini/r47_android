@@ -35,7 +35,12 @@ root generator pipeline.
 
 - `./sync_public.sh` hydrates the authoritative upstream core defined by
 	`upstream.source`.
-- `./build_android.sh` is the canonical Android debug-build path. Add
+- `android/r47-defaults.properties` is the machine-readable source of truth for
+	shared Android SDK, NDK, CMake, build-tools, test-emulator, and xlsxio
+	defaults consumed by local scripts and CI.
+- `./build_android.sh` is the canonical Android debug-build path. Use
+	`--doctor` to report host and staging readiness, `--android-only` for the
+	fast module-only lane when staged native inputs are current, and
 	`--verify-packaging` to emit the same ABI, zipalign, ELF, SHA256, and
 	provenance evidence classes that CI records for the debug APK.
 - `make sim` and `make test` are the canonical root simulator and generator

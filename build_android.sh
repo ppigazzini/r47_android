@@ -2,13 +2,31 @@
 
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
+STAGED_CPP_DIR="$ANDROID_PROJECT_DIR/.staged-native/cpp"
+DEFAULTS_FILE="$ANDROID_PROJECT_DIR/r47-defaults.properties"
+STAGED_INPUTS_FILE="$STAGED_CPP_DIR/STAGED-INPUTS.properties"
+
+ANDROID_ONLY=false
+DOCTOR_MODE=false
 VERIFY_PACKAGING=false
 VERIFY_PACKAGING_DIR=""
 
 usage() {
     cat <<'EOF'
-Usage: ./build_android.sh [--verify-packaging] [--verify-packaging-dir <dir>]
+Usage: ./build_android.sh [--android-only] [--doctor] [--verify-packaging] [--verify-packaging-dir <dir>]
+
+Modes:
+    --android-only         Rebuild only the Android module after confirming staged native inputs are current.
+    --doctor               Print SDK, NDK, CMake, xlsxio, upstream lock, and staged-input status.
 EOF
+}
+
+fail() {
+        echo "ERROR: $*" >&2
+        exit 1
 }
 
 is_truthy() {
@@ -22,8 +40,35 @@ is_truthy() {
     esac
 }
 
+read_property_value() {
+    local path="$1"
+    local key="$2"
+
+    [ -f "$path" ] || return 1
+    sed -n "s/^${key}=//p" "$path" | tail -n1
+}
+
+load_android_defaults() {
+    [ -f "$DEFAULTS_FILE" ] || fail "Missing Android defaults file at $DEFAULTS_FILE"
+
+    # shellcheck disable=SC1090
+    . "$DEFAULTS_FILE"
+}
+
+print_doctor_line() {
+    printf '%-22s %s\n' "$1" "$2"
+}
+
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --android-only)
+            ANDROID_ONLY=true
+            shift
+            ;;
+        --doctor)
+            DOCTOR_MODE=true
+            shift
+            ;;
         --verify-packaging)
             VERIFY_PACKAGING=true
             shift
@@ -309,9 +354,154 @@ resolve_cmake_bin() {
     return 1
 }
 
-PROJECT_ROOT="$(pwd)"
-resolve_upstream_state
-ensure_upstream_core_hydrated
+copy_font_assets() {
+    local fonts_dir="$ANDROID_PROJECT_DIR/app/src/main/assets/fonts"
+
+    echo "--- Copying font assets ---"
+    mkdir -p "$fonts_dir"
+    cp -v "$PROJECT_ROOT/res/fonts"/*.ttf "$fonts_dir/"
+}
+
+write_local_properties() {
+    echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ANDROID_PROJECT_DIR/local.properties"
+}
+
+compute_current_staged_inputs() {
+    local output_path="$1"
+
+    bash "$ANDROID_PROJECT_DIR/compute_staged_native_inputs.sh" --output "$output_path"
+}
+
+ensure_staged_inputs_current() {
+    local current_inputs_file=""
+    local current_fingerprint=""
+    local staged_fingerprint=""
+
+    [ -f "$STAGED_INPUTS_FILE" ] || fail "Missing staged native input fingerprint at $STAGED_INPUTS_FILE. Run ./build_android.sh without --android-only first."
+    [ -f "$STAGED_CPP_DIR/staged_native_sources.cmake" ] || fail "Missing staged native source list under $STAGED_CPP_DIR. Run ./build_android.sh without --android-only first."
+    [ -f "$STAGED_CPP_DIR/STAGED-SOURCE-MANIFEST.txt" ] || fail "Missing staged native manifest under $STAGED_CPP_DIR. Run ./build_android.sh without --android-only first."
+
+    current_inputs_file=$(mktemp)
+    if ! compute_current_staged_inputs "$current_inputs_file" >/dev/null 2>&1; then
+        rm -f "$current_inputs_file"
+        fail "Unable to compute current native input fingerprints. Run make sim and then ./build_android.sh without --android-only."
+    fi
+
+    staged_fingerprint=$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_INPUTS_COMBINED_FINGERPRINT || true)
+    current_fingerprint=$(read_property_value "$current_inputs_file" R47_STAGED_INPUTS_COMBINED_FINGERPRINT || true)
+    rm -f "$current_inputs_file"
+
+    [ -n "$staged_fingerprint" ] || fail "Staged native fingerprint file at $STAGED_INPUTS_FILE is invalid."
+    [ -n "$current_fingerprint" ] || fail "Current native fingerprint computation returned no result."
+
+    if [ "$staged_fingerprint" != "$current_fingerprint" ]; then
+        fail "Android build-only staging is stale. Run ./build_android.sh without --android-only to refresh $STAGED_CPP_DIR."
+    fi
+}
+
+print_doctor_report() {
+    local doctor_failed=false
+    local cmake_status=""
+    local xlsxio_status=""
+    local xlsxio_cached_path="$HOME/.cache/r47/xlsxio/$R47_XLSXIO_COMMIT/bin/xlsxio_xlsx2csv"
+    local lock_commit=""
+    local lock_url=""
+    local source_url=""
+    local stage_core_version=""
+    local staged_fingerprint=""
+    local current_fingerprint=""
+    local current_inputs_file=""
+
+    echo "R47 Android Doctor"
+    echo "=================="
+    print_doctor_line "defaults" "$DEFAULTS_FILE"
+
+    if [ -d "$ANDROID_SDK_ROOT" ]; then
+        print_doctor_line "sdk root" "$ANDROID_SDK_ROOT"
+    else
+        print_doctor_line "sdk root" "missing ($ANDROID_SDK_ROOT)"
+        doctor_failed=true
+    fi
+
+    if [ -d "$ANDROID_SDK_ROOT/platforms/android-$R47_DEFAULT_ANDROID_COMPILE_SDK" ]; then
+        print_doctor_line "compile sdk" "android-$R47_DEFAULT_ANDROID_COMPILE_SDK present"
+    else
+        print_doctor_line "compile sdk" "android-$R47_DEFAULT_ANDROID_COMPILE_SDK missing"
+        doctor_failed=true
+    fi
+
+    if [ -d "$ANDROID_SDK_ROOT/build-tools/$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" ]; then
+        print_doctor_line "build tools" "$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION present"
+    else
+        print_doctor_line "build tools" "$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION missing"
+        doctor_failed=true
+    fi
+
+    if [ -n "$IF_NDK_VERSION" ] && [ -d "$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION" ]; then
+        print_doctor_line "ndk" "$IF_NDK_VERSION present"
+    else
+        print_doctor_line "ndk" "$IF_NDK_VERSION missing"
+        doctor_failed=true
+    fi
+
+    if [ -n "${R47_CMAKE_BIN:-}" ]; then
+        cmake_status="$R47_CMAKE_BIN"
+    else
+        cmake_status="missing (wanted $R47_CMAKE_VERSION)"
+        doctor_failed=true
+    fi
+    print_doctor_line "cmake" "$cmake_status"
+
+    if command -v xlsxio_xlsx2csv >/dev/null 2>&1; then
+        xlsxio_status="ready on PATH ($(command -v xlsxio_xlsx2csv))"
+    elif [ -x "$xlsxio_cached_path" ]; then
+        xlsxio_status="cached at $xlsxio_cached_path"
+    else
+        xlsxio_status="missing (want $R47_XLSXIO_COMMIT from $R47_XLSXIO_URL)"
+        doctor_failed=true
+    fi
+    print_doctor_line "xlsxio" "$xlsxio_status"
+
+    lock_commit=$(read_property_value "$PROJECT_ROOT/upstream.lock" upstream_commit || true)
+    lock_url=$(read_property_value "$PROJECT_ROOT/upstream.lock" upstream_url || true)
+    source_url=$(read_property_value "$PROJECT_ROOT/upstream.source" upstream_url || true)
+
+    if [ -n "$lock_commit" ]; then
+        print_doctor_line "upstream lock" "$lock_commit (${lock_url:-$source_url})"
+    elif [ -f "$PROJECT_ROOT/upstream.lock" ]; then
+        print_doctor_line "upstream lock" "present without upstream_commit; will follow latest from ${source_url:-unknown}"
+    else
+        print_doctor_line "upstream lock" "absent; will follow latest from ${source_url:-unknown}"
+    fi
+
+    if [ -f "$STAGED_INPUTS_FILE" ]; then
+        stage_core_version=$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_CORE_VERSION || true)
+        staged_fingerprint=$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_INPUTS_COMBINED_FINGERPRINT || true)
+        current_inputs_file=$(mktemp)
+        if compute_current_staged_inputs "$current_inputs_file" >/dev/null 2>&1; then
+            current_fingerprint=$(read_property_value "$current_inputs_file" R47_STAGED_INPUTS_COMBINED_FINGERPRINT || true)
+            if [ -n "$staged_fingerprint" ] && [ "$staged_fingerprint" = "$current_fingerprint" ]; then
+                print_doctor_line "staged inputs" "current${stage_core_version:+ (core $stage_core_version)}"
+            else
+                print_doctor_line "staged inputs" "stale${stage_core_version:+ (last core $stage_core_version)}"
+                doctor_failed=true
+            fi
+        else
+            print_doctor_line "staged inputs" "cannot verify current canonical inputs"
+            doctor_failed=true
+        fi
+        rm -f "$current_inputs_file"
+    else
+        print_doctor_line "staged inputs" "missing ($STAGED_INPUTS_FILE)"
+        doctor_failed=true
+    fi
+
+    if [ "$doctor_failed" = true ]; then
+        exit 1
+    fi
+}
+
+load_android_defaults
 
 if ANDROID_SDK_ROOT_CANDIDATE=$(detect_android_sdk_root); then
     export ANDROID_SDK_ROOT="$ANDROID_SDK_ROOT_CANDIDATE"
@@ -319,26 +509,10 @@ else
     export ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Android/Sdk}}
 fi
 
-R47_CMAKE_VERSION=${R47_CMAKE_VERSION-}
-if [ -z "$R47_CMAKE_VERSION" ]; then
-    R47_CMAKE_VERSION=$(grep "r47.cmakeVersion=" "$PROJECT_ROOT/android/gradle.properties" 2>/dev/null | cut -d'=' -f2 || true)
-fi
-if [ -z "$R47_CMAKE_VERSION" ]; then
-    R47_CMAKE_VERSION=$(sed -n "s/.*project.findProperty('r47.cmakeVersion') ?: \"\([^\"]*\)\".*/\1/p" "$PROJECT_ROOT/android/app/build.gradle" | head -n1)
-fi
+R47_CMAKE_VERSION=${R47_CMAKE_VERSION:-$R47_DEFAULT_ANDROID_CMAKE_VERSION}
 
 # --- NDK Version Selection ---
-# 1. Check for Environment Override
-# 2. Check for Gradle Property in android/gradle.properties
-# 3. Extract Default from build.gradle
-# 4. Fallback to latest installed
-IF_NDK_VERSION=${R47_NDK_VERSION-}
-if [ -z "$IF_NDK_VERSION" ]; then
-    IF_NDK_VERSION=$(grep "r47.ndkVersion=" "$PROJECT_ROOT/android/gradle.properties" 2>/dev/null | cut -d'=' -f2 || true)
-fi
-if [ -z "$IF_NDK_VERSION" ]; then
-    IF_NDK_VERSION=$(grep "ndkVersion" "$PROJECT_ROOT/android/app/build.gradle" | grep -o '".*"' | sed 's/"//g' || true)
-fi
+IF_NDK_VERSION=${R47_NDK_VERSION:-$R47_DEFAULT_ANDROID_NDK_VERSION}
 
 if [ -n "$IF_NDK_VERSION" ] && [ -d "$ANDROID_SDK_ROOT/ndk/$IF_NDK_VERSION" ]; then
     echo "Using detected NDK version: $IF_NDK_VERSION"
@@ -358,58 +532,66 @@ fi
 export ANDROID_HOME="$ANDROID_SDK_ROOT"
 export ANDROID_NDK_HOME="$ANDROID_NDK_ROOT"
 
-R47_XLSXIO_URL=${R47_XLSXIO_URL:-https://github.com/brechtsanders/xlsxio.git}
-R47_XLSXIO_COMMIT=${R47_XLSXIO_COMMIT:-a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9}
-if ! R47_CMAKE_BIN=$(resolve_cmake_bin); then
-    echo "ERROR: No usable cmake executable found. Install cmake or Android SDK CMake $R47_CMAKE_VERSION."
-    exit 1
-fi
-export PATH="$(dirname "$R47_CMAKE_BIN"):$PATH"
-if ! ensure_xlsxio_toolchain; then
-    echo "ERROR: Failed to provision xlsxio_xlsx2csv."
-    exit 1
+R47_XLSXIO_URL=${R47_XLSXIO_URL:-$R47_DEFAULT_XLSXIO_URL}
+R47_XLSXIO_COMMIT=${R47_XLSXIO_COMMIT:-$R47_DEFAULT_XLSXIO_COMMIT}
+if R47_CMAKE_BIN=$(resolve_cmake_bin); then
+    export PATH="$(dirname "$R47_CMAKE_BIN"):$PATH"
+else
+    R47_CMAKE_BIN=""
 fi
 
-ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
-CPP_DIR="$ANDROID_PROJECT_DIR/app/src/main/cpp"
+if [ "$DOCTOR_MODE" = true ]; then
+    print_doctor_report
+    exit 0
+fi
+
+[ -n "$R47_CMAKE_BIN" ] || fail "No usable cmake executable found. Install cmake or Android SDK CMake $R47_CMAKE_VERSION."
+
+if [ "$ANDROID_ONLY" = false ]; then
+    resolve_upstream_state
+    ensure_upstream_core_hydrated
+    if ! ensure_xlsxio_toolchain; then
+        echo "ERROR: Failed to provision xlsxio_xlsx2csv."
+        exit 1
+    fi
+fi
 
 echo "======================================================="
 echo "R47 Android Builder"
+echo "Mode: $( [ "$ANDROID_ONLY" = true ] && printf 'android-only' || printf 'full' )"
 echo "SDK: $ANDROID_SDK_ROOT"
 echo "NDK: $ANDROID_NDK_ROOT"
 echo "Jobs: $R47_BUILD_JOBS"
 echo "======================================================="
 
-# --- 2. Update Version from Resolved Upstream (c43 Core) ---
-COMMIT_HASH="$RESOLVED_UPSTREAM_SHORT_COMMIT"
-echo "--- SwissMicros Core Version (resolved): $COMMIT_HASH ---"
+if [ "$ANDROID_ONLY" = true ]; then
+    ensure_staged_inputs_current
+    COMMIT_HASH=${R47_CORE_VERSION:-$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_CORE_VERSION || true)}
+    RESOLVED_UPSTREAM_URL=${R47_UPSTREAM_SOURCE_REPOSITORY_URL:-$(read_property_value "$PROJECT_ROOT/upstream.lock" upstream_url || read_property_value "$PROJECT_ROOT/upstream.source" upstream_url || true)}
+    RESOLVED_UPSTREAM_COMMIT=${R47_UPSTREAM_SOURCE_COMMIT:-$(read_property_value "$PROJECT_ROOT/upstream.lock" upstream_commit || true)}
+    [ -n "$COMMIT_HASH" ] || COMMIT_HASH="unknown"
+    echo "--- Reusing current staged native inputs from $STAGED_CPP_DIR ---"
+else
+    COMMIT_HASH="$RESOLVED_UPSTREAM_SHORT_COMMIT"
+    echo "--- SwissMicros Core Version (resolved): $COMMIT_HASH ---"
 
-# --- 3. Generate Assets (make sim) ---
-echo "--- Generating Core Assets (running make sim) ---"
-# Clean polluted generated headers that might break Meson include precedence
-rm -f src/generated/*.c src/generated/constantPointers.h src/generated/softmenuCatalogs.h
+    echo "--- Generating core assets (running make sim) ---"
+    rm -f src/generated/*.c src/generated/constantPointers.h src/generated/softmenuCatalogs.h
 
-if [ -d "build.sim" ] && [ ! -f "build.sim/build.ninja" ]; then
-    rm -rf build.sim
+    if [ -d "build.sim" ] && [ ! -f "build.sim/build.ninja" ]; then
+        rm -rf build.sim
+    fi
+
+    make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
+
+    if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_PROJECT_DIR/stage_native_sources.sh" --cpp-dir "$STAGED_CPP_DIR"; then
+        echo "ERROR: Android native staging failed."
+        exit 1
+    fi
 fi
 
-make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
-
-# --- 4. Stage Native Source Code ---
-if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_PROJECT_DIR/stage_native_sources.sh" --cpp-dir "$ANDROID_PROJECT_DIR/.staged-native/cpp"; then
-    echo "ERROR: Android native staging failed."
-    exit 1
-fi
-
-# Copy Assets (Fonts)
-echo "--- Copying Font Assets ---"
-ASSETS_FONTS_DIR="$ANDROID_PROJECT_DIR/app/src/main/assets/fonts"
-mkdir -p "$ASSETS_FONTS_DIR"
-cp -v res/fonts/*.ttf "$ASSETS_FONTS_DIR/"
-
-# Create local.properties
-echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ANDROID_PROJECT_DIR/local.properties"
-# Note: ndk.dir is deprecated; we pass the version via Gradle property instead.
+copy_font_assets
+write_local_properties
 
 cd "$ANDROID_PROJECT_DIR"
 
@@ -418,7 +600,7 @@ echo "--- Building APK ---"
 GRADLE_CMD="./gradlew"
 
 if [ ! -f "$GRADLE_CMD" ]; then
-    gradle wrapper --gradle-version 9.5.0 --distribution-type bin
+    gradle wrapper --gradle-version "$R47_DEFAULT_ANDROID_GRADLE_VERSION" --distribution-type bin
 fi
 chmod +x "$GRADLE_CMD"
 
@@ -459,11 +641,12 @@ fi
 if [ -z "$SOURCE_COMMIT_OVERRIDE" ]; then
     SOURCE_COMMIT_OVERRIDE=$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || true)
 fi
-COMPILE_SDK_VALUE=${COMPILE_SDK_OVERRIDE:-36}
+COMPILE_SDK_VALUE=${COMPILE_SDK_OVERRIDE:-$R47_DEFAULT_ANDROID_COMPILE_SDK}
 
-# Clean cxx to ensure fresh cmake run
-rm -rf app/.cxx
-$GRADLE_CMD clean $GRADLE_EXTRA_ARGS
+if [ "$ANDROID_ONLY" = false ]; then
+    rm -rf app/.cxx
+    $GRADLE_CMD clean $GRADLE_EXTRA_ARGS
+fi
 $GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_EXTRA_ARGS $GRADLE_PROPS
 
 APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
