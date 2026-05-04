@@ -284,6 +284,36 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 EOF
 }
 
+write_source_manifest() {
+    local target_file="$1"
+    : > "$target_file"
+    write_metadata_line "upstream_url" "$upstream_source_repository_url" "$target_file"
+    write_metadata_line "upstream_commit" "$upstream_source_commit" "$target_file"
+    write_metadata_line "android_source_repository_url" "$android_source_repository_url" "$target_file"
+    write_metadata_line "android_source_commit" "$android_source_commit" "$target_file"
+    write_metadata_line "xlsxio_url" "$xlsxio_source_repository_url" "$target_file"
+    write_metadata_line "xlsxio_commit" "$xlsxio_source_commit" "$target_file"
+}
+
+populate_compliance_assets() {
+    local destination_dir="$1"
+    local compliance_dir="$destination_dir/compliance-assets"
+
+    mkdir -p "$compliance_dir"
+
+    if [[ ! -f "$compliance_dir/SOURCE" ]]; then
+        write_source_manifest "$compliance_dir/SOURCE"
+    fi
+
+    if [[ ! -f "$compliance_dir/COPYING" ]]; then
+        cp "$(dirname "$0")/../COPYING" "$compliance_dir/COPYING"
+    fi
+
+    if [[ ! -f "$compliance_dir/LICENSE.txt" ]]; then
+        write_xlsxio_license "$compliance_dir/LICENSE.txt"
+    fi
+}
+
 if [[ "$artifact_type" == "apk" ]]; then
     if [[ -z "$android_sdk_root" || -z "$ndk_version" ]]; then
         echo "APK evidence collection requires --android-sdk-root and --ndk-version." >&2
@@ -359,6 +389,8 @@ if [[ "$artifact_type" == "apk" ]]; then
     fi
 fi
 
+populate_compliance_assets "$output_dir"
+
 if [[ -n "$mapping_file" ]]; then
     cp "$mapping_file" "$output_dir/$(basename "$mapping_file")"
 fi
@@ -384,13 +416,16 @@ write_metadata_line "run_id" "$run_id" "$build_metadata_file"
 write_metadata_line "run_attempt" "$run_attempt" "$build_metadata_file"
 write_metadata_line "upstream_url" "$upstream_source_repository_url" "$build_metadata_file"
 write_metadata_line "upstream_commit" "$upstream_source_commit" "$build_metadata_file"
-write_metadata_line "upstream_license_file" "COPYING" "$build_metadata_file"
+write_metadata_line "upstream_license_file" "compliance-assets/COPYING" "$build_metadata_file"
 write_metadata_line "android_source_repository_url" "$android_source_repository_url" "$build_metadata_file"
 write_metadata_line "android_source_commit" "$android_source_commit" "$build_metadata_file"
-write_metadata_line "source_manifest_file" "SOURCE" "$build_metadata_file"
+write_metadata_line "source_manifest_file" "compliance-assets/SOURCE" "$build_metadata_file"
 write_metadata_line "xlsxio_url" "$xlsxio_source_repository_url" "$build_metadata_file"
 write_metadata_line "xlsxio_commit" "$xlsxio_source_commit" "$build_metadata_file"
-write_metadata_line "xlsxio_license_file" "LICENSE.txt" "$build_metadata_file"
+write_metadata_line "xlsxio_license_file" "compliance-assets/LICENSE.txt" "$build_metadata_file"
+if [[ -f "$output_dir/compliance-assets/THIRD-PARTY.spdx.json" ]]; then
+    write_metadata_line "spdx_inventory_file" "compliance-assets/THIRD-PARTY.spdx.json" "$build_metadata_file"
+fi
 write_metadata_line "compile_sdk" "$compile_sdk" "$build_metadata_file"
 write_metadata_line "cmake_version" "$cmake_version" "$build_metadata_file"
 write_metadata_line "ndk_version" "$ndk_version" "$build_metadata_file"
@@ -398,17 +433,5 @@ write_metadata_line "android_variant" "$variant" "$build_metadata_file"
 write_metadata_line "artifact_type" "$artifact_type" "$build_metadata_file"
 write_metadata_line "artifact_name" "$artifact_name" "$build_metadata_file"
 write_metadata_line "artifact_signed" "$signing_mode" "$build_metadata_file"
-
-source_manifest_file="$output_dir/SOURCE"
-: > "$source_manifest_file"
-write_metadata_line "upstream_url" "$upstream_source_repository_url" "$source_manifest_file"
-write_metadata_line "upstream_commit" "$upstream_source_commit" "$source_manifest_file"
-write_metadata_line "android_source_repository_url" "$android_source_repository_url" "$source_manifest_file"
-write_metadata_line "android_source_commit" "$android_source_commit" "$source_manifest_file"
-write_metadata_line "xlsxio_url" "$xlsxio_source_repository_url" "$source_manifest_file"
-write_metadata_line "xlsxio_commit" "$xlsxio_source_commit" "$source_manifest_file"
-
-cp "$(dirname "$0")/../COPYING" "$output_dir/COPYING"
-write_xlsxio_license "$output_dir/LICENSE.txt"
 
 echo "Packaging evidence written to $output_dir"

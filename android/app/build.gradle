@@ -28,6 +28,24 @@ if (!xlsxioLicenseSourceFile.isFile()) {
     throw new GradleException("Missing xlsxio license source file: ${xlsxioLicenseSourceFile}")
 }
 
+def canonicalRuntimeFontDir = new File(repositoryRootDir, 'res/fonts')
+def runtimeFontAssetNames = [
+    'C47__StandardFont.ttf',
+    'C47__NumericFont.ttf',
+    'C47__TinyFont.ttf'
+]
+
+if (!canonicalRuntimeFontDir.isDirectory()) {
+    throw new GradleException("Missing canonical runtime font directory: ${canonicalRuntimeFontDir}")
+}
+
+runtimeFontAssetNames.each { fontName ->
+    def fontFile = new File(canonicalRuntimeFontDir, fontName)
+    if (!fontFile.isFile()) {
+        throw new GradleException("Missing canonical runtime font asset: ${fontFile}")
+    }
+}
+
 defaultsPropertiesFile.withInputStream { defaultsProperties.load(it) }
 
 def readDefaultValue = { String key ->
@@ -104,6 +122,7 @@ def upstreamSourceCommit = project.findProperty('r47.upstreamSourceCommit')?.toS
 def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r47.xlsxioSourceRepositoryUrl') ?: System.getenv('R47_XLSXIO_URL') ?: System.getenv('XLSXIO_URL') ?: readDefaultValue('R47_DEFAULT_XLSXIO_URL')).toString())
 def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: readDefaultValue('R47_DEFAULT_XLSXIO_COMMIT')).toString()
 def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
+def generatedRuntimeAssetsDir = "$buildDir/generated/assets/runtime"
 def stagedNativeCppDir = rootProject.file('.staged-native/cpp').absolutePath
 def nativePrepScript = rootProject.file('prepare_native_build_inputs.sh').absolutePath
 def repoNoticeInventory = new JsonSlurper().parse(repoNoticeInventoryFile)
@@ -298,7 +317,7 @@ android {
     sourceSets {
         main {
             assets.srcDir generatedComplianceAssetsDir
-            assets.srcDir rootProject.file('../res')
+            assets.srcDir generatedRuntimeAssetsDir
         }
     }
 
@@ -358,6 +377,26 @@ tasks.configureEach { task ->
 tasks.register('copyGplLicense', Copy) {
     from rootProject.file('../COPYING')
     into generatedComplianceAssetsDir
+}
+
+tasks.register('generateRuntimeFontAssets') {
+    runtimeFontAssetNames.each { fontName ->
+        inputs.file(new File(canonicalRuntimeFontDir, fontName))
+    }
+    outputs.dir(generatedRuntimeAssetsDir)
+
+    doLast {
+        def generatedAssetsDir = file(generatedRuntimeAssetsDir)
+        def fontsDir = new File(generatedAssetsDir, 'fonts')
+        delete(generatedAssetsDir)
+        fontsDir.mkdirs()
+
+        runtimeFontAssetNames.each { fontName ->
+            def sourceFile = new File(canonicalRuntimeFontDir, fontName)
+            def targetFile = new File(fontsDir, fontName)
+            targetFile.bytes = sourceFile.bytes
+        }
+    }
 }
 
 tasks.register('generateRepoNoticeAssets') {
@@ -607,6 +646,7 @@ tasks.register('generateSourceManifest') {
 
 tasks.named('preBuild').configure {
     dependsOn tasks.named('copyGplLicense')
+    dependsOn tasks.named('generateRuntimeFontAssets')
     dependsOn tasks.named('generateRepoNoticeAssets')
     dependsOn tasks.named('generateThirdPartySpdx')
     dependsOn tasks.named('generateXlsxioLicense')
