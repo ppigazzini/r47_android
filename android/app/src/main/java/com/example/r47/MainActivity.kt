@@ -9,12 +9,15 @@ import android.util.Log
 import android.view.*
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.ColorUtils
 import com.example.r47.databinding.ActivityMainBinding
 import android.content.SharedPreferences
 import android.content.res.Configuration
 
 @Keep
 class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
+
+    private data class LcdPalette(val text: Int, val background: Int)
 
     private val TAG = "R47Activity"
     private lateinit var binding: ActivityMainBinding
@@ -49,10 +52,14 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
     }
 
-    private val VINTAGE_TEXT = 0xFF303030.toInt()
-    private val VINTAGE_BG = 0xFFDFF5CC.toInt()
-    private val BW_TEXT = Color.BLACK
-    private val BW_BG = Color.parseColor("#E0E0E0")
+    private val VINTAGE_PALETTE = LcdPalette(
+        text = 0xFF303030.toInt(),
+        background = 0xFFDFF5CC.toInt(),
+    )
+    private val HIGH_CONTRAST_PALETTE = LcdPalette(
+        text = Color.BLACK,
+        background = Color.parseColor("#E0E0E0"),
+    )
     private val YELLOW_SHIFT = Color.parseColor("#FFBF00")
 
     private fun syncAudioSettings(isBeeperEnabled: Boolean, beeperVolume: Int) {
@@ -67,11 +74,54 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     @Keep
     fun stopTone() {}
 
-    private fun applyLcdMode(mode: String) {
-        if (mode == MainActivityPreferenceController.DEFAULT_LCD_MODE) {
-            setLcdColors(VINTAGE_TEXT, VINTAGE_BG)
+    private fun applyLcdMode(mode: String, luminancePercent: Int) {
+        val palette = resolveLcdPalette(mode, luminancePercent)
+        setLcdColors(palette.text, palette.background)
+    }
+
+    private fun resolveLcdPalette(mode: String, luminancePercent: Int): LcdPalette {
+        val basePalette = when (mode) {
+            "vintage" -> VINTAGE_PALETTE
+            else -> HIGH_CONTRAST_PALETTE
         }
-        else setLcdColors(BW_TEXT.toInt(), BW_BG.toInt())
+        val toneScale =
+            luminancePercent / MainActivityPreferenceController.DEFAULT_LCD_LUMINANCE.toFloat()
+        val background = adjustTone(basePalette.background, toneScale, minTone = 30f, maxTone = 97f)
+        val minContrast = if (mode == MainActivityPreferenceController.DEFAULT_LCD_MODE) 9.0 else 7.0
+        val text = ensureTextContrast(basePalette.text, background, minContrast)
+        return LcdPalette(text = text, background = background)
+    }
+
+    private fun adjustTone(color: Int, toneScale: Float, minTone: Float, maxTone: Float): Int {
+        val hct = FloatArray(3)
+        ColorUtils.colorToM3HCT(color, hct)
+        val targetTone = (hct[2] * toneScale).coerceIn(minTone, maxTone)
+        return ColorUtils.M3HCTToColor(hct[0], hct[1], targetTone)
+    }
+
+    private fun ensureTextContrast(baseText: Int, background: Int, minContrast: Double): Int {
+        if (ColorUtils.calculateContrast(baseText, background) >= minContrast) {
+            return baseText
+        }
+
+        val hct = FloatArray(3)
+        ColorUtils.colorToM3HCT(baseText, hct)
+        val darkBackground = ColorUtils.calculateLuminance(background) < 0.5
+
+        for (step in 1..20) {
+            val ratio = step / 20f
+            val targetTone = if (darkBackground) {
+                hct[2] + ((100f - hct[2]) * ratio)
+            } else {
+                hct[2] * (1f - ratio)
+            }
+            val candidate = ColorUtils.M3HCTToColor(hct[0], hct[1], targetTone.coerceIn(0f, 100f))
+            if (ColorUtils.calculateContrast(candidate, background) >= minContrast) {
+                return candidate
+            }
+        }
+
+        return if (darkBackground) Color.WHITE else Color.BLACK
     }
 
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {

@@ -1,19 +1,14 @@
 package com.example.r47
 
-import android.content.Context
 import android.content.Intent
-import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
-import android.widget.ScrollView
-import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import java.io.IOException
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -42,48 +37,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 
-    private fun showGplLicenseDialog() {
-        val context = requireContext()
-        val licenseText = try {
-            context.assets.open("COPYING").bufferedReader().use { it.readText() }
-        } catch (e: IOException) {
-            MaterialAlertDialogBuilder(context)
-                .setTitle(R.string.about_gpl_license_title)
-                .setMessage(R.string.gpl_license_missing_message)
-                .setPositiveButton(R.string.gpl_license_dialog_close, null)
-                .show()
-            return
-        }
-
-        val density = resources.displayMetrics.density
-        val horizontalPadding = (24 * density).toInt()
-        val verticalPadding = (16 * density).toInt()
-        val licenseView = TextView(context).apply {
-            text = buildString {
-                append(getString(R.string.gpl_license_dialog_intro))
-                append("\n\n")
-                append(licenseText)
-            }
-            typeface = Typeface.MONOSPACE
-            textSize = 14f
-            setLineSpacing(0f, 1.1f)
-            setTextIsSelectable(true)
-            setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
-        }
-        val scrollView = ScrollView(context).apply {
-            addView(licenseView)
-        }
-
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.about_gpl_license_title)
-            .setView(scrollView)
-            .setPositiveButton(R.string.gpl_license_dialog_close, null)
-            .setNeutralButton(R.string.gpl_license_dialog_source_button) { _, _ ->
-                openUrl(getString(R.string.android_source_repository_url))
-            }
-            .show()
-    }
-
     private val treeLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             requireContext().contentResolver.takePersistableUriPermission(
@@ -102,42 +55,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 .show()
         }
     }
-
-    private val pdfLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-
-        if (uri != null) {
-
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-
-                setDataAndType(uri, "application/pdf")
-
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-
-            }
-
-            try {
-
-                startActivity(intent)
-
-            } catch (e: Exception) {
-
-                MaterialAlertDialogBuilder(requireContext())
-
-                    .setTitle("No PDF Viewer")
-
-                    .setMessage("No application found to open PDF files.")
-
-                    .setPositiveButton("OK", null)
-
-                    .show()
-
-            }
-
-        }
-
-    }
-
-
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.sharedPreferencesName = SlotStore.APP_PREFS_NAME
@@ -177,7 +94,15 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
 
         findPreference<Preference>("view_gpl_license")?.setOnPreferenceClickListener {
-            showGplLicenseDialog()
+            startActivity(
+                NoticeAssetActivity.createIntent(
+                    requireContext(),
+                    getString(R.string.about_gpl_license_title),
+                    "COPYING",
+                    "text/plain",
+                    getString(R.string.about_gpl_license_intro)
+                )
+            )
             true
         }
 
@@ -211,21 +136,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
         findPreference<Preference>("visit_gitlab")?.setOnPreferenceClickListener {
             openUrl("https://gitlab.com/rpncalculators/c43")
-            true
-        }
-
-        findPreference<Preference>("view_wiki")?.setOnPreferenceClickListener {
-            openUrl("https://gitlab.com/rpncalculators/c43/-/wikis/home")
-            true
-        }
-
-        findPreference<Preference>("visit_swissmicros")?.setOnPreferenceClickListener {
-            openUrl("https://www.swissmicros.com")
-            true
-        }
-
-        findPreference<Preference>("view_manual")?.setOnPreferenceClickListener {
-            pdfLauncher.launch("application/pdf")
             true
         }
     }

@@ -10,7 +10,7 @@ internal class MainActivityPreferenceController(
     private val hapticFeedbackController: HapticFeedbackController,
     private val windowModeController: WindowModeController,
     private val syncAudioSettings: (Boolean, Int) -> Unit,
-    private val applyLcdMode: (String) -> Unit,
+    private val applyLcdMode: (String, Int) -> Unit,
     private val applyChromeMode: (String) -> Unit,
     private val applyScalingMode: (String) -> Unit,
     private val applyShowTouchZones: (Boolean) -> Unit,
@@ -18,8 +18,11 @@ internal class MainActivityPreferenceController(
 ) {
     companion object {
         const val DEFAULT_BEEPER_VOLUME = 20
-        const val DEFAULT_CHROME_MODE = ReplicaOverlay.CHROME_MODE_BACKGROUND
-        const val DEFAULT_LCD_MODE = "vintage"
+        const val DEFAULT_CHROME_MODE = ReplicaOverlay.CHROME_MODE_NATIVE
+        const val DEFAULT_LCD_MODE = "high_contrast"
+        const val DEFAULT_LCD_LUMINANCE = 100
+        const val MIN_LCD_LUMINANCE = 60
+        const val MAX_LCD_LUMINANCE = 120
         const val DEFAULT_SCALING_MODE = "full_width"
 
         private const val KEY_BEEPER_ENABLED = "beeper_enabled"
@@ -28,6 +31,7 @@ internal class MainActivityPreferenceController(
         private const val KEY_FULLSCREEN_MODE = "fullscreen_mode"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_LCD_MODE = "lcd_mode"
+        private const val KEY_LCD_LUMINANCE = "lcd_luminance"
         private const val KEY_SCALING_MODE = "scaling_mode"
         private const val KEY_SHOW_TOUCH_ZONES = "show_touch_zones"
     }
@@ -44,6 +48,9 @@ internal class MainActivityPreferenceController(
     var lcdMode = DEFAULT_LCD_MODE
         private set
 
+    var lcdLuminance = DEFAULT_LCD_LUMINANCE
+        private set
+
     var scalingMode = DEFAULT_SCALING_MODE
         private set
 
@@ -57,6 +64,7 @@ internal class MainActivityPreferenceController(
         isBeeperEnabled = preferences.getBoolean(KEY_BEEPER_ENABLED, true)
         chromeMode = normalizeAndPersistChromeMode()
         lcdMode = preferences.getString(KEY_LCD_MODE, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
+        lcdLuminance = readNormalizedLcdLuminance()
         scalingMode =
             preferences.getString(KEY_SCALING_MODE, DEFAULT_SCALING_MODE) ?: DEFAULT_SCALING_MODE
         showTouchZones = preferences.getBoolean(KEY_SHOW_TOUCH_ZONES, false)
@@ -70,7 +78,7 @@ internal class MainActivityPreferenceController(
     fun applyDeferredOverlayPreferences() {
         applyShowTouchZones(showTouchZones)
         applyScalingMode(scalingMode)
-        applyLcdMode(lcdMode)
+        applyLcdMode(lcdMode, lcdLuminance)
     }
 
     fun onPreferenceChanged(key: String): Boolean {
@@ -92,7 +100,11 @@ internal class MainActivityPreferenceController(
             }
             KEY_LCD_MODE -> {
                 lcdMode = preferences.getString(key, DEFAULT_LCD_MODE) ?: DEFAULT_LCD_MODE
-                applyLcdMode(lcdMode)
+                applyLcdMode(lcdMode, lcdLuminance)
+            }
+            KEY_LCD_LUMINANCE -> {
+                lcdLuminance = readNormalizedLcdLuminance()
+                applyLcdMode(lcdMode, lcdLuminance)
             }
             KEY_CHROME_MODE -> {
                 chromeMode = normalizeAndPersistChromeMode()
@@ -130,5 +142,14 @@ internal class MainActivityPreferenceController(
             preferences.edit().putString(KEY_CHROME_MODE, normalizedMode).apply()
         }
         return normalizedMode
+    }
+
+    private fun readNormalizedLcdLuminance(): Int {
+        val storedLuminance = preferences.getInt(KEY_LCD_LUMINANCE, DEFAULT_LCD_LUMINANCE)
+        val normalizedLuminance = storedLuminance.coerceIn(MIN_LCD_LUMINANCE, MAX_LCD_LUMINANCE)
+        if (storedLuminance != normalizedLuminance) {
+            preferences.edit().putInt(KEY_LCD_LUMINANCE, normalizedLuminance).apply()
+        }
+        return normalizedLuminance
     }
 }

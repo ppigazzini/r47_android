@@ -66,15 +66,23 @@
             app:title="Shell Chrome"
             app:entries="@array/chrome_entries"
             app:entryValues="@array/chrome_values"
-            app:defaultValue="r47_background"
+            app:defaultValue="native"
             app:useSimpleSummaryProvider="true" />
         <ListPreference
             app:key="lcd_mode"
             app:title="LCD Mode"
             app:entries="@array/lcd_entries"
             app:entryValues="@array/lcd_values"
-            app:defaultValue="vintage"
+            app:defaultValue="high_contrast"
             app:useSimpleSummaryProvider="true" />
+        <SeekBarPreference
+            app:key="lcd_luminance"
+            app:title="@string/lcd_luminance_title"
+            app:summary="@string/lcd_luminance_summary"
+            app:min="60"
+            android:max="120"
+            app:defaultValue="100"
+            app:showSeekBarValue="true" />
         <ListPreference
             app:key="scaling_mode"
             app:title="Scaling"
@@ -123,15 +131,6 @@
         <Preference
             app:key="visit_gitlab"
             app:title="@string/about_upstream_project_title" />
-        <Preference
-            app:key="view_wiki"
-            app:title="View R47 Wiki" />
-        <Preference
-            app:key="visit_swissmicros"
-            app:title="Visit SwissMicros Site" />
-        <Preference
-            app:key="view_manual"
-            app:title="View Local Manual (Select PDF)" />
     </PreferenceCategory>
 
 </PreferenceScreen>

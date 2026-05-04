@@ -1,22 +1,22 @@
 <resources>
     <string-array name="chrome_entries">
-        <item>Native + Background</item>
         <item>Native Chrome</item>
+        <item>Native + Background</item>
         <item>Texture Image</item>
     </string-array>
     <string-array name="chrome_values">
-        <item>r47_background</item>
         <item>native</item>
+        <item>r47_background</item>
         <item>r47_texture</item>
     </string-array>
 
     <string-array name="lcd_entries">
-        <item>Vintage Green</item>
         <item>High Contrast</item>
+        <item>Vintage Green</item>
     </string-array>
     <string-array name="lcd_values">
-        <item>vintage</item>
         <item>high_contrast</item>
+        <item>vintage</item>
     </string-array>
 
     <string-array name="scaling_entries">

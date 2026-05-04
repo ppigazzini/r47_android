@@ -29,6 +29,7 @@ class NoticeAssetActivity : AppCompatActivity() {
         }
 
         val contentType = intent.getStringExtra(EXTRA_CONTENT_TYPE) ?: "text/plain"
+        val textPrefix = intent.getStringExtra(EXTRA_TEXT_PREFIX)
         val textContainer = findViewById<ScrollView>(R.id.notice_text_container)
         val textView = findViewById<TextView>(R.id.notice_text)
         val webView = findViewById<WebView>(R.id.notice_webview)
@@ -53,7 +54,15 @@ class NoticeAssetActivity : AppCompatActivity() {
         } else {
             webView.visibility = View.GONE
             textContainer.visibility = View.VISIBLE
-            textView.text = content
+            textView.text = if (textPrefix.isNullOrBlank()) {
+                content
+            } else {
+                buildString {
+                    append(textPrefix)
+                    append("\n\n")
+                    append(content)
+                }
+            }
         }
     }
 
@@ -79,12 +88,20 @@ class NoticeAssetActivity : AppCompatActivity() {
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_ASSET_PATH = "asset_path"
         private const val EXTRA_CONTENT_TYPE = "content_type"
+        private const val EXTRA_TEXT_PREFIX = "text_prefix"
 
-        fun createIntent(context: Context, title: String, assetPath: String, contentType: String): Intent {
+        fun createIntent(
+            context: Context,
+            title: String,
+            assetPath: String,
+            contentType: String,
+            textPrefix: String? = null,
+        ): Intent {
             return Intent(context, NoticeAssetActivity::class.java).apply {
                 putExtra(EXTRA_TITLE, title)
                 putExtra(EXTRA_ASSET_PATH, assetPath)
                 putExtra(EXTRA_CONTENT_TYPE, contentType)
+                putExtra(EXTRA_TEXT_PREFIX, textPrefix)
             }
         }
     }
