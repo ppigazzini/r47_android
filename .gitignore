@@ -1,31 +1,57 @@
-# R47 Master Ignore List
+# R47 local ignore rules
 
-# --- 1. Android Build Bloat (Recursive) ---
-**/.cxx/
-**/build/
+# Local Python environment and caches
+/.venv/
+**/__pycache__/
+**/*.py[cod]
+
+# Local editor and OS state
+/.vscode/
+*.code-workspace
+/.idea/
+*.iml
+.DS_Store
+._*
+.directory
+*~
+.fuse_hidden*
+.nfs*
+Thumbs.db
+[Dd]esktop.ini
+
+# Android / Gradle local state and build outputs
 **/.gradle/
+**/.cxx/
+**/.externalNativeBuild/
+**/build/
 **/local.properties
 **/*.apk
 **/*.aab
-**/*.so
-**/*.o
-**/*.obj
-**/*.pyc
-**/__pycache__/
+**/output-metadata.json
+*.hprof
+/captures/
+*.jks
+*.keystore
+google-services.json
 
-# --- 2. Meson / Build Artifacts ---
+# Meson / Ninja out-of-source build trees
 /build/
 /build.sim/
 /build.dmcp*/
 /build.rel*/
 /meson-logs/
 /meson-private/
-build.ninja
-.ninja_deps
-.ninja_log
-compile_commands.json
+/build.ninja
+/.ninja_deps
+/.ninja_log
+/compile_commands.json
 
-# --- 3. C47 Core Generated & Specifics ---
+# Native compilation artefacts
+**/*.o
+**/*.obj
+**/*.so
+
+# Local generated binaries, archives, and runtime data
 /wp43
 /c47
 /r47
@@ -41,7 +67,7 @@ compile_commands.json
 backup.bin
 backup.cfg
 backupR47.cfg
-wp43.sav    
+wp43.sav
 wp43.dat
 c47.sav
 c47.dat
@@ -50,62 +76,27 @@ c47.dat
 20*.REGS.TSV
 20*.bmp
 tags
-/PROGRAMS/ALLPGMS/
 /SAVFILES/
-src/generated/*.c
-src/generated/*.h
 
-# --- 4. Subprojects ---
+# Optional local-only roots omitted from the public checkout
+/LIBRARY/
+/PROGRAMS/
+/res/
+
+# Meson wrap metadata: keep tracked wraps and packagefiles only
 /subprojects/*
 !/subprojects/*.wrap
 !/subprojects/packagefiles/
 
-# --- 5. OS / IDE Bloat ---
-.DS_Store
-._*
-.vscode/
-*.code-workspace
-.idea/
-*.iml
-.directory
-*~
-.fuse_hidden*
-.nfs*
-Thumbs.db
-[Dd]esktop.ini
-
-# --- 6. Explicitly TRACK these in Vault ---
-!android/
-!PROGRAMS/
-!manual/
-!tools/
-!.agents/
-!.gemini/
-!MANIFEST_PRIVATE.md
-!MANIFEST_PUBLIC.md
-!RELEASE_NOTES.md
-!R47_Design_Doc.md
-!R47_all.pdf
-!build_android.sh
-!sync_repo.sh
-!status_private.sh
-!publish_private.sh
-!publish_public.sh
-!sync_public.sh
-!dist.sh
-!Makefile
-!README.md
-!.gitignore
-!.gitlab-ci.yml
-
-# --- 7. Upstream Whitelist (Delta Mode) ---
-# Ignore synced upstream core sources; keep only repo-owned build scaffolding.
+# Public-checkout upstream hydration contract
 /src/
 /upstream.lock
 
-# --- 8. Android Core Copies (Ignore copies of the core) ---
+# Android build-only staging and retired legacy native snapshot paths
 /android/.staged-native/
 /android/app/src/main/cpp/c47/
-!/android/app/src/main/cpp/c47-android/
+/android/app/src/main/cpp/decNumberICU/
+/android/app/src/main/cpp/generated/
+/android/app/src/main/cpp/gmp/
 /android/app/src/main/cpp/STAGED-SOURCE-MANIFEST.txt
 /android/app/src/main/cpp/staged_native_sources.cmake

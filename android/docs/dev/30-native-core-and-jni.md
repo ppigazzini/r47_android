@@ -15,6 +15,9 @@ CMake builds the library from:
 - Android-specific bridge and HAL files under
   `android/app/src/main/cpp/c47-android`
 - build-only staged mini-gmp sources under `android/.staged-native/cpp/gmp`
+- public-checkout mini-gmp fallback sources under
+  `android/compat/mini-gmp-fallback` for staging only when the ignored GMP
+  subproject sources are absent
 
 Tracked Android stub headers under `c47-android/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo
@@ -22,11 +25,11 @@ includes without rewriting staged source files during the Gradle build.
 
 `android/app/src/main/cpp/CMakeLists.txt` passes and consumes
 `R47_STAGED_CPP_DIR` so the live Android native build reads shared-native inputs
-from the build-only staging root rather than the tracked app-module snapshots.
+from the build-only staging root rather than any retired app-module snapshots.
 
-The tracked directories `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}`
-are legacy non-authoritative snapshots and should stay untouched during normal
-builds.
+The former tracked directories
+`android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are retired
+snapshot paths and must stay absent during normal builds.
 
 The Android bridge code is intentionally split by responsibility:
 

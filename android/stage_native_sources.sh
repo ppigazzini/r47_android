@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
-LEGACY_CPP_DIR="$ANDROID_PROJECT_DIR/app/src/main/cpp"
+MINI_GMP_FALLBACK_DIR="$ANDROID_PROJECT_DIR/compat/mini-gmp-fallback"
 CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$ANDROID_PROJECT_DIR/.staged-native/cpp}"
 CORE_HASH="${R47_CORE_HASH:-unknown}"
 METADATA_SCRIPT="$ANDROID_PROJECT_DIR/generate_staged_native_metadata.sh"
@@ -111,7 +111,7 @@ echo "--- Staging mini-gmp ---"
 GMP_SOURCE_DIR=""
 for candidate in \
     "$PROJECT_ROOT/subprojects/gmp-6.2.1/mini-gmp" \
-    "$LEGACY_CPP_DIR/gmp"
+    "$MINI_GMP_FALLBACK_DIR"
 do
     if [ -f "$candidate/mini-gmp.c" ] && { [ -f "$candidate/mini-gmp.h" ] || [ -f "$candidate/gmp.h" ]; }; then
         GMP_SOURCE_DIR="$candidate"
@@ -120,32 +120,22 @@ do
 done
 
 if [ -z "$GMP_SOURCE_DIR" ]; then
-    echo "ERROR: Could not locate mini-gmp sources in the canonical subproject or the checked-in Android staging tree."
+    echo "ERROR: Could not locate mini-gmp sources in the canonical subproject or the explicit Android compatibility fallback at $MINI_GMP_FALLBACK_DIR."
     exit 1
-fi
-
-GMP_STAGING_SOURCE="$GMP_SOURCE_DIR"
-if [ "$GMP_SOURCE_DIR" = "$CPP_DIR/gmp" ]; then
-    GMP_STAGING_SOURCE="$(mktemp -d)"
-    cp -R "$GMP_SOURCE_DIR"/. "$GMP_STAGING_SOURCE"/
 fi
 
 rm -rf "$CPP_DIR/gmp"
 mkdir -p "$CPP_DIR/gmp"
 
 echo "Using mini-gmp sources from $GMP_SOURCE_DIR"
-cp -v "$GMP_STAGING_SOURCE/mini-gmp.c" "$CPP_DIR/gmp/"
+cp -v "$GMP_SOURCE_DIR/mini-gmp.c" "$CPP_DIR/gmp/"
 
-if [ -f "$GMP_STAGING_SOURCE/mini-gmp.h" ]; then
-    cp -v "$GMP_STAGING_SOURCE/mini-gmp.h" "$CPP_DIR/gmp/mini-gmp.h"
-    cp -v "$GMP_STAGING_SOURCE/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
+if [ -f "$GMP_SOURCE_DIR/mini-gmp.h" ]; then
+    cp -v "$GMP_SOURCE_DIR/mini-gmp.h" "$CPP_DIR/gmp/mini-gmp.h"
+    cp -v "$GMP_SOURCE_DIR/mini-gmp.h" "$CPP_DIR/gmp/gmp.h"
 else
-    cp -v "$GMP_STAGING_SOURCE/gmp.h" "$CPP_DIR/gmp/gmp.h"
-    cp -v "$GMP_STAGING_SOURCE/gmp.h" "$CPP_DIR/gmp/mini-gmp.h"
-fi
-
-if [ "$GMP_STAGING_SOURCE" != "$GMP_SOURCE_DIR" ]; then
-    rm -rf "$GMP_STAGING_SOURCE"
+    cp -v "$GMP_SOURCE_DIR/gmp.h" "$CPP_DIR/gmp/gmp.h"
+    cp -v "$GMP_SOURCE_DIR/gmp.h" "$CPP_DIR/gmp/mini-gmp.h"
 fi
 
 echo "--- Writing staged native source metadata ---"

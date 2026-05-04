@@ -110,6 +110,8 @@ Canonical inputs for shared core work:
 - generated outputs under `build.sim`
 - Android-only code under `android/app/src/main/java`
 - Android bridge, HAL, and stub code under `android/app/src/main/cpp/c47-android`
+- public-checkout mini-gmp fallback under `android/compat/mini-gmp-fallback`
+  for staging only when the ignored GMP subproject sources are absent
 
 Staged Android inputs built by CMake:
 
@@ -136,10 +138,9 @@ Build-safety rule:
 - Android-only native fixes belong under
   `android/app/src/main/cpp/c47-android` or in staging logic, not in tracked
   root `src/**` overrides.
-- The tracked directories
-  `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are no longer the
-  authoritative Android staging output and should stay untouched during normal
-  builds.
+- The former tracked directories
+  `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are retired
+  snapshot paths and must stay absent during normal builds.
 
 ## Android build flow
 
@@ -181,7 +182,8 @@ ownership model as the local build:
   `sync_public.sh --commit ...` and runs `make test`.
 - `android-debug` installs the pinned SDK, CMake, and NDK versions, runs
   `./build_android.sh`, verifies that build-only staged metadata exists under
-  `android/.staged-native/cpp` while the tracked staging snapshots stay clean,
+  `android/.staged-native/cpp` while the retired app-module snapshot paths stay
+  absent,
   and records packaging evidence for the default `arm64-v8a` debug APK through
   `android/collect_packaging_evidence.sh`.
 - `android-tests` uses the same resolved upstream commit and staged-native
@@ -251,8 +253,8 @@ lane.
 - sync or restore-boundary changes: confirm restore logic still excludes `^src/`
   and does not reintroduce tracked local overrides under `src/**`; confirm the
   build-only staged metadata under `android/.staged-native/cpp` regenerates and
-  the tracked `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` tree
-  still stays clean.
+  the retired `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}`
+  snapshot paths stay absent.
 
 ## When to rebuild from the top
 

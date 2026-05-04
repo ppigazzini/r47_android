@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-LEGACY_CPP_DIR="$PROJECT_ROOT/android/app/src/main/cpp"
+MINI_GMP_FALLBACK_DIR="$PROJECT_ROOT/android/compat/mini-gmp-fallback"
 OUTPUT_PATH=""
 STAGED_CORE_VERSION="${R47_STAGED_CORE_VERSION:-unknown}"
 
@@ -87,7 +87,7 @@ find_gmp_source_dir() {
 
     for candidate in \
         "$PROJECT_ROOT/subprojects/gmp-6.2.1/mini-gmp" \
-        "$LEGACY_CPP_DIR/gmp"
+        "$MINI_GMP_FALLBACK_DIR"
     do
         if [ -f "$candidate/mini-gmp.c" ] && { [ -f "$candidate/mini-gmp.h" ] || [ -f "$candidate/gmp.h" ]; }; then
             printf '%s\n' "$candidate"
@@ -95,7 +95,7 @@ find_gmp_source_dir() {
         fi
     done
 
-    fail "Could not locate mini-gmp sources in the canonical subproject or the checked-in Android staging tree."
+    fail "Could not locate mini-gmp sources in the canonical subproject or the explicit Android compatibility fallback at ${MINI_GMP_FALLBACK_DIR}."
 }
 
 digest_tree() {

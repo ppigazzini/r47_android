@@ -55,9 +55,11 @@ root generator pipeline.
 	`android/.staged-native/cpp`
 - tracked Android-owned native glue lives under
 	`android/app/src/main/cpp/c47-android`
-- the tracked directories
-	`android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are legacy
-	non-authoritative content and should stay untouched during normal builds
+- the former tracked directories
+	`android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` have been
+	retired and must stay absent during normal builds
+- public checkouts keep one explicit staging-only mini-gmp fallback under
+	`android/compat/mini-gmp-fallback`
 
 For the detailed Android rebuild and ownership contract, see
 `android/REBUILD_MASTER_GUIDE.md`.

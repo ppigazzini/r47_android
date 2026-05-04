@@ -8,6 +8,15 @@ ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
 STAGED_CPP_DIR="$ANDROID_PROJECT_DIR/.staged-native/cpp"
 DEFAULTS_FILE="$ANDROID_PROJECT_DIR/r47-defaults.properties"
 STAGED_INPUTS_FILE="$STAGED_CPP_DIR/STAGED-INPUTS.properties"
+MINI_GMP_FALLBACK_DIR="$ANDROID_PROJECT_DIR/compat/mini-gmp-fallback"
+RETIRED_LEGACY_CPP_PATHS=(
+    "$ANDROID_PROJECT_DIR/app/src/main/cpp/c47"
+    "$ANDROID_PROJECT_DIR/app/src/main/cpp/decNumberICU"
+    "$ANDROID_PROJECT_DIR/app/src/main/cpp/generated"
+    "$ANDROID_PROJECT_DIR/app/src/main/cpp/gmp"
+    "$ANDROID_PROJECT_DIR/app/src/main/cpp/STAGED-SOURCE-MANIFEST.txt"
+    "$ANDROID_PROJECT_DIR/app/src/main/cpp/staged_native_sources.cmake"
+)
 
 ANDROID_ONLY=false
 DOCTOR_MODE=false
@@ -57,6 +66,27 @@ load_android_defaults() {
 
 print_doctor_line() {
     printf '%-22s %s\n' "$1" "$2"
+}
+
+find_present_retired_legacy_cpp_paths() {
+    local path=""
+
+    for path in "${RETIRED_LEGACY_CPP_PATHS[@]}"; do
+        if [ -e "$path" ]; then
+            printf '%s\n' "$path"
+        fi
+    done
+}
+
+ensure_retired_legacy_cpp_paths_absent() {
+    local present_paths=""
+
+    present_paths=$(find_present_retired_legacy_cpp_paths)
+    if [ -n "$present_paths" ]; then
+        echo "ERROR: Retired Android native snapshot paths are present:" >&2
+        printf '%s\n' "$present_paths" >&2
+        fail "Retired app-module native snapshot paths must stay absent. Use $STAGED_CPP_DIR for staged Android inputs, $ANDROID_PROJECT_DIR/app/src/main/cpp/c47-android for Android-owned glue, and $MINI_GMP_FALLBACK_DIR only for the explicit public-checkout mini-gmp fallback."
+    fi
 }
 
 while [ "$#" -gt 0 ]; do
@@ -233,8 +263,14 @@ resolve_upstream_state() {
 }
 
 ensure_upstream_core_hydrated() {
-    if [ -d "$PROJECT_ROOT/src/c47" ]; then
+    if [ -d "$PROJECT_ROOT/src/c47" ] && [ -f "$PROJECT_ROOT/src/c47/meson.build" ]; then
         return 0
+    fi
+
+    if [ -d "$PROJECT_ROOT/src/c47" ]; then
+        echo "ERROR: Incomplete upstream core checkout at $PROJECT_ROOT/src/c47 (missing src/c47/meson.build)." >&2
+        echo "Run ./sync_public.sh in a clean worktree before running ./build_android.sh." >&2
+        exit 1
     fi
 
     echo "--- Hydrating resolved upstream core ---"
@@ -411,6 +447,7 @@ print_doctor_report() {
     local staged_fingerprint=""
     local current_fingerprint=""
     local current_inputs_file=""
+    local legacy_cpp_paths=""
 
     echo "R47 Android Doctor"
     echo "=================="
@@ -496,6 +533,14 @@ print_doctor_report() {
         doctor_failed=true
     fi
 
+    legacy_cpp_paths=$(find_present_retired_legacy_cpp_paths)
+    if [ -z "$legacy_cpp_paths" ]; then
+        print_doctor_line "legacy cpp paths" "absent"
+    else
+        print_doctor_line "legacy cpp paths" "present ($(printf '%s\n' "$legacy_cpp_paths" | paste -sd', ' -))"
+        doctor_failed=true
+    fi
+
     if [ "$doctor_failed" = true ]; then
         exit 1
     fi
@@ -546,6 +591,7 @@ if [ "$DOCTOR_MODE" = true ]; then
 fi
 
 [ -n "$R47_CMAKE_BIN" ] || fail "No usable cmake executable found. Install cmake or Android SDK CMake $R47_CMAKE_VERSION."
+ensure_retired_legacy_cpp_paths_absent
 
 if [ "$ANDROID_ONLY" = false ]; then
     resolve_upstream_state
@@ -648,6 +694,7 @@ if [ "$ANDROID_ONLY" = false ]; then
     $GRADLE_CMD clean $GRADLE_EXTRA_ARGS
 fi
 $GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_EXTRA_ARGS $GRADLE_PROPS
+ensure_retired_legacy_cpp_paths_absent
 
 APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
 if [ -f "$APK_PATH" ]; then

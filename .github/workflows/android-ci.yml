@@ -483,17 +483,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          legacy_paths=(
+            android/app/src/main/cpp/c47
+            android/app/src/main/cpp/decNumberICU
+            android/app/src/main/cpp/generated
+            android/app/src/main/cpp/gmp
+            android/app/src/main/cpp/STAGED-SOURCE-MANIFEST.txt
+            android/app/src/main/cpp/staged_native_sources.cmake
+          )
+          present_legacy_paths=()
+
           if [[ ! -f android/.staged-native/cpp/staged_native_sources.cmake || ! -f android/.staged-native/cpp/STAGED-SOURCE-MANIFEST.txt ]]; then
             echo "Android build did not generate the build-only native staging metadata under android/.staged-native/cpp/." >&2
             exit 1
           fi
 
-          if ! git diff --exit-code -- \
-            android/app/src/main/cpp/c47/ \
-            android/app/src/main/cpp/decNumberICU/ \
-            android/app/src/main/cpp/generated/ \
-            android/app/src/main/cpp/gmp/; then
-            echo "Android build mutated tracked native sources. Build-only staged outputs must stay under android/.staged-native/cpp/, and android/app/src/main/cpp/{c47,decNumberICU,generated,gmp} must remain untouched." >&2
+          for path in "${legacy_paths[@]}"; do
+            if [[ -e "$path" ]]; then
+              present_legacy_paths+=("$path")
+            fi
+          done
+
+          if [[ ${#present_legacy_paths[@]} -gt 0 ]]; then
+            echo "Retired Android native snapshot paths are present after build:" >&2
+            printf '  %s\n' "${present_legacy_paths[@]}" >&2
+            echo "Build-only staged outputs must stay under android/.staged-native/cpp/, while the retired app-module snapshot paths remain absent." >&2
             exit 1
           fi
 

@@ -37,10 +37,12 @@ Two rules govern most Android work in this repository:
 1. The preferred source of truth for shared calculator behavior is the synced
    root tree plus generated outputs from `build.sim`.
 2. The build-only staged Android native input tree lives under
-  `android/.staged-native/cpp`. The tracked
-  `android/app/src/main/cpp/{c47,generated,decNumberICU,gmp}` tree is legacy
-  non-authoritative content, while `android/app/src/main/cpp/c47-android`
-  stays the Android-owned bridge, HAL, and stub surface.
+  `android/.staged-native/cpp`. The former tracked
+  `android/app/src/main/cpp/{c47,generated,decNumberICU,gmp}` tree has been
+  retired and must stay absent, while `android/app/src/main/cpp/c47-android`
+  stays the Android-owned bridge, HAL, and stub surface. Public checkouts keep
+  only one explicit staging-only mini-gmp fallback under
+  `android/compat/mini-gmp-fallback`.
 
 If a change crosses both Kotlin and native boundaries, read the build page and
 the JNI page before editing.

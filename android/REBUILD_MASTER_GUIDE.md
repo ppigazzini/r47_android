@@ -33,9 +33,11 @@ Repository ownership split:
   `android/app/src/main/cpp/c47-android`
 - the authoritative Android staged native build root is
   `android/.staged-native/cpp`
-- the tracked directories
-  `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are legacy
-  non-authoritative content and should stay untouched during normal builds
+- the former tracked directories
+  `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` are retired
+  snapshot paths and must stay absent during normal builds
+- public checkouts keep one explicit staging-only mini-gmp fallback under
+  `android/compat/mini-gmp-fallback`
 
 Internal helpers:
 
@@ -336,7 +338,7 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
   `android/.staged-native/cpp/STAGED-SOURCE-MANIFEST.txt`,
   `android/.staged-native/cpp/staged_native_sources.cmake`, and
   `android/.staged-native/cpp/STAGED-INPUTS.properties`.
-- The tracked directories `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` MUST remain untouched during normal builds; they are no longer the authoritative Android staging output.
+- The retired former paths `android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` MUST remain absent during normal builds; they are no longer part of the authoritative Android staging output.
 - `android/app/src/main/cpp/CMakeLists.txt` MUST consume the generated staged
   source list for the staged upstream trees via `R47_STAGED_CPP_DIR` instead of recursive globs.
 - The app-module Gradle build MUST generate `assets/COPYING`,
@@ -359,7 +361,7 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
 - The Android GitHub Actions workflow MUST resolve the latest upstream commit
   once per workflow run, hydrate every downstream job through
   `sync_public.sh --commit ...`, and verify that regenerating the staged Android
-  native tree leaves no diffs under the tracked staging directories.
+  native tree leaves the retired app-module snapshot paths absent.
 - The Android GitHub Actions workflow and the local maintainer lane MUST both
   use `android/collect_packaging_evidence.sh` when packaging evidence is needed,
   so ABI, zipalign, ELF, SHA256, and provenance outputs stay aligned.
