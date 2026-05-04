@@ -54,11 +54,12 @@ Public maintainer entrypoints:
   detects Java and the Android NDK, resolves one shared upstream commit through
   `tools/upstream.sh`, hydrates that resolved core when `src/c47` is missing,
   runs `make sim`, stages native inputs into `android/.staged-native/cpp`,
-  regenerates staged native metadata there, copies fonts, writes
+  regenerates staged native metadata there, requires the canonical calculator
+  font assets under repo-root `res/fonts`, writes
   `android/local.properties`, and runs Gradle clean plus `assembleDebug`. It
   also exposes `--doctor` for SDK, NDK, CMake, xlsxio, upstream-lock, and
-  staged-input status plus `--android-only` for the fast module-local lane that
-  refuses stale staged native inputs.
+  staged-input plus font-source status plus `--android-only` for the fast
+  module-local lane that refuses stale staged native inputs.
   also forwards optional extra Gradle arguments from `R47_GRADLE_ARGS`, which
   is how hosted CI applies the temporary multi-ABI emulator override. Add
   `--verify-packaging` when you want the local build to write the same release
@@ -66,7 +67,8 @@ Public maintainer entrypoints:
 - `./build_android.sh --android-only` is the preferred fast Android-only path.
   It skips `make sim`, skips native restaging, and refuses to continue unless
   `android/.staged-native/cpp/STAGED-INPUTS.properties` still matches the
-  canonical root plus generated inputs.
+  canonical root, generated inputs, current mini-gmp source, and current
+  calculator font source.
 - `cd android && ./gradlew assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
@@ -98,8 +100,8 @@ Internal helpers:
   build-only staging root. It is an internal helper, not a primary maintainer
   entrypoint.
 - `android/compute_staged_native_inputs.sh` fingerprints the canonical root,
-  generated, and mini-gmp inputs behind `--android-only` freshness checks and
-  writes `STAGED-INPUTS.properties` during staging.
+  generated, calculator-font, and mini-gmp inputs behind `--android-only`
+  freshness checks and writes `STAGED-INPUTS.properties` during staging.
 
 ## Canonical versus staged native inputs
 

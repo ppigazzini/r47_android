@@ -17,7 +17,8 @@ Use these commands as the public maintainer entrypoints for the current repo:
 - `./sync_public.sh` hydrates the authoritative upstream core.
 - `./build_android.sh` is the canonical Android debug-build path.
 - `./build_android.sh --doctor` reports host SDK, NDK, CMake, xlsxio,
-  upstream-lock, and staged-input status against the checked-in defaults.
+  font-source, upstream-lock, and staged-input status against the checked-in
+  defaults.
 - `./build_android.sh --android-only` is the fast Android-only lane and MUST
   refuse stale staged native inputs.
 - `make sim` and `make test` are the canonical root simulator and generator
@@ -45,7 +46,7 @@ Internal helpers:
   `android/generate_staged_native_metadata.sh` are implementation helpers behind
   the public entrypoints above.
 - `android/compute_staged_native_inputs.sh` fingerprints canonical Android
-  inputs for the `--android-only` freshness check.
+  inputs plus calculator font inputs for the `--android-only` freshness check.
 - Document these helpers directly only when the task is specifically about sync
   or staging internals.
 
@@ -304,14 +305,16 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
   host state without running `make sim` or Gradle.
 - `build_android.sh --android-only` MUST skip `make sim` and native restaging
   but MUST fail when `android/.staged-native/cpp/STAGED-INPUTS.properties` no
-  longer matches canonical root plus generated inputs.
+  longer matches canonical root plus generated inputs, current mini-gmp input,
+  and the current calculator font source.
 - `build_android.sh` MUST resolve one worker count from `R47_BUILD_JOBS`, then
   `CMAKE_BUILD_PARALLEL_LEVEL`, then the host CPU count, export that value as
   `CMAKE_BUILD_PARALLEL_LEVEL`, and thread it through `make`, `NINJAFLAGS`, and
   `gradlew --max-workers`.
 - `build_android.sh` MUST resolve one upstream revision through the shared
   upstream command, write a local `upstream.lock` when needed, and hydrate that
-  resolved core when `src/c47` is missing.
+  resolved core when canonical upstream inputs such as `src/c47` or
+  `res/fonts` are missing.
 - `build_android.sh` MAY pass `R47_SOURCE_REPOSITORY_URL` through as the Gradle
   property `r47.sourceRepositoryUrl` so redistributed APKs can point the About
   screen at the Android fork source for the build they convey.
@@ -334,6 +337,12 @@ To maintain custom work while pulling latest upstream changes, the `sync_public.
 - That staging step copies the synced `src/c47` tree, `dep/decNumberICU`,
   generated files, and mini-gmp inputs into the ignored build-only staging root
   `android/.staged-native/cpp`.
+- `build_android.sh` MUST treat repo-root `res/fonts` as the only authoritative
+  calculator font source and MUST fail or hydrate upstream inputs when that
+  canonical tree is absent.
+- `android/app/build.gradle` MUST package repo-root `res` directly as an asset
+  source so the runtime `fonts/...` asset paths come from the canonical font
+  tree rather than from a duplicated Android-specific copy.
 - That staging step MUST also regenerate
   `android/.staged-native/cpp/STAGED-SOURCE-MANIFEST.txt`,
   `android/.staged-native/cpp/staged_native_sources.cmake`, and

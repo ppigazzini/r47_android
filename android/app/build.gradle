@@ -205,6 +205,7 @@ android {
     sourceSets {
         main {
             assets.srcDir generatedComplianceAssetsDir
+            assets.srcDir rootProject.file('../res')
         }
     }
 

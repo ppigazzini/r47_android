@@ -9,6 +9,11 @@ LOCKFILE_PATH="$PROJECT_ROOT/upstream.lock"
 DEFAULT_UPSTREAM_URL="https://gitlab.com/rpncalculators/c43.git"
 DEFAULT_UPSTREAM_REF="HEAD"
 UPSTREAM_REMOTE_NAME="r47-c43-upstream"
+UPSTREAM_FONT_FILES=(
+    "C47__NumericFont.ttf"
+    "C47__StandardFont.ttf"
+    "C47__TinyFont.ttf"
+)
 
 RESOLVED_UPSTREAM_URL=""
 RESOLVED_UPSTREAM_REF=""
@@ -32,7 +37,7 @@ Resolution modes:
 
 Options:
   --write-lock  Refresh upstream.lock with the resolved URL/ref/commit.
-  --if-missing  Skip the sync when src/c47 already exists.
+    --if-missing  Skip the sync when src/c47 and res/fonts are already hydrated.
   --force       Allow syncing over a dirty tracked worktree.
   --url         Override the upstream URL.
   --ref         Override the upstream ref. Defaults to upstream.source upstream_ref or HEAD.
@@ -48,6 +53,22 @@ EOF
 fail() {
     echo "ERROR: $*" >&2
     exit 1
+}
+
+upstream_checkout_has_canonical_fonts() {
+    local font_file=""
+
+    for font_file in "${UPSTREAM_FONT_FILES[@]}"; do
+        [ -f "$PROJECT_ROOT/res/fonts/$font_file" ] || return 1
+    done
+
+    return 0
+}
+
+upstream_checkout_is_hydrated() {
+    [ -d "$PROJECT_ROOT/src/c47" ] || return 1
+    [ -f "$PROJECT_ROOT/src/c47/meson.build" ] || return 1
+    upstream_checkout_has_canonical_fonts
 }
 
 has_file_key() {
@@ -350,8 +371,8 @@ sync_upstream() {
         shift
     done
 
-    if [ "$if_missing" = "true" ] && [ -d "$PROJECT_ROOT/src/c47" ]; then
-        echo "--- Upstream core already hydrated at $PROJECT_ROOT/src/c47; skipping sync. ---"
+    if [ "$if_missing" = "true" ] && upstream_checkout_is_hydrated; then
+        echo "--- Upstream core already hydrated at $PROJECT_ROOT/src/c47 with canonical fonts at $PROJECT_ROOT/res/fonts; skipping sync. ---"
         return 0
     fi
 

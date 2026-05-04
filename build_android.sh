@@ -9,6 +9,11 @@ STAGED_CPP_DIR="$ANDROID_PROJECT_DIR/.staged-native/cpp"
 DEFAULTS_FILE="$ANDROID_PROJECT_DIR/r47-defaults.properties"
 STAGED_INPUTS_FILE="$STAGED_CPP_DIR/STAGED-INPUTS.properties"
 MINI_GMP_FALLBACK_DIR="$ANDROID_PROJECT_DIR/compat/mini-gmp-fallback"
+FONT_ASSET_FILES=(
+    "C47__NumericFont.ttf"
+    "C47__StandardFont.ttf"
+    "C47__TinyFont.ttf"
+)
 RETIRED_LEGACY_CPP_PATHS=(
     "$ANDROID_PROJECT_DIR/app/src/main/cpp/c47"
     "$ANDROID_PROJECT_DIR/app/src/main/cpp/decNumberICU"
@@ -87,6 +92,30 @@ ensure_retired_legacy_cpp_paths_absent() {
         printf '%s\n' "$present_paths" >&2
         fail "Retired app-module native snapshot paths must stay absent. Use $STAGED_CPP_DIR for staged Android inputs, $ANDROID_PROJECT_DIR/app/src/main/cpp/c47-android for Android-owned glue, and $MINI_GMP_FALLBACK_DIR only for the explicit public-checkout mini-gmp fallback."
     fi
+}
+
+font_source_dir_has_required_fonts() {
+    local candidate_dir="$1"
+    local font_file=""
+
+    [ -d "$candidate_dir" ] || return 1
+
+    for font_file in "${FONT_ASSET_FILES[@]}"; do
+        [ -f "$candidate_dir/$font_file" ] || return 1
+    done
+
+    return 0
+}
+
+resolve_font_source_dir() {
+    local candidate_dir="$PROJECT_ROOT/res/fonts"
+
+    if font_source_dir_has_required_fonts "$candidate_dir"; then
+        printf '%s\n' "$candidate_dir"
+        return 0
+    fi
+
+    return 1
 }
 
 while [ "$#" -gt 0 ]; do
@@ -263,18 +292,17 @@ resolve_upstream_state() {
 }
 
 ensure_upstream_core_hydrated() {
-    if [ -d "$PROJECT_ROOT/src/c47" ] && [ -f "$PROJECT_ROOT/src/c47/meson.build" ]; then
+    if [ -d "$PROJECT_ROOT/src/c47" ] && [ -f "$PROJECT_ROOT/src/c47/meson.build" ] && resolve_font_source_dir >/dev/null 2>&1; then
         return 0
     fi
 
-    if [ -d "$PROJECT_ROOT/src/c47" ]; then
-        echo "ERROR: Incomplete upstream core checkout at $PROJECT_ROOT/src/c47 (missing src/c47/meson.build)." >&2
-        echo "Run ./sync_public.sh in a clean worktree before running ./build_android.sh." >&2
-        exit 1
-    fi
-
-    echo "--- Hydrating resolved upstream core ---"
+    echo "--- Hydrating resolved upstream core and canonical calculator fonts ---"
     bash "$PROJECT_ROOT/tools/upstream.sh" sync --auto --write-lock --if-missing
+
+    [ -d "$PROJECT_ROOT/src/c47" ] && [ -f "$PROJECT_ROOT/src/c47/meson.build" ] || \
+        fail "Incomplete upstream core checkout at $PROJECT_ROOT/src/c47 after sync. Run ./sync_public.sh in a clean worktree before running ./build_android.sh."
+    resolve_font_source_dir >/dev/null 2>&1 || \
+        fail "Missing canonical calculator fonts at $PROJECT_ROOT/res/fonts after sync. Run ./sync_public.sh in a clean worktree before running ./build_android.sh."
 }
 
 ensure_xlsxio_toolchain() {
@@ -390,12 +418,11 @@ resolve_cmake_bin() {
     return 1
 }
 
-copy_font_assets() {
-    local fonts_dir="$ANDROID_PROJECT_DIR/app/src/main/assets/fonts"
+ensure_canonical_font_assets_available() {
+    local source_dir=""
 
-    echo "--- Copying font assets ---"
-    mkdir -p "$fonts_dir"
-    cp -v "$PROJECT_ROOT/res/fonts"/*.ttf "$fonts_dir/"
+    source_dir=$(resolve_font_source_dir) || fail "Missing canonical calculator font assets at $PROJECT_ROOT/res/fonts. Run ./sync_public.sh or ./build_android.sh in full mode in a clean worktree before building."
+    echo "--- Using canonical calculator fonts from $source_dir ---"
 }
 
 write_local_properties() {
@@ -448,6 +475,8 @@ print_doctor_report() {
     local current_fingerprint=""
     local current_inputs_file=""
     local legacy_cpp_paths=""
+    local font_source_dir=""
+    local font_source_status=""
 
     echo "R47 Android Doctor"
     echo "=================="
@@ -498,6 +527,14 @@ print_doctor_report() {
         doctor_failed=true
     fi
     print_doctor_line "xlsxio" "$xlsxio_status"
+
+    if font_source_dir=$(resolve_font_source_dir); then
+        font_source_status="canonical root at $font_source_dir"
+    else
+        font_source_status="missing (need canonical $PROJECT_ROOT/res/fonts from authoritative upstream)"
+        doctor_failed=true
+    fi
+    print_doctor_line "font source" "$font_source_status"
 
     lock_commit=$(read_property_value "$PROJECT_ROOT/upstream.lock" upstream_commit || true)
     lock_url=$(read_property_value "$PROJECT_ROOT/upstream.lock" upstream_url || true)
@@ -636,7 +673,7 @@ else
     fi
 fi
 
-copy_font_assets
+ensure_canonical_font_assets_available
 write_local_properties
 
 cd "$ANDROID_PROJECT_DIR"
