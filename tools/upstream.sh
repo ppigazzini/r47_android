@@ -13,6 +13,7 @@ UPSTREAM_FONT_FILES=(
     "C47__NumericFont.ttf"
     "C47__StandardFont.ttf"
     "C47__TinyFont.ttf"
+    "sortingOrder.xlsx"
 )
 
 RESOLVED_UPSTREAM_URL=""

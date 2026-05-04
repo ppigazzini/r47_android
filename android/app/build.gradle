@@ -88,6 +88,7 @@ def xlsxioSourceRepositoryUrl = normalizeRepositoryUrl((project.findProperty('r4
 def xlsxioSourceCommit = (project.findProperty('r47.xlsxioSourceCommit') ?: System.getenv('R47_XLSXIO_COMMIT') ?: System.getenv('XLSXIO_COMMIT') ?: readDefaultValue('R47_DEFAULT_XLSXIO_COMMIT')).toString()
 def generatedComplianceAssetsDir = "$buildDir/generated/assets/compliance"
 def stagedNativeCppDir = rootProject.file('.staged-native/cpp').absolutePath
+def nativePrepScript = rootProject.file('prepare_native_build_inputs.sh').absolutePath
 def releaseMinifyEnabled = readBooleanProperty('r47.releaseMinify', true)
 def releaseShrinkResourcesEnabled = readBooleanProperty('r47.releaseShrinkResources', releaseMinifyEnabled)
 def releaseNativeDebugSymbolLevel = (readOptionalProperty('r47.releaseNativeDebugSymbolLevel', 'R47_RELEASE_NATIVE_DEBUG_SYMBOL_LEVEL') ?: 'FULL').toUpperCase()
@@ -230,6 +231,35 @@ dependencies {
     androidTestImplementation libs.androidx.test.core
     androidTestImplementation libs.androidx.test.ext.junit
     androidTestImplementation libs.androidx.test.runner
+}
+
+def prepareStagedNativeInputs = tasks.register('prepareStagedNativeInputs', Exec) {
+    description = 'Hydrate missing authoritative native inputs, run make sim, and refresh android/.staged-native/cpp for direct Gradle builds.'
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        def requestedBuildJobs = (project.findProperty('r47.buildJobs') ?: System.getenv('R47_BUILD_JOBS') ?: System.getenv('CMAKE_BUILD_PARALLEL_LEVEL') ?: gradle.startParameter.maxWorkerCount ?: Runtime.runtime.availableProcessors()).toString()
+        def cacheBinDir = new File(System.getProperty('user.home'), ".cache/r47/xlsxio/${xlsxioSourceCommit}/bin")
+        def pathEntries = []
+        if (cacheBinDir.isDirectory()) {
+            pathEntries << cacheBinDir.absolutePath
+        }
+        if (System.getenv('PATH')) {
+            pathEntries << System.getenv('PATH')
+        }
+
+        workingDir rootProject.file('..')
+        environment 'PATH', pathEntries.join(File.pathSeparator)
+        environment 'R47_BUILD_JOBS', requestedBuildJobs
+        environment 'R47_ANDROID_STAGED_CPP_DIR', stagedNativeCppDir
+        commandLine 'bash', nativePrepScript
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name.startsWith('configureCMake') || task.name.startsWith('generateJsonModel') || task.name.startsWith('externalNativeBuild')) {
+        task.dependsOn(prepareStagedNativeInputs)
+    }
 }
 
 tasks.register('copyGplLicense', Copy) {

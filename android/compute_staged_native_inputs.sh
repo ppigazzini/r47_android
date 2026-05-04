@@ -12,6 +12,7 @@ font_asset_files=(
     "C47__NumericFont.ttf"
     "C47__StandardFont.ttf"
     "C47__TinyFont.ttf"
+    "sortingOrder.xlsx"
 )
 
 generated_files=(

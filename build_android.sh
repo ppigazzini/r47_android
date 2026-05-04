@@ -13,6 +13,7 @@ FONT_ASSET_FILES=(
     "C47__NumericFont.ttf"
     "C47__StandardFont.ttf"
     "C47__TinyFont.ttf"
+    "sortingOrder.xlsx"
 )
 RETIRED_LEGACY_CPP_PATHS=(
     "$ANDROID_PROJECT_DIR/app/src/main/cpp/c47"
