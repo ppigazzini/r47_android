@@ -268,10 +268,21 @@ jobs:
           upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}
           upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           upstream_license_file=COPYING
+          android_source_repository_url=${{ github.server_url }}/${{ github.repository }}
+          android_source_commit=${{ github.sha }}
           xlsxio_url=${{ steps.defaults.outputs.xlsxio_url }}
           xlsxio_commit=${{ steps.defaults.outputs.xlsxio_commit }}
           xlsxio_license_file=LICENSE.txt
           EOF
+
+          bash ./android/generate_windows_runtime_notice_artifacts.sh \
+            --package-dir "$package_dir" \
+            --android-source-repository-url "${{ github.server_url }}/${{ github.repository }}" \
+            --android-source-commit "${{ github.sha }}" \
+            --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
+            --upstream-source-commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
+            --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
+            --xlsxio-source-commit "${{ steps.defaults.outputs.xlsxio_commit }}"
 
           find "$package_dir" -type f | sed "s#^$release_dir/##" | sort > "$release_dir/PACKAGE-CONTENTS.txt"
 
@@ -280,6 +291,8 @@ jobs:
           upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           upstream_license_file=COPYING
           source_manifest_file=SOURCE
+          android_source_repository_url=${{ github.server_url }}/${{ github.repository }}
+          android_source_commit=${{ github.sha }}
           xlsxio_url=${{ steps.defaults.outputs.xlsxio_url }}
           xlsxio_commit=${{ steps.defaults.outputs.xlsxio_commit }}
           xlsxio_license_file=LICENSE.txt
@@ -289,6 +302,10 @@ jobs:
           stripped_files_count=$stripped_count
           package_zip=c47-windows.zip
           package_dir=$(basename "$package_dir")
+          third_party_inventory_file=THIRD-PARTY.spdx.json
+          windows_dll_inventory_file=repo-notices/windows/WINDOWS-RUNTIME-DLLS.txt
+          windows_dll_notice_summary_file=repo-notices/windows/WINDOWS-DLL-NOTICES.txt
+          windows_dll_notice_dir=repo-notices/windows/licenses
           EOF
 
           rm -f c47-windows.zip

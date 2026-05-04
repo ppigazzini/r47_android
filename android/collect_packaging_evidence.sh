@@ -221,6 +221,34 @@ cleanup() {
 }
 trap cleanup EXIT
 
+extract_packaged_compliance_assets() {
+    local unpack_dir="$1"
+    local destination_dir="$2"
+    local compliance_dir="$destination_dir/compliance-assets"
+    local copied_any=0
+
+    mkdir -p "$compliance_dir"
+
+    for asset_name in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json; do
+        if [[ -f "$unpack_dir/assets/$asset_name" ]]; then
+            cp "$unpack_dir/assets/$asset_name" "$compliance_dir/$asset_name"
+            copied_any=1
+        fi
+    done
+
+    if [[ -d "$unpack_dir/assets/repo-notices" ]]; then
+        rm -rf "$compliance_dir/repo-notices"
+        cp -R "$unpack_dir/assets/repo-notices" "$compliance_dir/repo-notices"
+        copied_any=1
+    fi
+
+    if [[ "$copied_any" -eq 1 ]]; then
+        find "$compliance_dir" -type f | sed "s#^$destination_dir/##" | sort > "$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt"
+    else
+        rm -rf "$compliance_dir"
+    fi
+}
+
 write_metadata_line() {
     local key="$1"
     local value="$2"
@@ -265,6 +293,7 @@ if [[ "$artifact_type" == "apk" ]]; then
     unpack_dir="$tmp_dir/apk-unpacked"
     mkdir -p "$unpack_dir"
     unzip -q "$primary_artifact_path" -d "$unpack_dir"
+    extract_packaged_compliance_assets "$unpack_dir" "$output_dir"
 
     if [[ -n "$expected_abis" ]]; then
         expected_file="$tmp_dir/expected-abis.txt"

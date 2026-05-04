@@ -29,6 +29,20 @@
             android:exported="false"
             android:label="Settings"
             android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".RepoNoticeIndexActivity"
+            android:exported="false"
+            android:label="@string/repo_notice_catalog_title"
+            android:parentActivityName=".SettingsActivity" />
+        <activity
+            android:name=".NoticeAssetActivity"
+            android:exported="false"
+            android:label="@string/repo_notice_asset_fallback_title"
+            android:parentActivityName=".RepoNoticeIndexActivity" />
+        <activity
+            android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
+            android:exported="false"
+            android:theme="@style/Theme.R47" />
     </application>
 
 </manifest>
