@@ -5,7 +5,7 @@ set -Eeuo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  collect_packaging_evidence.sh \
+    scripts/android/collect_packaging_evidence.sh \
     --variant <debug|release> \
     (--apk <path> | --bundle <path>) \
     --output-dir <path> \

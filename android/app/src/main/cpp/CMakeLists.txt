@@ -29,7 +29,7 @@ add_definitions(-Dmpz_fits_uint_p=mpz_fits_ulong_p)
 add_compile_options("-include" "${CMAKE_CURRENT_SOURCE_DIR}/c47-android/android_mocks.h")
 
 # Android stub headers satisfy upstream GTK/GDK/Cairo includes without
-# rewriting the staged native tree during build_android.sh.
+# rewriting the staged native tree during scripts/build_android.sh.
 # Include directories
 include_directories(
     c47-android/stubs
@@ -51,7 +51,7 @@ include_directories(
 )
 
 set(R47_STAGED_METADATA_SCRIPT
-    "${R47_TRACKED_CPP_DIR}/../../../../generate_staged_native_metadata.sh"
+    "${R47_TRACKED_CPP_DIR}/../../../../../scripts/android/generate_staged_native_metadata.sh"
 )
 
 execute_process(

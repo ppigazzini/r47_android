@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          eval "$(bash ./tools/upstream.sh resolve --latest)"
+          eval "$(bash ./scripts/upstream.sh resolve --latest)"
 
           echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
@@ -223,7 +223,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./sync_public.sh \
+          bash ./scripts/sync_public.sh \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
 
@@ -375,7 +375,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x build_android.sh
+          chmod +x scripts/build_android.sh scripts/sync_public.sh
           chmod +x android/gradlew
 
       - name: Restore xlsxio toolchain cache
@@ -431,7 +431,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./sync_public.sh \
+          bash ./scripts/sync_public.sh \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
@@ -476,7 +476,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts/logs
-          ./build_android.sh 2>&1 | tee ci-artifacts/logs/build-android.log
+          ./scripts/build_android.sh 2>&1 | tee ci-artifacts/logs/build-android.log
 
       - name: Verify Android staging stays build-only
         shell: bash
@@ -525,7 +525,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./android/collect_packaging_evidence.sh \
+          bash ./scripts/android/collect_packaging_evidence.sh \
             --variant debug \
             --apk android/app/build/outputs/apk/debug/app-debug.apk \
             --output-dir ci-artifacts/release \
@@ -691,7 +691,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x build_android.sh
+          chmod +x scripts/build_android.sh scripts/sync_public.sh
           chmod +x android/gradlew
 
       - name: Restore xlsxio toolchain cache
@@ -747,7 +747,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./sync_public.sh \
+          bash ./scripts/sync_public.sh \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"
@@ -786,7 +786,7 @@ jobs:
           set -euo pipefail
 
           mkdir -p ci-artifacts/logs
-          ./build_android.sh 2>&1 | tee ci-artifacts/logs/android-test-build.log
+          ./scripts/build_android.sh 2>&1 | tee ci-artifacts/logs/android-test-build.log
 
       - name: Assemble Android instrumentation test APKs
         shell: bash
@@ -952,7 +952,7 @@ jobs:
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
 
           This prerelease contains the debug-signed debug APK ${debug_apk_name}
-          built by ./build_android.sh from GitHub commit ${GITHUB_SHA}.
+          built by ./scripts/build_android.sh from GitHub commit ${GITHUB_SHA}.
 
           The calculator core was synchronized from ${upstream_url} at commit
           ${upstream_commit} before the simulator and Android build steps ran.

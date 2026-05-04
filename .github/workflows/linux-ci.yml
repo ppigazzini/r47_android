@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          eval "$(bash ./tools/upstream.sh resolve --latest)"
+          eval "$(bash ./scripts/upstream.sh resolve --latest)"
 
           echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
@@ -171,7 +171,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          bash ./sync_public.sh \
+          bash ./scripts/sync_public.sh \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
           echo "upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}" >> "$GITHUB_OUTPUT"

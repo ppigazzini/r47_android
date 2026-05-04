@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MINI_GMP_FALLBACK_DIR="$PROJECT_ROOT/android/compat/mini-gmp-fallback"
 OUTPUT_PATH=""
 STAGED_CORE_VERSION="${R47_STAGED_CORE_VERSION:-unknown}"
@@ -27,7 +27,7 @@ generated_files=(
 usage() {
     cat <<'EOF'
 Usage:
-  android/compute_staged_native_inputs.sh [--output <file>]
+    scripts/android/compute_staged_native_inputs.sh [--output <file>]
 EOF
 }
 

@@ -3,9 +3,10 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DEFAULTS_FILE="$SCRIPT_DIR/r47-defaults.properties"
-STAGED_CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$SCRIPT_DIR/.staged-native/cpp}"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
+DEFAULTS_FILE="$ANDROID_PROJECT_DIR/r47-defaults.properties"
+STAGED_CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$ANDROID_PROJECT_DIR/.staged-native/cpp}"
 UPSTREAM_REMOTE_NAME="r47-c43-upstream"
 FONT_ASSET_FILES=(
     "C47__NumericFont.ttf"
@@ -30,7 +31,7 @@ RESOLVED_UPSTREAM_SHORT_COMMIT=""
 usage() {
     cat <<'EOF'
 Usage:
-  android/prepare_native_build_inputs.sh
+    scripts/android/prepare_native_build_inputs.sh
 EOF
 }
 
@@ -110,7 +111,7 @@ font_source_dir_has_required_fonts() {
 resolve_upstream_state() {
     local resolved_env=""
 
-    resolved_env=$(bash "$PROJECT_ROOT/tools/upstream.sh" resolve --auto --write-lock)
+    resolved_env=$(bash "$PROJECT_ROOT/scripts/upstream.sh" resolve --auto --write-lock)
     eval "$resolved_env"
 
     RESOLVED_UPSTREAM_URL="$R47_RESOLVED_UPSTREAM_URL"

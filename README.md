@@ -18,27 +18,28 @@ the hydrated upstream core plus the root generator pipeline.
 - source repo: `https://gitlab.com/rpncalculators/c43.git`
 - tracked defaults: `upstream.source`
 - optional local pin: `upstream.lock`
-- public hydration entrypoint: `./sync_public.sh`
+- public hydration entrypoint: `./scripts/sync_public.sh`
 
 ## What This Repo Owns
 
 - Android app code under `android/`
+- repo-owned automation under `scripts/`
 - Android-managed code under `android/app/src/main/java/com/example/r47`
 - Android-only native glue under `android/app/src/main/cpp/c47-android`
-- sync, build, and CI scaffolding at the repo root and under `.github/`
-- maintainer-facing Android docs under `android/docs/`
+- sync, build, and CI scaffolding under `scripts/` and `.github/`
+- maintainer-facing Android docs under `android/docs/dev/`
 
 Shared calculator behavior still belongs to the hydrated upstream core and the
 root generator pipeline.
 
 ## Maintainer Entrypoints
 
-- `./sync_public.sh` hydrates the authoritative upstream core defined by
+- `./scripts/sync_public.sh` hydrates the authoritative upstream core defined by
 	`upstream.source`.
 - `android/r47-defaults.properties` is the machine-readable source of truth for
 	shared Android SDK, NDK, CMake, build-tools, test-emulator, and xlsxio
 	defaults consumed by local scripts and CI.
-- `./build_android.sh` is the canonical Android debug-build path. Use
+- `./scripts/build_android.sh` is the canonical Android debug-build path. Use
 	`--doctor` to report host and staging readiness, `--android-only` for the
 	fast module-only lane when staged native inputs are current, and
 	`--verify-packaging` to emit the same ABI, zipalign, ELF, SHA256, and
@@ -61,5 +62,6 @@ root generator pipeline.
 - public checkouts keep one explicit staging-only mini-gmp fallback under
 	`android/compat/mini-gmp-fallback`
 
-For the detailed Android rebuild and ownership contract, see
-`android/REBUILD_MASTER_GUIDE.md`.
+For the Android maintainer docs, start at `android/docs/dev/README.md`. Use
+`android/docs/dev/10-build-and-source-layout.md` as the canonical Android
+ownership, build, and rebuild contract.

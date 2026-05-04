@@ -1,14 +1,37 @@
 # Android Development Docs
 
-These pages describe the current Android development contract for the checked-in
-R47 shell.
+This directory is the active Android maintainer documentation surface for the
+checked-in R47 shell.
 
 They are code-facing development notes, not end-user usage docs.
+
+Keep the maintainer doc split simple:
+
+- this page is the maintainer index
+- `10-build-and-source-layout.md` is the canonical Android ownership, build,
+  and rebuild contract
+- the numbered topic pages carry the deeper subsystem details
+
+Public maintainer entrypoints:
+
+- `./scripts/sync_public.sh` hydrates the authoritative upstream core.
+- `./scripts/build_android.sh` is the canonical Android debug-build path.
+- `cd android && ./gradlew ...` is the module-local maintenance lane only when
+  staged native inputs are already current.
+
+Repo-owned automation layout:
+
+- `scripts/` owns repo-only automation.
+- `scripts/upstream.sh` owns upstream resolve and sync implementation.
+- `scripts/android/` owns Android staging, packaging, and build-helper
+  implementations.
+- `scripts/build_android.sh` and `scripts/sync_public.sh` are the maintainer
+  entrypoints.
 
 Read in this order:
 
 - [10-build-and-source-layout.md](10-build-and-source-layout.md): toolchain,
-  source ownership, build entry points, and CI.
+  source ownership, build entry points, rebuild contract, and CI.
 - [20-kotlin-shell-architecture.md](20-kotlin-shell-architecture.md):
   lifecycle, runtime ownership, input flow, storage, and Kotlin-side structure.
 - [30-native-core-and-jni.md](30-native-core-and-jni.md): CMake, JNI,
@@ -23,11 +46,13 @@ authoritative upstream core revision, run the root simulator tests, build the
 debug APK, run Android JVM plus emulator-backed instrumentation tests, then
 publish a main-branch snapshot prerelease only after those jobs pass.
 
-The public maintainer entrypoints are `./sync_public.sh` and
-`./build_android.sh`. Use `./build_android.sh --doctor` to inspect host and
-staging readiness, and `./build_android.sh --android-only` for the fast
-module-local lane when staged native inputs are current. Staging helpers stay
-internal unless the task is specifically about sync or staging internals.
+Use `./scripts/build_android.sh --doctor` to inspect host and staging readiness, and
+`./scripts/build_android.sh --android-only` for the fast module-local lane when staged
+native inputs are current. Staging helpers stay internal unless the task is
+specifically about sync or staging internals.
+
+Repo-owned implementation scripts now live under `scripts/` and
+`scripts/android/`.
 
 Shared Android SDK, NDK, CMake, build-tools, hosted-emulator, and xlsxio pins
 live in `android/r47-defaults.properties`.

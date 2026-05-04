@@ -47,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          eval "$(bash ./tools/upstream.sh resolve --latest)"
+          eval "$(bash ./scripts/upstream.sh resolve --latest)"
 
           echo "upstream_url=$R47_RESOLVED_UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$R47_RESOLVED_UPSTREAM_COMMIT" >> "$GITHUB_OUTPUT"
@@ -140,7 +140,7 @@ jobs:
 
           chmod +x tools/onARaspberry
 
-          bash ./sync_public.sh \
+          bash ./scripts/sync_public.sh \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
 
@@ -275,7 +275,7 @@ jobs:
           xlsxio_license_file=LICENSE.txt
           EOF
 
-          bash ./android/generate_windows_runtime_notice_artifacts.sh \
+          bash ./scripts/android/generate_windows_runtime_notice_artifacts.sh \
             --package-dir "$package_dir" \
             --android-source-repository-url "${{ github.server_url }}/${{ github.repository }}" \
             --android-source-commit "${{ github.sha }}" \

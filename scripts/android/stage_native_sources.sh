@@ -3,18 +3,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
 MINI_GMP_FALLBACK_DIR="$ANDROID_PROJECT_DIR/compat/mini-gmp-fallback"
 CPP_DIR="${R47_ANDROID_STAGED_CPP_DIR:-$ANDROID_PROJECT_DIR/.staged-native/cpp}"
 CORE_HASH="${R47_CORE_HASH:-unknown}"
-METADATA_SCRIPT="$ANDROID_PROJECT_DIR/generate_staged_native_metadata.sh"
-INPUTS_SCRIPT="$ANDROID_PROJECT_DIR/compute_staged_native_inputs.sh"
+METADATA_SCRIPT="$SCRIPT_DIR/generate_staged_native_metadata.sh"
+INPUTS_SCRIPT="$SCRIPT_DIR/compute_staged_native_inputs.sh"
 
 usage() {
         cat <<'EOF'
 Usage:
-    android/stage_native_sources.sh [--cpp-dir <dir>]
+    scripts/android/stage_native_sources.sh [--cpp-dir <dir>]
 EOF
 }
 
@@ -24,7 +24,7 @@ require_dir() {
 
     if [ ! -d "$path" ]; then
         echo "ERROR: Missing $description at $path"
-        echo "Run ./sync_public.sh and make sim before staging Android native inputs."
+        echo "Run ./scripts/sync_public.sh and make sim before staging Android native inputs."
         exit 1
     fi
 }

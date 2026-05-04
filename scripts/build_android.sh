@@ -3,8 +3,10 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$SCRIPT_DIR"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ANDROID_PROJECT_DIR="$PROJECT_ROOT/android"
+SCRIPTS_DIR="$PROJECT_ROOT/scripts"
+ANDROID_SCRIPTS_DIR="$SCRIPTS_DIR/android"
 STAGED_CPP_DIR="$ANDROID_PROJECT_DIR/.staged-native/cpp"
 DEFAULTS_FILE="$ANDROID_PROJECT_DIR/r47-defaults.properties"
 STAGED_INPUTS_FILE="$STAGED_CPP_DIR/STAGED-INPUTS.properties"
@@ -31,7 +33,7 @@ VERIFY_PACKAGING_DIR=""
 
 usage() {
     cat <<'EOF'
-Usage: ./build_android.sh [--android-only] [--doctor] [--verify-packaging] [--verify-packaging-dir <dir>]
+Usage: ./scripts/build_android.sh [--android-only] [--doctor] [--verify-packaging] [--verify-packaging-dir <dir>]
 
 Modes:
     --android-only         Rebuild only the Android module after confirming staged native inputs are current.
@@ -154,7 +156,7 @@ on_error() {
     local exit_code="$?"
     local line_no="${1:-${BASH_LINENO[0]:-$LINENO}}"
 
-    echo "ERROR: build_android.sh failed with exit code ${exit_code} at line ${line_no} while running: ${BASH_COMMAND}" >&2
+    echo "ERROR: scripts/build_android.sh failed with exit code ${exit_code} at line ${line_no} while running: ${BASH_COMMAND}" >&2
     exit "$exit_code"
 }
 
@@ -284,7 +286,7 @@ detect_android_sdk_root() {
 resolve_upstream_state() {
     local resolved_env=""
 
-    resolved_env=$(bash "$PROJECT_ROOT/tools/upstream.sh" resolve --auto --write-lock)
+    resolved_env=$(bash "$SCRIPTS_DIR/upstream.sh" resolve --auto --write-lock)
     eval "$resolved_env"
 
     RESOLVED_UPSTREAM_URL="$R47_RESOLVED_UPSTREAM_URL"
@@ -298,12 +300,12 @@ ensure_upstream_core_hydrated() {
     fi
 
     echo "--- Hydrating resolved upstream core and canonical calculator fonts ---"
-    bash "$PROJECT_ROOT/tools/upstream.sh" sync --auto --write-lock --if-missing
+    bash "$SCRIPTS_DIR/upstream.sh" sync --auto --write-lock --if-missing
 
     [ -d "$PROJECT_ROOT/src/c47" ] && [ -f "$PROJECT_ROOT/src/c47/meson.build" ] || \
-        fail "Incomplete upstream core checkout at $PROJECT_ROOT/src/c47 after sync. Run ./sync_public.sh in a clean worktree before running ./build_android.sh."
+        fail "Incomplete upstream core checkout at $PROJECT_ROOT/src/c47 after sync. Run ./scripts/sync_public.sh in a clean worktree before running ./scripts/build_android.sh."
     resolve_font_source_dir >/dev/null 2>&1 || \
-        fail "Missing canonical calculator fonts at $PROJECT_ROOT/res/fonts after sync. Run ./sync_public.sh in a clean worktree before running ./build_android.sh."
+        fail "Missing canonical calculator fonts at $PROJECT_ROOT/res/fonts after sync. Run ./scripts/sync_public.sh in a clean worktree before running ./scripts/build_android.sh."
 }
 
 ensure_xlsxio_toolchain() {
@@ -422,7 +424,7 @@ resolve_cmake_bin() {
 ensure_canonical_font_assets_available() {
     local source_dir=""
 
-    source_dir=$(resolve_font_source_dir) || fail "Missing canonical calculator font assets at $PROJECT_ROOT/res/fonts. Run ./sync_public.sh or ./build_android.sh in full mode in a clean worktree before building."
+    source_dir=$(resolve_font_source_dir) || fail "Missing canonical calculator font assets at $PROJECT_ROOT/res/fonts. Run ./scripts/sync_public.sh or ./scripts/build_android.sh in full mode in a clean worktree before building."
     echo "--- Using canonical calculator fonts from $source_dir ---"
 }
 
@@ -433,7 +435,7 @@ write_local_properties() {
 compute_current_staged_inputs() {
     local output_path="$1"
 
-    bash "$ANDROID_PROJECT_DIR/compute_staged_native_inputs.sh" --output "$output_path"
+    bash "$ANDROID_SCRIPTS_DIR/compute_staged_native_inputs.sh" --output "$output_path"
 }
 
 ensure_staged_inputs_current() {
@@ -441,14 +443,14 @@ ensure_staged_inputs_current() {
     local current_fingerprint=""
     local staged_fingerprint=""
 
-    [ -f "$STAGED_INPUTS_FILE" ] || fail "Missing staged native input fingerprint at $STAGED_INPUTS_FILE. Run ./build_android.sh without --android-only first."
-    [ -f "$STAGED_CPP_DIR/staged_native_sources.cmake" ] || fail "Missing staged native source list under $STAGED_CPP_DIR. Run ./build_android.sh without --android-only first."
-    [ -f "$STAGED_CPP_DIR/STAGED-SOURCE-MANIFEST.txt" ] || fail "Missing staged native manifest under $STAGED_CPP_DIR. Run ./build_android.sh without --android-only first."
+    [ -f "$STAGED_INPUTS_FILE" ] || fail "Missing staged native input fingerprint at $STAGED_INPUTS_FILE. Run ./scripts/build_android.sh without --android-only first."
+    [ -f "$STAGED_CPP_DIR/staged_native_sources.cmake" ] || fail "Missing staged native source list under $STAGED_CPP_DIR. Run ./scripts/build_android.sh without --android-only first."
+    [ -f "$STAGED_CPP_DIR/STAGED-SOURCE-MANIFEST.txt" ] || fail "Missing staged native manifest under $STAGED_CPP_DIR. Run ./scripts/build_android.sh without --android-only first."
 
     current_inputs_file=$(mktemp)
     if ! compute_current_staged_inputs "$current_inputs_file" >/dev/null 2>&1; then
         rm -f "$current_inputs_file"
-        fail "Unable to compute current native input fingerprints. Run make sim and then ./build_android.sh without --android-only."
+        fail "Unable to compute current native input fingerprints. Run make sim and then ./scripts/build_android.sh without --android-only."
     fi
 
     staged_fingerprint=$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_INPUTS_COMBINED_FINGERPRINT || true)
@@ -459,7 +461,7 @@ ensure_staged_inputs_current() {
     [ -n "$current_fingerprint" ] || fail "Current native fingerprint computation returned no result."
 
     if [ "$staged_fingerprint" != "$current_fingerprint" ]; then
-        fail "Android build-only staging is stale. Run ./build_android.sh without --android-only to refresh $STAGED_CPP_DIR."
+        fail "Android build-only staging is stale. Run ./scripts/build_android.sh without --android-only to refresh $STAGED_CPP_DIR."
     fi
 }
 
@@ -668,7 +670,7 @@ else
 
     make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
 
-    if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_PROJECT_DIR/stage_native_sources.sh" --cpp-dir "$STAGED_CPP_DIR"; then
+    if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_SCRIPTS_DIR/stage_native_sources.sh" --cpp-dir "$STAGED_CPP_DIR"; then
         echo "ERROR: Android native staging failed."
         exit 1
     fi
@@ -745,7 +747,7 @@ fi
 if [ "$VERIFY_PACKAGING" = true ] || is_truthy "${R47_VERIFY_PACKAGING-}"; then
     PACKAGING_OUTPUT_DIR=${VERIFY_PACKAGING_DIR:-${R47_VERIFY_PACKAGING_DIR:-$ANDROID_PROJECT_DIR/build/outputs/packaging/debug}}
     PACKAGING_EXPECTED_ABIS=${R47_VERIFY_PACKAGING_ABIS:-arm64-v8a}
-    bash "$ANDROID_PROJECT_DIR/collect_packaging_evidence.sh" \
+    bash "$ANDROID_SCRIPTS_DIR/collect_packaging_evidence.sh" \
         --variant debug \
         --apk "$ANDROID_PROJECT_DIR/$APK_PATH" \
         --output-dir "$PACKAGING_OUTPUT_DIR" \

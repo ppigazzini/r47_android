@@ -5,7 +5,7 @@ set -Eeuo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  generate_windows_runtime_notice_artifacts.sh \
+    scripts/android/generate_windows_runtime_notice_artifacts.sh \
     --package-dir <path> \
     [--android-source-repository-url <url>] \
     [--android-source-commit <commit>] \
