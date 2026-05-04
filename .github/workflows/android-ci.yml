@@ -903,6 +903,34 @@ jobs:
           name: ${{ needs.android-debug.outputs.artifact_name }}
           path: release-assets
 
+      - name: Pack packaging evidence archive
+        id: evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          debug_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
+          if [[ -z "$debug_apk_name" ]]; then
+            echo "BUILD-METADATA.txt did not contain artifact_name." >&2
+            exit 1
+          fi
+          evidence_archive_name="${debug_apk_name%.apk}-packaging-evidence.zip"
+
+          rm -f "release-assets/${evidence_archive_name}"
+          (
+            cd release-assets
+            zip -qr "$evidence_archive_name" \
+              BUILD-METADATA.txt \
+              PACKAGED-COMPLIANCE-ASSETS.txt \
+              SHA256SUMS.txt \
+              abis.txt \
+              zipalign.txt \
+              elf-load-segments.txt \
+              compliance-assets
+          )
+
+              echo "evidence_archive_name=${evidence_archive_name}" >> "$GITHUB_OUTPUT"
+
       - name: Write release notes
         shell: bash
         run: |
@@ -912,8 +940,13 @@ jobs:
           upstream_url=$(sed -n 's/^upstream_url=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_commit=$(sed -n 's/^xlsxio_commit=//p' release-assets/BUILD-METADATA.txt)
           xlsxio_url=$(sed -n 's/^xlsxio_url=//p' release-assets/BUILD-METADATA.txt)
-          debug_apk_name=$(sed -n 's/^debug_apk_name=//p' release-assets/BUILD-METADATA.txt)
+          debug_apk_name=$(sed -n 's/^artifact_name=//p' release-assets/BUILD-METADATA.txt)
+          if [[ -z "$debug_apk_name" ]]; then
+            echo "BUILD-METADATA.txt did not contain artifact_name." >&2
+            exit 1
+          fi
           upstream_short_commit="${upstream_commit:0:8}"
+          evidence_archive_name="${debug_apk_name%.apk}-packaging-evidence.zip"
 
           cat > RELEASE_NOTES.md <<EOF
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
@@ -930,14 +963,7 @@ jobs:
 
           Included assets:
           - ${debug_apk_name}
-          - SHA256SUMS.txt
-          - abis.txt
-          - zipalign.txt
-          - elf-load-segments.txt
-          - BUILD-METADATA.txt
-          - SOURCE
-          - COPYING
-          - LICENSE.txt
+          - ${evidence_archive_name}
 
           Notes:
           - This is a main-branch snapshot prerelease, not a signed store release.
@@ -945,8 +971,10 @@ jobs:
           - The workflow ran the root simulator test suite with parallel make test.
           - The workflow verified packaged ABIs and ran the Android 16 KB zip
             alignment check described in the Android docs.
-          - COPYING is the GNU GPL text for the packaged calculator core.
-          - LICENSE.txt is the MIT license shipped by the pinned xlsxio project.
+          - ${evidence_archive_name} preserves the compliance-assets/ directory,
+            BUILD-METADATA.txt, SHA256SUMS.txt, ABI/alignment reports, and the
+            packaged notice inventory exactly as collected by
+            android/collect_packaging_evidence.sh.
 
           Workflow run:
           https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
@@ -959,7 +987,9 @@ jobs:
           name: ${{ needs.android-debug.outputs.release_title }}
           target_commitish: ${{ github.sha }}
           body_path: RELEASE_NOTES.md
-          files: release-assets/*
+          files: |
+            release-assets/${{ steps.evidence.outputs.evidence_archive_name }}
+            release-assets/*.apk
           fail_on_unmatched_files: true
           overwrite_files: true
           prerelease: true

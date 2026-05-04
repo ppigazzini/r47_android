@@ -223,29 +223,32 @@ trap cleanup EXIT
 
 extract_packaged_compliance_assets() {
     local unpack_dir="$1"
-    local destination_dir="$2"
+    local asset_root="$2"
+    local destination_dir="$3"
     local compliance_dir="$destination_dir/compliance-assets"
     local copied_any=0
 
     mkdir -p "$compliance_dir"
 
     for asset_name in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json; do
-        if [[ -f "$unpack_dir/assets/$asset_name" ]]; then
-            cp "$unpack_dir/assets/$asset_name" "$compliance_dir/$asset_name"
+        if [[ -f "$unpack_dir/$asset_root/$asset_name" ]]; then
+            cp "$unpack_dir/$asset_root/$asset_name" "$compliance_dir/$asset_name"
             copied_any=1
         fi
     done
 
-    if [[ -d "$unpack_dir/assets/repo-notices" ]]; then
+    if [[ -d "$unpack_dir/$asset_root/repo-notices" ]]; then
         rm -rf "$compliance_dir/repo-notices"
-        cp -R "$unpack_dir/assets/repo-notices" "$compliance_dir/repo-notices"
+        cp -R "$unpack_dir/$asset_root/repo-notices" "$compliance_dir/repo-notices"
         copied_any=1
     fi
 
     if [[ "$copied_any" -eq 1 ]]; then
         find "$compliance_dir" -type f | sed "s#^$destination_dir/##" | sort > "$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt"
+        return 0
     else
         rm -rf "$compliance_dir"
+        return 1
     fi
 }
 
@@ -314,16 +317,59 @@ populate_compliance_assets() {
     fi
 }
 
+validate_compliance_assets_layout() {
+    local destination_dir="$1"
+    local compliance_dir="$destination_dir/compliance-assets"
+    local duplicate_paths=()
+
+    if [[ ! -d "$compliance_dir" ]]; then
+        echo "Missing compliance-assets directory in packaging evidence output." >&2
+        exit 1
+    fi
+
+    for duplicate_path in COPYING LICENSE.txt SOURCE THIRD-PARTY.spdx.json repo-notices; do
+        if [[ -e "$destination_dir/$duplicate_path" ]]; then
+            duplicate_paths+=("$duplicate_path")
+        fi
+    done
+
+    if [[ ${#duplicate_paths[@]} -gt 0 ]]; then
+        echo "Compliance evidence must live under compliance-assets only; found duplicate top-level entries:" >&2
+        printf '  %s\n' "${duplicate_paths[@]}" >&2
+        exit 1
+    fi
+
+    if [[ -f "$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt" ]]; then
+        if grep -Ev '^compliance-assets/' "$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt" >/dev/null 2>&1; then
+            echo "PACKAGED-COMPLIANCE-ASSETS.txt must reference compliance-assets/ paths only." >&2
+            exit 1
+        fi
+    fi
+}
+
+require_packaged_compliance_assets() {
+    local destination_dir="$1"
+    local artifact_label="$2"
+
+    if [[ ! -s "$destination_dir/PACKAGED-COMPLIANCE-ASSETS.txt" ]]; then
+        echo "Did not find packaged compliance assets while inspecting the ${artifact_label}." >&2
+        exit 1
+    fi
+}
+
+if [[ "$artifact_type" == "apk" || "$artifact_type" == "aab" ]]; then
+    unpack_dir="$tmp_dir/${artifact_type}-unpacked"
+    mkdir -p "$unpack_dir"
+    unzip -q "$primary_artifact_path" -d "$unpack_dir"
+fi
+
 if [[ "$artifact_type" == "apk" ]]; then
     if [[ -z "$android_sdk_root" || -z "$ndk_version" ]]; then
         echo "APK evidence collection requires --android-sdk-root and --ndk-version." >&2
         exit 1
     fi
 
-    unpack_dir="$tmp_dir/apk-unpacked"
-    mkdir -p "$unpack_dir"
-    unzip -q "$primary_artifact_path" -d "$unpack_dir"
-    extract_packaged_compliance_assets "$unpack_dir" "$output_dir"
+    extract_packaged_compliance_assets "$unpack_dir" "assets" "$output_dir"
 
     if [[ -n "$expected_abis" ]]; then
         expected_file="$tmp_dir/expected-abis.txt"
@@ -389,7 +435,16 @@ if [[ "$artifact_type" == "apk" ]]; then
     fi
 fi
 
+if [[ "$artifact_type" == "aab" ]]; then
+    extract_packaged_compliance_assets "$unpack_dir" "base/assets" "$output_dir"
+fi
+
 populate_compliance_assets "$output_dir"
+validate_compliance_assets_layout "$output_dir"
+
+if [[ "$artifact_type" == "apk" || "$artifact_type" == "aab" ]]; then
+    require_packaged_compliance_assets "$output_dir" "$artifact_type"
+fi
 
 if [[ -n "$mapping_file" ]]; then
     cp "$mapping_file" "$output_dir/$(basename "$mapping_file")"
