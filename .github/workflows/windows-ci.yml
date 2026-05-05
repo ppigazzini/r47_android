@@ -138,11 +138,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          chmod +x tools/onARaspberry
-
           bash ./scripts/sync_public.sh \
             --url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}"
+
+          [ -f tools/onARaspberry ] || {
+            echo "Missing hydrated upstream helper at tools/onARaspberry after sync." >&2
+            exit 1
+          }
+
+          chmod +x tools/onARaspberry
 
       - name: Load packaged Windows font into runner session
         shell: pwsh
@@ -183,7 +188,7 @@ jobs:
           log_file="ci-artifacts/logs/build-windows-${{ matrix.artifact_suffix }}.log"
           mkdir -p "$(dirname "$log_file")"
 
-          make -j "${{ steps.jobs.outputs.jobs }}" \
+          make \
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
             dist_windows 2>&1 | tee "$log_file"
 
@@ -239,46 +244,9 @@ jobs:
           printf 'Stripped executable sizes:\n'
           stat -c '%n %s' "$package_dir/c47.exe" "$package_dir/r47.exe"
 
-          cp COPYING "$package_dir/COPYING"
-
-          cat > "$package_dir/LICENSE.txt" <<'EOF'
-          Copyright (C) 2016 Brecht Sanders All Rights Reserved
-
-          Permission is hereby granted, free of charge, to any person obtaining
-          a copy of this software and associated documentation files (the
-          "Software"), to deal in the Software without restriction, including
-          without limitation the rights to use, copy, modify, merge, publish,
-          distribute, sublicense, and/or sell copies of the Software, and to
-          permit persons to whom the Software is furnished to do so, subject to
-          the following conditions:
-
-          The above copyright notice and this permission notice shall be
-          included in all copies or substantial portions of the Software.
-
-          THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-          EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-          MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-          IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-          CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-          TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-          SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-          EOF
-
-          cat > "$package_dir/SOURCE" <<EOF
-          upstream_url=${{ needs.resolve-upstream-core.outputs.upstream_url }}
-          upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}
-          upstream_license_file=COPYING
-          android_source_repository_url=${{ github.server_url }}/${{ github.repository }}
-          android_source_commit=${{ github.sha }}
-          xlsxio_url=${{ steps.defaults.outputs.xlsxio_url }}
-          xlsxio_commit=${{ steps.defaults.outputs.xlsxio_commit }}
-          xlsxio_license_file=LICENSE.txt
-          EOF
-
-          bash ./scripts/android/generate_windows_runtime_notice_artifacts.sh \
+          bash ./scripts/generate_simulator_notice_artifacts.sh \
+            --platform windows \
             --package-dir "$package_dir" \
-            --android-source-repository-url "${{ github.server_url }}/${{ github.repository }}" \
-            --android-source-commit "${{ github.sha }}" \
             --upstream-source-repository-url "${{ needs.resolve-upstream-core.outputs.upstream_url }}" \
             --upstream-source-commit "${{ needs.resolve-upstream-core.outputs.upstream_commit }}" \
             --xlsxio-source-repository-url "${{ steps.defaults.outputs.xlsxio_url }}" \
@@ -291,8 +259,6 @@ jobs:
           upstream_commit=${{ needs.resolve-upstream-core.outputs.upstream_commit }}
           upstream_license_file=COPYING
           source_manifest_file=SOURCE
-          android_source_repository_url=${{ github.server_url }}/${{ github.repository }}
-          android_source_commit=${{ github.sha }}
           xlsxio_url=${{ steps.defaults.outputs.xlsxio_url }}
           xlsxio_commit=${{ steps.defaults.outputs.xlsxio_commit }}
           xlsxio_license_file=LICENSE.txt
@@ -303,6 +269,11 @@ jobs:
           package_zip=c47-windows.zip
           package_dir=$(basename "$package_dir")
           third_party_inventory_file=THIRD-PARTY.spdx.json
+          platform_notice_root=repo-notices/windows
+          platform_notice_summary_file=repo-notices/windows/NOTICE-SUMMARY.txt
+          gpl_notice_file=repo-notices/windows/gpl/COPYING.txt
+          decnumbericu_notice_file=repo-notices/windows/decnumbericu/ICU-license.html
+          xlsxio_notice_file=repo-notices/windows/xlsxio/LICENSE.txt
           windows_dll_inventory_file=repo-notices/windows/WINDOWS-RUNTIME-DLLS.txt
           windows_dll_notice_summary_file=repo-notices/windows/WINDOWS-DLL-NOTICES.txt
           windows_dll_notice_dir=repo-notices/windows/licenses

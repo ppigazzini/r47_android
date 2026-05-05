@@ -90,19 +90,12 @@ relative_to_project_root() {
 }
 
 find_gmp_source_dir() {
-    local candidate=""
+    if [ -f "$MINI_GMP_FALLBACK_DIR/mini-gmp.c" ] && { [ -f "$MINI_GMP_FALLBACK_DIR/mini-gmp.h" ] || [ -f "$MINI_GMP_FALLBACK_DIR/gmp.h" ]; }; then
+        printf '%s\n' "$MINI_GMP_FALLBACK_DIR"
+        return 0
+    fi
 
-    for candidate in \
-        "$PROJECT_ROOT/subprojects/gmp-6.2.1/mini-gmp" \
-        "$MINI_GMP_FALLBACK_DIR"
-    do
-        if [ -f "$candidate/mini-gmp.c" ] && { [ -f "$candidate/mini-gmp.h" ] || [ -f "$candidate/gmp.h" ]; }; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    done
-
-    fail "Could not locate mini-gmp sources in the canonical subproject or the explicit Android compatibility fallback at ${MINI_GMP_FALLBACK_DIR}."
+    fail "Could not locate Android mini-gmp fallback sources at ${MINI_GMP_FALLBACK_DIR}."
 }
 
 font_source_dir_has_required_fonts() {

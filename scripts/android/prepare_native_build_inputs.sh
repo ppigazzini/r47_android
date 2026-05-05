@@ -23,6 +23,11 @@ SIM_REQUIRED_SUBDIRS=(
     "src/testSuite"
     "src/c47-gtk"
 )
+SIM_REQUIRED_ROOT_FILES=(
+    "meson.build"
+    "meson_options.txt"
+    "dep/meson.build"
+)
 
 RESOLVED_UPSTREAM_URL=""
 RESOLVED_UPSTREAM_COMMIT=""
@@ -131,6 +136,7 @@ hydrate_missing_upstream_paths() {
     local need_fonts="false"
     local -a archive_paths=()
     local sim_subdir=""
+    local required_file=""
 
     for sim_subdir in "${SIM_REQUIRED_SUBDIRS[@]}"; do
         if [ ! -d "$PROJECT_ROOT/$sim_subdir" ]; then
@@ -142,6 +148,16 @@ hydrate_missing_upstream_paths() {
             archive_paths+=("$sim_subdir/meson.build")
         fi
     done
+
+    for required_file in "${SIM_REQUIRED_ROOT_FILES[@]}"; do
+        if [ ! -f "$PROJECT_ROOT/$required_file" ]; then
+            archive_paths+=("$required_file")
+        fi
+    done
+
+    if [ ! -d "$PROJECT_ROOT/dep/decNumberICU" ] || [ ! -f "$PROJECT_ROOT/dep/decNumberICU/ICU-license.html" ]; then
+        archive_paths+=("dep/decNumberICU")
+    fi
 
     if ! font_source_dir_has_required_fonts "$PROJECT_ROOT/res/fonts"; then
         need_fonts="true"
@@ -160,6 +176,11 @@ hydrate_missing_upstream_paths() {
     for sim_subdir in "${SIM_REQUIRED_SUBDIRS[@]}"; do
         [ -f "$PROJECT_ROOT/$sim_subdir/meson.build" ] || fail "Missing simulator Meson entrypoint at $PROJECT_ROOT/$sim_subdir/meson.build after targeted hydration."
     done
+    for required_file in "${SIM_REQUIRED_ROOT_FILES[@]}"; do
+        [ -f "$PROJECT_ROOT/$required_file" ] || fail "Missing required upstream build input at $PROJECT_ROOT/$required_file after targeted hydration."
+    done
+    [ -d "$PROJECT_ROOT/dep/decNumberICU" ] || fail "Missing decNumberICU source tree at $PROJECT_ROOT/dep/decNumberICU after targeted hydration."
+    [ -f "$PROJECT_ROOT/dep/decNumberICU/ICU-license.html" ] || fail "Missing decNumberICU notice file at $PROJECT_ROOT/dep/decNumberICU/ICU-license.html after targeted hydration."
     font_source_dir_has_required_fonts "$PROJECT_ROOT/res/fonts" || fail "Missing canonical calculator fonts at $PROJECT_ROOT/res/fonts after targeted hydration."
 }
 
@@ -184,20 +205,7 @@ prepare_build_sim() {
 
     ensure_xlsxio_on_path
 
-    if [ -d "$PROJECT_ROOT/build.sim" ] && [ ! -f "$PROJECT_ROOT/build.sim/build.ninja" ]; then
-        rm -rf "$PROJECT_ROOT/build.sim"
-    fi
-
-    rm -f \
-        "$PROJECT_ROOT"/src/generated/*.c \
-        "$PROJECT_ROOT"/src/generated/constantPointers.h \
-        "$PROJECT_ROOT"/src/generated/softmenuCatalogs.h
-
-    echo "--- Generating core assets (running make sim) ---"
-    (
-        cd "$PROJECT_ROOT"
-        make -j "$job_count" NINJAFLAGS="-j $job_count" sim
-    )
+    bash "$SCRIPT_DIR/build_sim_assets.sh" --build-dir "$PROJECT_ROOT/build.sim" --jobs "$job_count"
 }
 
 stage_native_inputs() {

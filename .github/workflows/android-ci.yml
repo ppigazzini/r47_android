@@ -231,7 +231,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          make -j "${{ steps.jobs.outputs.jobs }}" \
+          make \
             NINJAFLAGS="-j ${{ steps.jobs.outputs.jobs }}" \
             test
 
@@ -270,6 +270,7 @@ jobs:
 
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "gradle_version=$R47_DEFAULT_ANDROID_GRADLE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
@@ -316,6 +317,7 @@ jobs:
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
+          gradle-version: ${{ steps.defaults.outputs.gradle_version }}
           cache-provider: basic
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
@@ -376,7 +378,6 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x scripts/build_android.sh scripts/sync_public.sh
-          chmod +x android/gradlew
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
@@ -586,6 +587,7 @@ jobs:
 
           echo "ndk_version=$R47_DEFAULT_ANDROID_NDK_VERSION" >> "$GITHUB_OUTPUT"
           echo "cmake_version=$R47_DEFAULT_ANDROID_CMAKE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "gradle_version=$R47_DEFAULT_ANDROID_GRADLE_VERSION" >> "$GITHUB_OUTPUT"
           echo "compile_sdk=$R47_DEFAULT_ANDROID_COMPILE_SDK" >> "$GITHUB_OUTPUT"
           echo "build_tools_version=$R47_DEFAULT_ANDROID_BUILD_TOOLS_VERSION" >> "$GITHUB_OUTPUT"
           echo "xlsxio_url=$R47_DEFAULT_XLSXIO_URL" >> "$GITHUB_OUTPUT"
@@ -632,6 +634,7 @@ jobs:
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
+          gradle-version: ${{ steps.defaults.outputs.gradle_version }}
           cache-provider: basic
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
@@ -692,7 +695,6 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x scripts/build_android.sh scripts/sync_public.sh
-          chmod +x android/gradlew
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
@@ -797,7 +799,7 @@ jobs:
           core_version="${core_version:0:8}"
 
           cd android
-          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+          gradle --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:assembleDebugAndroidTest \
             --no-daemon --stacktrace --console=plain \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
@@ -820,7 +822,7 @@ jobs:
           core_version="${core_version:0:8}"
 
           cd android
-          ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" \
+          gradle --max-workers "${{ steps.jobs.outputs.jobs }}" \
             :app:testDebugUnitTest \
             --no-daemon --stacktrace --console=plain \
             -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} \
@@ -859,7 +861,7 @@ jobs:
             mkdir -p ../ci-artifacts/logs;
             log_file=../ci-artifacts/logs/android-connected-debug-android-test.log;
             gradle_status=0;
-            ./gradlew --max-workers "${{ steps.jobs.outputs.jobs }}" :app:connectedDebugAndroidTest --no-daemon --stacktrace --console=plain -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} -Pr47.abiFilters="${{ steps.defaults.outputs.android_test_abi_filters }}" -Pr47.coreVersion="$core_version" -Pr47.sourceRepositoryUrl="${{ github.server_url }}/${{ github.repository }}" -Pr47.sourceCommit="${{ github.sha }}" -Pr47.upstreamSourceRepositoryUrl="${{ steps.upstream.outputs.upstream_url }}" -Pr47.upstreamSourceCommit="${{ steps.upstream.outputs.upstream_commit }}" -Pr47.xlsxioSourceRepositoryUrl="${{ steps.defaults.outputs.xlsxio_url }}" -Pr47.xlsxioSourceCommit="${{ steps.defaults.outputs.xlsxio_commit }}" >"$log_file" 2>&1 || gradle_status=$?;
+            gradle --max-workers "${{ steps.jobs.outputs.jobs }}" :app:connectedDebugAndroidTest --no-daemon --stacktrace --console=plain -Pr47.ndkVersion=${{ steps.defaults.outputs.ndk_version }} -Pr47.abiFilters="${{ steps.defaults.outputs.android_test_abi_filters }}" -Pr47.coreVersion="$core_version" -Pr47.sourceRepositoryUrl="${{ github.server_url }}/${{ github.repository }}" -Pr47.sourceCommit="${{ github.sha }}" -Pr47.upstreamSourceRepositoryUrl="${{ steps.upstream.outputs.upstream_url }}" -Pr47.upstreamSourceCommit="${{ steps.upstream.outputs.upstream_commit }}" -Pr47.xlsxioSourceRepositoryUrl="${{ steps.defaults.outputs.xlsxio_url }}" -Pr47.xlsxioSourceCommit="${{ steps.defaults.outputs.xlsxio_commit }}" >"$log_file" 2>&1 || gradle_status=$?;
             cat "$log_file";
             test "$gradle_status" -eq 0
 
@@ -948,7 +950,7 @@ jobs:
           upstream_short_commit="${upstream_commit:0:8}"
           evidence_archive_name="${debug_apk_name%.apk}-packaging-evidence.zip"
 
-          cat > RELEASE_NOTES.md <<EOF
+          cat > release-notes.md <<EOF
           - Sync to commit [${upstream_short_commit}](${upstream_url}/-/commit/${upstream_commit})
 
           This prerelease contains the debug-signed debug APK ${debug_apk_name}
@@ -986,7 +988,7 @@ jobs:
           tag_name: ${{ needs.android-debug.outputs.release_tag }}
           name: ${{ needs.android-debug.outputs.release_title }}
           target_commitish: ${{ github.sha }}
-          body_path: RELEASE_NOTES.md
+          body_path: release-notes.md
           files: |
             release-assets/${{ steps.evidence.outputs.evidence_archive_name }}
             release-assets/*.apk

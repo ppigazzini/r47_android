@@ -1,8 +1,10 @@
-# mini-gmp public-checkout fallback
+# mini-gmp Android staging source
 
-This directory exists only so public checkouts that do not hydrate the ignored
-`subprojects/gmp-6.2.1/mini-gmp` sources can still stage mini-gmp into
-`android/.staged-native/cpp`.
+This directory is the tracked mini-gmp source staged into
+`android/.staged-native/cpp/gmp` for Android builds.
+
+It exists so the Android lane does not depend on an ignored or upstream-owned
+`subprojects/gmp-6.2.1/mini-gmp` checkout.
 
 Do not treat this directory as a canonical shared-native source root.
 

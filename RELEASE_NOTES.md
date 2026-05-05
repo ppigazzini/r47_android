@@ -1,1 +1,0 @@
-- Sync to commit [f8e6f8c7](https://gitlab.com/rpncalculators/c43/-/commits/master?ref_type=HEADS)

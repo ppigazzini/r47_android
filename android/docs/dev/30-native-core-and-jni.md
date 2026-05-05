@@ -15,9 +15,8 @@ CMake builds the library from:
 - Android-specific bridge and HAL files under
   `android/app/src/main/cpp/c47-android`
 - build-only staged mini-gmp sources under `android/.staged-native/cpp/gmp`
-- public-checkout mini-gmp fallback sources under
-  `android/compat/mini-gmp-fallback` for staging only when the ignored GMP
-  subproject sources are absent
+- the tracked Android mini-gmp staging source under
+  `android/compat/mini-gmp-fallback`
 
 Tracked Android stub headers under `c47-android/stubs` and the forced include
 of `android_mocks.h` let the Android build satisfy upstream GTK, GDK, and Cairo

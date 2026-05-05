@@ -83,13 +83,15 @@ tags
 /PROGRAMS/
 /res/
 
-# Meson wrap metadata: keep tracked wraps and packagefiles only
-/subprojects/*
-!/subprojects/*.wrap
-!/subprojects/packagefiles/
-
 # Public-checkout upstream hydration contract
+/Makefile
+/meson.build
+/meson_options.txt
 /src/
+/dep/
+/docs/code/meson.build
+/subprojects/
+/tools/
 /upstream.lock
 
 # Android build-only staging and retired legacy native snapshot paths

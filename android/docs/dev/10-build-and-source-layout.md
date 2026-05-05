@@ -30,7 +30,7 @@ this repository. Do not split that contract into a second guide.
   hosted-emulator, or xlsxio pins change, then rerun `./scripts/build_android.sh --doctor`
   before a broader build.
 - Review AGP compatibility and JDK requirements whenever a new AGP stable line
-  is adopted; keep `android/gradle/libs.versions.toml`, the Gradle wrapper, and
+  is adopted; keep `android/gradle/libs.versions.toml` and
   `android/r47-defaults.properties` aligned when that happens.
 - Review compile and target SDK levels when Android publishes the next stable
   API level, and keep local plus hosted test lanes on explicit API images.
@@ -53,21 +53,63 @@ Top-level repo-owned overlay paths:
   `scripts/build_android.sh` and `scripts/sync_public.sh`, the shared upstream
   resolver `scripts/upstream.sh`, and the Android-specific helpers under
   `scripts/android/`.
-- `.github/`, `RELEASE_NOTES.md`, `dist.sh`, and `upstream.source` are
-  repo-owned overlay paths outside the Android module.
+- `.github/` and `upstream.source` are repo-owned overlay paths outside the
+  Android module.
 
 Shared upstream-shaped top-level surfaces:
 
-- hydrated `src/` and `res/`
-- `dep/`, `docs/`, `Makefile`, `meson.build`, `meson_options.txt`, and
-  `subprojects/`
-- `tools/`, which should remain upstream-shaped and no longer carries
-  repo-owned automation
+- hydrated and ignored `src/` and `res/`
+- hydrated and ignored upstream root build inputs: `Makefile`, `meson.build`,
+  `meson_options.txt`, `dep/`, `docs/code/meson.build`, `subprojects/`, and
+  `tools/`
 
 Maintenance rule:
 
 - add new repo-owned automation under `scripts/` or `scripts/android/`, not
   under `tools/`, `src/`, or other upstream-shaped folders.
+
+## Android Root Dependency Split
+
+When auditing top-level stale paths for Android, do not use repo-wide activity
+as proof that Android still needs a path. The current Android lane has a
+narrower dependency set.
+
+Current full-lane hard dependencies:
+
+- the hydrated upstream root Meson inputs `meson.build`,
+  `meson_options.txt`, and `dep/meson.build`, because the Android-owned helper
+  configures the root Meson build graph directly for `build.sim`
+- hydrated upstream `dep/decNumberICU`, because Android staging and the staged
+  native CMake build both consume it
+
+Current full-lane Android-owned build entry:
+
+- `scripts/android/build_sim_assets.sh`, which reconfigures `build.sim` with
+  `-DRASPBERRY=false -DDECNUMBER_FASTMUL=true` and runs `ninja sim`
+
+Current root surfaces no longer on the Android lane:
+
+- `Makefile`
+- `tools/onARaspberry`
+- `subprojects/gmp-6.2.1/mini-gmp`
+
+Current `--android-only` lane behavior:
+
+- does not execute `Makefile` or Meson
+- still verifies freshness against current canonical `src/c47`,
+  `dep/decNumberICU`, generated outputs under `build.sim`, canonical fonts
+  under `res/fonts`, and the tracked Android mini-gmp staging source before
+  Gradle reuses the staged tree
+
+Current non-Android root surfaces that should not be used to justify Android
+ownership claims:
+
+- `dist.sh`
+- upstream DMCP SDK submodule paths under `dep/DMCP_SDK` and
+  `dep/DMCP5_SDK`, which the current repo does not carry locally and the
+  Android lane never stages
+- cross-build helper tools such as `tools/add_pgm_chsum`, `tools/modify_crc`,
+  `tools/gen_qspi_crc`, and `tools/size.py`
 
 ## Build entry points
 
@@ -77,15 +119,22 @@ Public maintainer entrypoints:
   reads Git-tracked defaults from `upstream.source`, uses a Git-ignored local
   `upstream.lock` only when it contains `upstream_commit`, otherwise resolves
   the latest commit from the configured upstream ref, writes the resolved state
-  back to `upstream.lock`, restores repo-owned files from `HEAD`, and refuses
-  dirty tracked worktrees unless `--force` is passed.
+  back to `upstream.lock`, overlays the resolved upstream tree, restores only
+  repo-owned files from `HEAD`, leaves shared upstream-shaped root files such as
+  `Makefile`, `meson.build`, `meson_options.txt`, `dep/`,
+  `docs/code/meson.build`, `subprojects/`, and `tools/` upstream-owned, and
+  refuses dirty tracked worktrees unless `--force` is passed.
 - `./scripts/build_android.sh` is the authoritative Android debug-build entry point. It
   detects Java and the Android NDK, resolves one shared upstream commit through
-  `scripts/upstream.sh`, hydrates that resolved core when `src/c47` is missing,
-  runs `make sim`, stages native inputs into `android/.staged-native/cpp`,
-  regenerates staged native metadata there, requires the canonical calculator
-  font assets under repo-root `res/fonts`, writes
-  `android/local.properties`, and runs Gradle clean plus `assembleDebug`. It
+  `scripts/upstream.sh`, hydrates that resolved core when `src/c47`, the root
+  Meson inputs, `dep/decNumberICU`, or canonical calculator fonts are missing,
+  runs `scripts/android/build_sim_assets.sh` to reconfigure `build.sim` through
+  Meson and build `ninja sim`, stages native inputs into
+  `android/.staged-native/cpp`, regenerates staged native metadata there,
+  requires the canonical calculator font assets under repo-root `res/fonts`, writes
+  `android/local.properties`, and runs Gradle clean plus `assembleDebug` through
+  a host `gradle` command or the retained wrapper runtime under
+  `android/gradle/wrapper/`. It
   also exposes `--doctor` for SDK, NDK, CMake, xlsxio, upstream-lock, and
   staged-input plus font-source status plus `--android-only` for the fast
   module-local lane that refuses stale staged native inputs.
@@ -94,34 +143,38 @@ Public maintainer entrypoints:
   `--verify-packaging` when you want the local build to write the same release
   evidence files CI publishes for the debug APK.
 - `./scripts/build_android.sh --android-only` is the preferred fast Android-only path.
-  It skips `make sim`, skips native restaging, and refuses to continue unless
+  It skips Meson and native restaging, and refuses to continue unless
   `android/.staged-native/cpp/STAGED-INPUTS.properties` still matches the
-  canonical root, generated inputs, current mini-gmp source, and current
-  calculator font source.
-- `cd android && ./gradlew assembleDebug` is appropriate only when the staged
+  canonical root, generated inputs, the tracked Android mini-gmp staging
+  source, and the current calculator font source.
+- `cd android && gradle assembleDebug` is appropriate only when the staged
   build-only native tree under `android/.staged-native/cpp` is already current
   and the change is isolated to the Android module.
-- `cd android && ./gradlew :app:bundleRelease` or
-  `cd android && ./gradlew :app:assembleRelease` is the module-local release
+- `cd android && gradle :app:bundleRelease` or
+-  `cd android && gradle :app:assembleRelease` is the module-local release
   lane only when the staged build-only native tree is already current. Release
   builds remain unsigned unless all `r47.releaseStore*` and `r47.releaseKey*`
   inputs are supplied together.
-- `cd android && ./gradlew :app:testDebugUnitTest` validates the Robolectric
+- `cd android && gradle :app:testDebugUnitTest` validates the Robolectric
   and fixture-backed Android JVM suite when the build-only staged native tree
   is already current.
-- `cd android && ./gradlew :app:assembleDebugAndroidTest` compiles and
+- `cd android && gradle :app:assembleDebugAndroidTest` compiles and
   packages the instrumentation suite. `:app:connectedDebugAndroidTest` requires
   a device or emulator, and `-Pr47.abiFilters=arm64-v8a,x86_64` is the
   supported override when that emulator is `x86_64`.
-- `make sim` is the generator step behind Android native staging. It produces
-  the simulator build plus generated files consumed by the build-only Android
-  staging root under `android/.staged-native/cpp/generated`.
+- `make sim` is the canonical root simulator and generator validation path for
+  the upstream-shaped desktop lane. Android full builds now drive the same
+  `build.sim` Meson/Ninja targets through `scripts/android/build_sim_assets.sh`
+  instead of routing through the root Makefile.
 
 Internal helpers:
 
 - `scripts/upstream.sh` is the shared implementation behind `scripts/sync_public.sh` and
   `scripts/build_android.sh`. Document it directly only when the task is about upstream
   resolution or restore-boundary internals.
+- `scripts/android/build_sim_assets.sh` owns the Android full-lane
+  `build.sim` Meson/Ninja generation step and is normally invoked by
+  `scripts/build_android.sh` or `scripts/android/prepare_native_build_inputs.sh`.
 - `scripts/android/stage_native_sources.sh` stages canonical native inputs into
   `android/.staged-native/cpp` and is normally invoked by `scripts/build_android.sh`.
 - `scripts/android/generate_staged_native_metadata.sh` refreshes
@@ -141,8 +194,8 @@ Canonical inputs for shared core work:
 - generated outputs under `build.sim`
 - Android-only code under `android/app/src/main/java`
 - Android bridge, HAL, and stub code under `android/app/src/main/cpp/c47-android`
-- public-checkout mini-gmp fallback under `android/compat/mini-gmp-fallback`
-  for staging only when the ignored GMP subproject sources are absent
+- the tracked Android mini-gmp staging source under
+  `android/compat/mini-gmp-fallback`
 
 Staged Android inputs built by CMake:
 
@@ -165,7 +218,9 @@ Build-safety rule:
   authoritative for the shared native build graph.
 - `scripts/sync_public.sh` and hosted CI overlay the resolved upstream tree first and
   then restore repo-owned files from Git, so restore allowlists and generic
-  restore loops must never restore `src/**`.
+  restore loops must never restore `src/**` or other shared upstream-shaped
+  root files such as `Makefile`, `meson.build`, `meson_options.txt`, `dep/`,
+  `docs/code/meson.build`, `subprojects/`, or `tools/`.
 - Android-only native fixes belong under
   `android/app/src/main/cpp/c47-android` or in staging logic, not in tracked
   root `src/**` overrides.
@@ -176,9 +231,12 @@ Build-safety rule:
 ## Android build flow
 
 1. `scripts/sync_public.sh` overlays the resolved upstream core into the working tree,
-  restores tracked Android-port files, and refreshes the local ignored
-  `upstream.lock` with the commit used for that run.
-2. `scripts/build_android.sh` runs `make sim`.
+  hydrates the ignored upstream-owned root build inputs, restores tracked
+  Android-port files, and refreshes the local ignored `upstream.lock` with the
+  commit used for that run.
+2. `scripts/build_android.sh` runs `scripts/android/build_sim_assets.sh`, which
+  reconfigures `build.sim` through Meson with Android-owned options and then
+  builds `ninja sim` directly.
 3. `scripts/android/stage_native_sources.sh` copies the synced core tree,
   `dep/decNumberICU`, generated outputs, `vcs.h`, and mini-gmp inputs into
   `android/.staged-native/cpp`, then regenerates
@@ -260,16 +318,16 @@ lane.
 
 ## Verification by change type
 
-- Kotlin-only Android UI changes: `cd android && ./gradlew assembleDebug` when
+- Kotlin-only Android UI changes: `cd android && gradle assembleDebug` when
   the build-only staged native tree is already current.
 - Android module-only changes with the staged tree already current:
   `./scripts/build_android.sh --android-only`.
 - Host or cache diagnosis before building: `./scripts/build_android.sh --doctor`.
 - Robolectric, fixture, or runtime-seam changes:
-  `cd android && ./gradlew :app:testDebugUnitTest` when the build-only staged
+  `cd android && gradle :app:testDebugUnitTest` when the build-only staged
   native tree is already current.
 - SAF, debug-manifest, or Activity Result lifecycle changes:
-  `cd android && ./gradlew :app:assembleDebugAndroidTest`, then
+  `cd android && gradle :app:assembleDebugAndroidTest`, then
   `:app:connectedDebugAndroidTest` on a device or emulator. Add
   `-Pr47.abiFilters=arm64-v8a,x86_64` when that emulator is `x86_64`.
 - JNI, HAL, CMake, or packaging changes: `./scripts/build_android.sh`.

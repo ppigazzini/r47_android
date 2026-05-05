@@ -346,7 +346,7 @@ dependencies {
 }
 
 def prepareStagedNativeInputs = tasks.register('prepareStagedNativeInputs', Exec) {
-    description = 'Hydrate missing authoritative native inputs, run make sim, and refresh android/.staged-native/cpp for direct Gradle builds.'
+    description = 'Hydrate missing authoritative native inputs, generate build.sim assets through the Android Meson/Ninja helper, and refresh android/.staged-native/cpp for direct Gradle builds.'
     outputs.upToDateWhen { false }
 
     doFirst {
@@ -525,7 +525,7 @@ tasks.register('generateThirdPartySpdx') {
             downloadLocation: 'NOASSERTION',
             licenseDeclared : 'ICU',
             summary         : 'Vendored decimal arithmetic sources under dep/decNumberICU.',
-            sourceInfo      : 'Notice source is dep/decNumberICU/ICU-license.html in the repository.'
+            sourceInfo      : 'Notice source is hydrated from upstream at dep/decNumberICU/ICU-license.html during the build.'
         ])
 
         addPackage([

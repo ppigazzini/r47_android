@@ -1,67 +1,47 @@
 # R47 Android
 
-This repository is the Android port, build wrapper, and maintainer overlay for
-the R47 calculator variant implemented in the upstream C47 codebase.
+R47 Android is the Android shell, native staging pipeline, and maintainer
+overlay for the R47 calculator variant built from the authoritative upstream
+C47 source repository https://gitlab.com/rpncalculators/c43.git
 
-The authoritative upstream source repository is the Git repo configured in
-`upstream.source`, currently `https://gitlab.com/rpncalculators/c43.git`.
-That GitLab path still uses the older `c43` repository name, but this Android
-repo should document it as the upstream C47 core consumed by the R47 Android
-port.
+## Source And Ownership
 
-This repo does not own the shared calculator core. It owns the Android app,
-JNI bridge, native staging flow, CI wiring, and local build scaffolding around
-the hydrated upstream core plus the root generator pipeline.
+- `upstream.source` defines the upstream C47 repository consumed by this repo.
+- `./scripts/sync_public.sh` hydrates the upstream core and the upstream root
+  build inputs required by the simulator and Android staging flow.
+- `android/` owns the Android app, compliance assets, compatibility inputs, and
+  maintainer documentation.
+- `scripts/` owns repo automation, including upstream sync, Android staging,
+  packaging evidence, and build entrypoints.
+- `android/app/src/main/cpp/c47-android` owns the Android-native bridge, HAL,
+  and stubs.
+- `android/.staged-native/cpp` is the build-only staged native input root used
+  by the Android CMake build.
+- `android/compat/mini-gmp-fallback` provides the tracked mini-gmp staging
+  source used by Android builds.
 
-## Upstream Source
+## Build Entry Points
 
-- source repo: `https://gitlab.com/rpncalculators/c43.git`
-- tracked defaults: `upstream.source`
-- optional local pin: `upstream.lock`
-- public hydration entrypoint: `./scripts/sync_public.sh`
+- `./scripts/build_android.sh` is the canonical Android debug build.
+- `./scripts/build_android.sh --doctor` reports SDK, NDK, CMake, xlsxio,
+  upstream, and staged-input readiness.
+- `./scripts/build_android.sh --android-only` rebuilds the Android module when
+  the staged native inputs are already current.
+- `cd android && gradle assembleDebug` is the module-local maintenance command
+  when the staged native inputs are already current.
+- `make test` validates the hydrated upstream simulator and generator lane.
 
-## What This Repo Owns
+`scripts/build_android.sh` uses a host `gradle` command when it is available on
+Ubuntu and falls back to the retained wrapper runtime under
+`android/gradle/wrapper/` when the host command is absent.
 
-- Android app code under `android/`
-- repo-owned automation under `scripts/`
-- Android-managed code under `android/app/src/main/java/com/example/r47`
-- Android-only native glue under `android/app/src/main/cpp/c47-android`
-- sync, build, and CI scaffolding under `scripts/` and `.github/`
-- maintainer-facing Android docs under `android/docs/dev/`
+## Outputs
 
-Shared calculator behavior still belongs to the hydrated upstream core and the
-root generator pipeline.
+- The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
+- Packaging evidence is collected by
+  `scripts/android/collect_packaging_evidence.sh`.
+- Maintainer docs live under `android/docs/dev/`.
 
-## Maintainer Entrypoints
-
-- `./scripts/sync_public.sh` hydrates the authoritative upstream core defined by
-	`upstream.source`.
-- `android/r47-defaults.properties` is the machine-readable source of truth for
-	shared Android SDK, NDK, CMake, build-tools, test-emulator, and xlsxio
-	defaults consumed by local scripts and CI.
-- `./scripts/build_android.sh` is the canonical Android debug-build path. Use
-	`--doctor` to report host and staging readiness, `--android-only` for the
-	fast module-only lane when staged native inputs are current, and
-	`--verify-packaging` to emit the same ABI, zipalign, ELF, SHA256, and
-	provenance evidence classes that CI records for the debug APK.
-- `make sim` and `make test` are the canonical root simulator and generator
-	validation paths.
-- `cd android && ./gradlew assembleDebug` is a module-local shortcut only when
-	the build-only staged native tree is already current.
-## Source Ownership
-
-- canonical shared-native inputs live in hydrated `src/c47`,
-	`dep/decNumberICU`, and generated outputs from `build.sim`
-- the authoritative Android staged native build root is
-	`android/.staged-native/cpp`
-- tracked Android-owned native glue lives under
-	`android/app/src/main/cpp/c47-android`
-- the former tracked directories
-	`android/app/src/main/cpp/{c47,decNumberICU,generated,gmp}` have been
-	retired and must stay absent during normal builds
-- public checkouts keep one explicit staging-only mini-gmp fallback under
-	`android/compat/mini-gmp-fallback`
-
-For the Android maintainer docs, start at `android/docs/dev/README.md`. Use
-`android/docs/dev/10-build-and-source-layout.md` as the canonical Android
-ownership, build, and rebuild contract.
+Start with `android/docs/dev/README.md` for maintainer documentation and use
+`android/docs/dev/10-build-and-source-layout.md` as the canonical build and
+ownership contract.

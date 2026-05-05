@@ -1,4 +1,0 @@
-This placeholder is replaced during Windows packaging.
-
-The packaged Windows artifact writes a summary of the bundled DLL notice set
-here and copies the corresponding MSYS2 license directories beside it.

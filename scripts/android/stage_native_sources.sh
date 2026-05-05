@@ -24,7 +24,7 @@ require_dir() {
 
     if [ ! -d "$path" ]; then
         echo "ERROR: Missing $description at $path"
-        echo "Run ./scripts/sync_public.sh and make sim before staging Android native inputs."
+        echo "Run ./scripts/sync_public.sh and then regenerate Android build.sim assets before staging Android native inputs."
         exit 1
     fi
 }
@@ -35,7 +35,7 @@ require_file() {
 
     if [ ! -f "$path" ]; then
         echo "ERROR: Missing $description at $path"
-        echo "Run make sim before staging Android native inputs."
+        echo "Run ./scripts/build_android.sh without --android-only or scripts/android/build_sim_assets.sh before staging Android native inputs."
         exit 1
     fi
 }
@@ -108,26 +108,17 @@ cat > "$GENERATED_DEST/vcs.h" <<EOF
 EOF
 
 echo "--- Staging mini-gmp ---"
-GMP_SOURCE_DIR=""
-for candidate in \
-    "$PROJECT_ROOT/subprojects/gmp-6.2.1/mini-gmp" \
-    "$MINI_GMP_FALLBACK_DIR"
-do
-    if [ -f "$candidate/mini-gmp.c" ] && { [ -f "$candidate/mini-gmp.h" ] || [ -f "$candidate/gmp.h" ]; }; then
-        GMP_SOURCE_DIR="$candidate"
-        break
-    fi
-done
+GMP_SOURCE_DIR="$MINI_GMP_FALLBACK_DIR"
 
-if [ -z "$GMP_SOURCE_DIR" ]; then
-    echo "ERROR: Could not locate mini-gmp sources in the canonical subproject or the explicit Android compatibility fallback at $MINI_GMP_FALLBACK_DIR."
+if [ ! -f "$GMP_SOURCE_DIR/mini-gmp.c" ] || { [ ! -f "$GMP_SOURCE_DIR/mini-gmp.h" ] && [ ! -f "$GMP_SOURCE_DIR/gmp.h" ]; }; then
+    echo "ERROR: Missing Android mini-gmp fallback sources at $MINI_GMP_FALLBACK_DIR."
     exit 1
 fi
 
 rm -rf "$CPP_DIR/gmp"
 mkdir -p "$CPP_DIR/gmp"
 
-echo "Using mini-gmp sources from $GMP_SOURCE_DIR"
+echo "Using Android mini-gmp fallback sources from $GMP_SOURCE_DIR"
 cp -v "$GMP_SOURCE_DIR/mini-gmp.c" "$CPP_DIR/gmp/"
 
 if [ -f "$GMP_SOURCE_DIR/mini-gmp.h" ]; then

@@ -93,7 +93,7 @@ ensure_retired_legacy_cpp_paths_absent() {
     if [ -n "$present_paths" ]; then
         echo "ERROR: Retired Android native snapshot paths are present:" >&2
         printf '%s\n' "$present_paths" >&2
-        fail "Retired app-module native snapshot paths must stay absent. Use $STAGED_CPP_DIR for staged Android inputs, $ANDROID_PROJECT_DIR/app/src/main/cpp/c47-android for Android-owned glue, and $MINI_GMP_FALLBACK_DIR only for the explicit public-checkout mini-gmp fallback."
+        fail "Retired app-module native snapshot paths must stay absent. Use $STAGED_CPP_DIR for staged Android inputs, $ANDROID_PROJECT_DIR/app/src/main/cpp/c47-android for Android-owned glue, and $MINI_GMP_FALLBACK_DIR for the tracked Android mini-gmp staging source."
     fi
 }
 
@@ -119,6 +119,17 @@ resolve_font_source_dir() {
     fi
 
     return 1
+}
+
+upstream_sim_inputs_are_hydrated() {
+    [ -d "$PROJECT_ROOT/src/c47" ] || return 1
+    [ -f "$PROJECT_ROOT/src/c47/meson.build" ] || return 1
+    [ -f "$PROJECT_ROOT/meson.build" ] || return 1
+    [ -f "$PROJECT_ROOT/meson_options.txt" ] || return 1
+    [ -f "$PROJECT_ROOT/dep/meson.build" ] || return 1
+    [ -d "$PROJECT_ROOT/dep/decNumberICU" ] || return 1
+    [ -f "$PROJECT_ROOT/dep/decNumberICU/ICU-license.html" ] || return 1
+    resolve_font_source_dir >/dev/null 2>&1
 }
 
 while [ "$#" -gt 0 ]; do
@@ -259,6 +270,20 @@ detect_job_count() {
     printf '%s\n' "$detected_jobs"
 }
 
+run_gradle() {
+    if command -v gradle >/dev/null 2>&1; then
+        gradle "$@"
+        return 0
+    fi
+
+    if [ -f "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" ] && [ -f "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.properties" ]; then
+        java -jar "$ANDROID_PROJECT_DIR/gradle/wrapper/gradle-wrapper.jar" "$@"
+        return 0
+    fi
+
+    fail "No usable gradle command found on PATH and no Gradle wrapper runtime is available under $ANDROID_PROJECT_DIR/gradle/wrapper. Install Gradle $R47_DEFAULT_ANDROID_GRADLE_VERSION or restore the wrapper runtime files."
+}
+
 R47_BUILD_JOBS_INPUT=${R47_BUILD_JOBS-}
 if ! R47_BUILD_JOBS=$(normalize_job_count "$R47_BUILD_JOBS_INPUT"); then
     CMAKE_BUILD_JOBS_INPUT=${CMAKE_BUILD_PARALLEL_LEVEL-}
@@ -295,17 +320,15 @@ resolve_upstream_state() {
 }
 
 ensure_upstream_core_hydrated() {
-    if [ -d "$PROJECT_ROOT/src/c47" ] && [ -f "$PROJECT_ROOT/src/c47/meson.build" ] && resolve_font_source_dir >/dev/null 2>&1; then
+    if upstream_sim_inputs_are_hydrated; then
         return 0
     fi
 
-    echo "--- Hydrating resolved upstream core and canonical calculator fonts ---"
+    echo "--- Hydrating resolved upstream core, shared root build inputs, and canonical calculator fonts ---"
     bash "$SCRIPTS_DIR/upstream.sh" sync --auto --write-lock --if-missing
 
-    [ -d "$PROJECT_ROOT/src/c47" ] && [ -f "$PROJECT_ROOT/src/c47/meson.build" ] || \
-        fail "Incomplete upstream core checkout at $PROJECT_ROOT/src/c47 after sync. Run ./scripts/sync_public.sh in a clean worktree before running ./scripts/build_android.sh."
-    resolve_font_source_dir >/dev/null 2>&1 || \
-        fail "Missing canonical calculator fonts at $PROJECT_ROOT/res/fonts after sync. Run ./scripts/sync_public.sh in a clean worktree before running ./scripts/build_android.sh."
+    upstream_sim_inputs_are_hydrated || \
+        fail "Incomplete upstream core or shared root build inputs after sync. Run ./scripts/sync_public.sh in a clean worktree before running ./scripts/build_android.sh."
 }
 
 ensure_xlsxio_toolchain() {
@@ -450,7 +473,7 @@ ensure_staged_inputs_current() {
     current_inputs_file=$(mktemp)
     if ! compute_current_staged_inputs "$current_inputs_file" >/dev/null 2>&1; then
         rm -f "$current_inputs_file"
-        fail "Unable to compute current native input fingerprints. Run make sim and then ./scripts/build_android.sh without --android-only."
+        fail "Unable to compute current native input fingerprints. Run ./scripts/build_android.sh without --android-only to regenerate build.sim outputs and refresh $STAGED_CPP_DIR."
     fi
 
     staged_fingerprint=$(read_property_value "$STAGED_INPUTS_FILE" R47_STAGED_INPUTS_COMBINED_FINGERPRINT || true)
@@ -661,14 +684,7 @@ else
     COMMIT_HASH="$RESOLVED_UPSTREAM_SHORT_COMMIT"
     echo "--- SwissMicros Core Version (resolved): $COMMIT_HASH ---"
 
-    echo "--- Generating core assets (running make sim) ---"
-    rm -f src/generated/*.c src/generated/constantPointers.h src/generated/softmenuCatalogs.h
-
-    if [ -d "build.sim" ] && [ ! -f "build.sim/build.ninja" ]; then
-        rm -rf build.sim
-    fi
-
-    make -j "$R47_BUILD_JOBS" NINJAFLAGS="-j $R47_BUILD_JOBS" sim
+    bash "$ANDROID_SCRIPTS_DIR/build_sim_assets.sh" --build-dir "$PROJECT_ROOT/build.sim" --jobs "$R47_BUILD_JOBS"
 
     if ! R47_CORE_HASH="$COMMIT_HASH" bash "$ANDROID_SCRIPTS_DIR/stage_native_sources.sh" --cpp-dir "$STAGED_CPP_DIR"; then
         echo "ERROR: Android native staging failed."
@@ -683,12 +699,6 @@ cd "$ANDROID_PROJECT_DIR"
 
 # --- 4. Build APK ---
 echo "--- Building APK ---"
-GRADLE_CMD="./gradlew"
-
-if [ ! -f "$GRADLE_CMD" ]; then
-    gradle wrapper --gradle-version "$R47_DEFAULT_ANDROID_GRADLE_VERSION" --distribution-type bin
-fi
-chmod +x "$GRADLE_CMD"
 
 # Pass detected NDK/SDK versions as Project Properties to override build.gradle defaults
 GRADLE_PROPS="-Pr47.ndkVersion=$IF_NDK_VERSION"
@@ -731,9 +741,9 @@ COMPILE_SDK_VALUE=${COMPILE_SDK_OVERRIDE:-$R47_DEFAULT_ANDROID_COMPILE_SDK}
 
 if [ "$ANDROID_ONLY" = false ]; then
     rm -rf app/.cxx
-    $GRADLE_CMD clean $GRADLE_EXTRA_ARGS
+    run_gradle clean $GRADLE_EXTRA_ARGS
 fi
-$GRADLE_CMD --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_EXTRA_ARGS $GRADLE_PROPS
+run_gradle --max-workers "$R47_BUILD_JOBS" assembleDebug $GRADLE_EXTRA_ARGS $GRADLE_PROPS
 ensure_retired_legacy_cpp_paths_absent
 
 APK_PATH="app/build/outputs/apk/debug/app-debug.apk"

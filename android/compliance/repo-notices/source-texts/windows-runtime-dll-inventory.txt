@@ -1,5 +1,0 @@
-This placeholder is replaced during Windows packaging.
-
-The packaged Windows artifact writes the concrete runtime DLL inventory here,
-including the DLL filenames discovered from the packaged executables and the
-owning MSYS2 packages resolved with pacman.

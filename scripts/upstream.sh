@@ -15,6 +15,22 @@ UPSTREAM_FONT_FILES=(
     "C47__TinyFont.ttf"
     "sortingOrder.xlsx"
 )
+UPSTREAM_REQUIRED_DIRS=(
+    "src/c47"
+    "dep/decNumberICU"
+)
+UPSTREAM_REQUIRED_FILES=(
+    "Makefile"
+    "meson.build"
+    "meson_options.txt"
+    "src/c47/meson.build"
+    "dep/meson.build"
+    "dep/decNumberICU/ICU-license.html"
+    "tools/onARaspberry"
+    "docs/code/meson.build"
+    "subprojects/gmp-6.2.1.wrap"
+    "subprojects/packagefiles/gmp-6.2.1/meson.build"
+)
 
 RESOLVED_UPSTREAM_URL=""
 RESOLVED_UPSTREAM_REF=""
@@ -66,9 +82,22 @@ upstream_checkout_has_canonical_fonts() {
     return 0
 }
 
+upstream_checkout_has_required_paths() {
+    local required_path=""
+
+    for required_path in "${UPSTREAM_REQUIRED_DIRS[@]}"; do
+        [ -d "$PROJECT_ROOT/$required_path" ] || return 1
+    done
+
+    for required_path in "${UPSTREAM_REQUIRED_FILES[@]}"; do
+        [ -f "$PROJECT_ROOT/$required_path" ] || return 1
+    done
+
+    return 0
+}
+
 upstream_checkout_is_hydrated() {
-    [ -d "$PROJECT_ROOT/src/c47" ] || return 1
-    [ -f "$PROJECT_ROOT/src/c47/meson.build" ] || return 1
+    upstream_checkout_has_required_paths || return 1
     upstream_checkout_has_canonical_fonts
 }
 
@@ -179,16 +208,10 @@ restore_repo_owned_paths() {
         .gitignore
         COPYING
         README.md
-        RELEASE_NOTES.md
-        Makefile
-        dist.sh
-        meson.build
-        meson_options.txt
         android/
         .github/
         __DEV/
         scripts/
-        tools/
         upstream.source
     )
     local tracked_restore_paths=()
@@ -203,14 +226,6 @@ restore_repo_owned_paths() {
     if [ "${#tracked_restore_paths[@]}" -gt 0 ]; then
         git -C "$PROJECT_ROOT" checkout HEAD -- "${tracked_restore_paths[@]}" 2>/dev/null || true
     fi
-
-    while IFS= read -r meson_file; do
-        git -C "$PROJECT_ROOT" checkout HEAD -- "$meson_file"
-    done < <(
-        git -C "$PROJECT_ROOT" ls-files |
-            grep -E '(^|/)meson\.build$' |
-            grep -Ev '^src/'
-    )
 }
 
 emit_resolved_output() {
@@ -372,7 +387,7 @@ sync_upstream() {
     done
 
     if [ "$if_missing" = "true" ] && upstream_checkout_is_hydrated; then
-        echo "--- Upstream core already hydrated at $PROJECT_ROOT/src/c47 with canonical fonts at $PROJECT_ROOT/res/fonts; skipping sync. ---"
+        echo "--- Upstream core and shared root build inputs already hydrated; skipping sync. ---"
         return 0
     fi
 

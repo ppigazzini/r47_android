@@ -37,24 +37,6 @@
       "assetPath": "repo-notices/xlsxio/LICENSE.txt",
       "contentType": "text/plain",
       "declaredLicense": "MIT"
-    },
-    {
-      "id": "windows-runtime-dll-inventory",
-      "title": "Windows runtime DLL inventory",
-      "summary": "Generated during Windows packaging to list bundled runtime DLLs and owning packages.",
-      "sourcePath": "android/compliance/repo-notices/source-texts/windows-runtime-dll-inventory.txt",
-      "assetPath": "repo-notices/windows/WINDOWS-RUNTIME-DLLS.txt",
-      "contentType": "text/plain",
-      "declaredLicense": "NOASSERTION"
-    },
-    {
-      "id": "windows-runtime-dll-notices",
-      "title": "Windows bundled DLL notices",
-      "summary": "Generated during Windows packaging from the MSYS2 license directories for bundled DLLs.",
-      "sourcePath": "android/compliance/repo-notices/source-texts/windows-runtime-dll-notices.txt",
-      "assetPath": "repo-notices/windows/WINDOWS-DLL-NOTICES.txt",
-      "contentType": "text/plain",
-      "declaredLicense": "NOASSERTION"
     }
   ]
 }
