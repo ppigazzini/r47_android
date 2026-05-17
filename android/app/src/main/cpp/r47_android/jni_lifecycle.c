@@ -150,10 +150,11 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(
   (void)env;
   (void)thiz;
   uint32_t now = sys_current_ms();
-  r47_handle_async_program_tick(now);
   if (pthread_mutex_trylock(&screenMutex) != 0) {
     return;
   }
+
+  r47_handle_async_program_tick(now);
 
   if (nextTimerRefresh <= now) {
     refreshTimer(NULL);

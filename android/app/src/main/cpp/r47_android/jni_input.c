@@ -1,6 +1,5 @@
 #include "jni_bridge.h"
 
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -8,32 +7,31 @@ extern void btnFnPressed(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 extern void btnFnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 extern void btnPressed(GtkWidget *notUsed, GdkEvent *event, gpointer data);
 extern void btnReleased(GtkWidget *notUsed, GdkEvent *event, gpointer data);
-extern void fnStopProgram(uint16_t unusedButMandatoryParameter);
+extern void fnDropY(uint16_t unusedButMandatoryParameter);
+extern void fnStore(uint16_t regist);
+extern void runProgram(bool_t singleStep, uint16_t menuLabel);
+
+extern uint8_t lastErrorCode;
+extern uint16_t currentInputVariable;
+extern int16_t dynamicMenuItem;
+extern uint8_t *currentStep;
 
 static char currentPressedKeyStr[4] = {0};
 static int currentPressedKeyCode = 0;
 
 enum {
   R47_ASYNC_RUN_KEY_CODE = 36,
-  R47_ASYNC_VIEW_TIMEOUT_MS = 2000,
+  R47_ASYNC_RUN_SLICE_MS = 4,
+  R47_ASYNC_RUN_MAX_STEPS = 64,
+  R47_PROGRAM_END_OPCODE = 0x7fff,
 };
 
 static const char *const kR47AsyncRunKeyId = "35";
 
-typedef enum {
-  R47_ASYNC_RELEASE_EVENT = 0,
-  R47_ASYNC_RELEASE_SIM = 1,
-} r47_async_release_kind_t;
-
-typedef struct {
-  r47_async_release_kind_t kind;
-  bool is_fn;
-  char key_id[4];
-} r47_async_key_release_t;
-
 static pthread_mutex_t r47_async_program_mutex = PTHREAD_MUTEX_INITIALIZER;
 static bool r47_async_program_running = false;
-static uint32_t r47_async_program_view_since_ms = 0;
+static bool r47_async_program_start_pending = false;
+static bool r47_async_program_stop_requested = false;
 
 static bool r47_is_async_run_key_id(const char *keyId) {
   return keyId != NULL && strcmp(keyId, kR47AsyncRunKeyId) == 0;
@@ -52,116 +50,126 @@ static bool r47_is_async_program_running(void) {
 static void r47_set_async_program_running(bool running) {
   pthread_mutex_lock(&r47_async_program_mutex);
   r47_async_program_running = running;
-  r47_async_program_view_since_ms = 0;
+  r47_async_program_start_pending = false;
+  r47_async_program_stop_requested = false;
   pthread_mutex_unlock(&r47_async_program_mutex);
 }
 
-static void *r47_async_key_release_worker_main(void *arg) {
-  r47_async_key_release_t *release = (r47_async_key_release_t *)arg;
-
-  pthread_mutex_lock(&screenMutex);
-  if (release->kind == R47_ASYNC_RELEASE_EVENT) {
-    if (release->is_fn) {
-      btnFnReleased(NULL, &releaseEvent, release->key_id);
-    } else {
-      btnReleased(NULL, &releaseEvent, release->key_id);
-    }
-  } else {
-    if (release->is_fn) {
-      extern void btnFnClickedR(void *w, void *data);
-      btnFnClickedR(NULL, release->key_id);
-    } else {
-      extern void btnClickedR(void *w, void *data);
-      btnClickedR(NULL, release->key_id);
-    }
-  }
-  pthread_mutex_unlock(&screenMutex);
-
-  r47_set_async_program_running(false);
-  free(release);
-  return NULL;
-}
-
-static bool r47_begin_async_key_release(r47_async_release_kind_t kind,
-                                        const char *keyId,
-                                        bool isFn) {
-  pthread_t worker_thread;
-  r47_async_key_release_t *release = NULL;
-
+static void r47_schedule_async_program_start(void) {
   pthread_mutex_lock(&r47_async_program_mutex);
-  if (r47_async_program_running) {
-    pthread_mutex_unlock(&r47_async_program_mutex);
-    return false;
+  if (!r47_async_program_running) {
+    r47_async_program_running = true;
+    r47_async_program_start_pending = true;
+    r47_async_program_stop_requested = false;
   }
-  r47_async_program_running = true;
-  r47_async_program_view_since_ms = 0;
   pthread_mutex_unlock(&r47_async_program_mutex);
-
-  release = calloc(1, sizeof(*release));
-  if (release == NULL) {
-    r47_set_async_program_running(false);
-    return false;
-  }
-
-  release->kind = kind;
-  release->is_fn = isFn;
-  strncpy(release->key_id, keyId, sizeof(release->key_id) - 1);
-  release->key_id[sizeof(release->key_id) - 1] = 0;
-
-  if (pthread_create(&worker_thread, NULL, r47_async_key_release_worker_main,
-                     release) != 0) {
-    free(release);
-    r47_set_async_program_running(false);
-    return false;
-  }
-
-  pthread_detach(worker_thread);
-  return true;
 }
 
 static void r47_request_async_program_stop(void) {
-  bool should_stop = false;
-
   pthread_mutex_lock(&r47_async_program_mutex);
-  should_stop = r47_async_program_running;
-  r47_async_program_view_since_ms = 0;
+  if (r47_async_program_running) {
+    r47_async_program_stop_requested = true;
+  }
   pthread_mutex_unlock(&r47_async_program_mutex);
+}
 
-  if (should_stop) {
-    fnStopProgram(NOPARAM);
+static uint16_t r47_decode_step_opcode(const uint8_t *step) {
+  uint16_t opcode;
+
+  opcode = *step;
+  if ((opcode & 0x80u) != 0u) {
+    opcode = (uint16_t)(((opcode & 0x7fu) << 8) | *(step + 1));
+  }
+
+  return opcode;
+}
+
+static void r47_prepare_async_program_start_locked(void) {
+  if (currentInputVariable != INVALID_VARIABLE) {
+    if ((currentInputVariable & 0x8000u) != 0u) {
+      fnDropY(NOPARAM);
+    }
+    fnStore((uint16_t)(currentInputVariable & 0x3fffu));
+    currentInputVariable = INVALID_VARIABLE;
+  }
+  dynamicMenuItem = -1;
+}
+
+static bool r47_should_finish_async_program_after_step(uint16_t opcode) {
+  if (lastErrorCode != ERROR_NONE || isCoreBlockingForIo ||
+      programRunStop == PGM_WAITING || programRunStop == PGM_PAUSED) {
+    return true;
+  }
+
+  switch (opcode) {
+    case ITM_STOP:
+    case ITM_RTN:
+    case ITM_END:
+    case ITM_RTNP1:
+    case R47_PROGRAM_END_OPCODE:
+      return true;
+
+    default:
+      return false;
   }
 }
 
 void r47_handle_async_program_tick(uint32_t now_ms) {
-  bool should_stop = false;
+  (void)now_ms;
 
   if (!ram) {
     return;
   }
 
-  pthread_mutex_lock(&r47_async_program_mutex);
-  if (r47_async_program_running && programRunStop == PGM_RUNNING &&
-      temporaryInformation == TI_VIEW_REGISTER) {
-    if (r47_async_program_view_since_ms == 0) {
-      r47_async_program_view_since_ms = now_ms;
-    } else if ((uint32_t)(now_ms - r47_async_program_view_since_ms) >=
-               R47_ASYNC_VIEW_TIMEOUT_MS) {
-      should_stop = true;
-      r47_async_program_view_since_ms = 0;
-    }
-  } else {
-    r47_async_program_view_since_ms = 0;
-  }
-  pthread_mutex_unlock(&r47_async_program_mutex);
+  for (uint32_t step_count = 0; step_count < R47_ASYNC_RUN_MAX_STEPS;
+       ++step_count) {
+    bool start_pending = false;
+    bool stop_requested = false;
+    uint16_t opcode;
 
-  if (should_stop) {
-    LOGI("Stopping async Android R/S run after %u ms of VIEW loop",
-         R47_ASYNC_VIEW_TIMEOUT_MS);
-    fnStopProgram(NOPARAM);
+    pthread_mutex_lock(&r47_async_program_mutex);
+    if (!r47_async_program_running) {
+      pthread_mutex_unlock(&r47_async_program_mutex);
+      break;
+    }
+    start_pending = r47_async_program_start_pending;
+    stop_requested = r47_async_program_stop_requested;
+    r47_async_program_start_pending = false;
+    pthread_mutex_unlock(&r47_async_program_mutex);
+
+    if (stop_requested) {
+      r47_set_async_program_running(false);
+      break;
+    }
+
+    if (start_pending) {
+      r47_prepare_async_program_start_locked();
+    }
+
+    if (currentStep == NULL) {
+      r47_set_async_program_running(false);
+      break;
+    }
+
+    opcode = r47_decode_step_opcode(currentStep);
+    runProgram(true, INVALID_VARIABLE);
+
+    if (r47_should_finish_async_program_after_step(opcode)) {
+      r47_set_async_program_running(false);
+      break;
+    }
+
+    if ((uint32_t)(sys_current_ms() - now_ms) >= R47_ASYNC_RUN_SLICE_MS) {
+      break;
+    }
   }
 }
 
 void r47_send_sim_function(int funcId) {
+  if (r47_is_async_program_running()) {
+    return;
+  }
+
   pthread_mutex_lock(&screenMutex);
   extern void runFunction(int16_t id);
   runFunction((int16_t)funcId);
@@ -169,6 +177,10 @@ void r47_send_sim_function(int funcId) {
 }
 
 void r47_send_sim_menu(int menuId) {
+  if (r47_is_async_program_running()) {
+    return;
+  }
+
   pthread_mutex_lock(&screenMutex);
   extern void showSoftmenu(int16_t id);
   showSoftmenu((int16_t)menuId);
@@ -181,15 +193,16 @@ void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
     return;
   }
 
-  if (r47_is_async_program_running()) {
-    if (!isRelease && !isFn && r47_is_async_run_key_id(keyId)) {
+  if (!isFn && r47_is_async_run_key_id(keyId)) {
+    if (r47_is_async_program_running()) {
       r47_request_async_program_stop();
+    } else if (isRelease) {
+      r47_schedule_async_program_start();
     }
     return;
   }
 
-  if (!isFn && isRelease && r47_is_async_run_key_id(keyId) &&
-      r47_begin_async_key_release(R47_ASYNC_RELEASE_SIM, keyId, false)) {
+  if (r47_is_async_program_running()) {
     return;
   }
 
@@ -259,19 +272,25 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
   }
 
   onUIActivity();
-  if (r47_is_async_program_running()) {
-    if (keyCode == R47_ASYNC_RUN_KEY_CODE) {
-      r47_request_async_program_stop();
-    }
-    if (keyCode <= 0) {
-      currentPressedKeyCode = 0;
-      currentPressedKeyStr[0] = 0;
-    }
-    return;
-  }
 
   if (keyCode > 0) {
     LOGD("sendKey: DOWN %d", keyCode);
+
+    if (keyCode == R47_ASYNC_RUN_KEY_CODE) {
+      currentPressedKeyCode = keyCode;
+      strncpy(currentPressedKeyStr, kR47AsyncRunKeyId,
+              sizeof(currentPressedKeyStr) - 1);
+      currentPressedKeyStr[sizeof(currentPressedKeyStr) - 1] = 0;
+      if (r47_is_async_program_running()) {
+        r47_request_async_program_stop();
+      }
+      return;
+    }
+
+    if (r47_is_async_program_running()) {
+      return;
+    }
+
     currentPressedKeyCode = keyCode;
     pthread_mutex_lock(&screenMutex);
     if (keyCode >= 38 && keyCode <= 43) {
@@ -288,9 +307,18 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
   }
 
   LOGD("sendKey: UP (last=%d)", currentPressedKeyCode);
-  if (currentPressedKeyCode == R47_ASYNC_RUN_KEY_CODE &&
-      r47_begin_async_key_release(R47_ASYNC_RELEASE_EVENT,
-                                  currentPressedKeyStr, false)) {
+  if (currentPressedKeyCode == R47_ASYNC_RUN_KEY_CODE) {
+    if (r47_is_async_program_running()) {
+      r47_request_async_program_stop();
+    } else {
+      r47_schedule_async_program_start();
+    }
+    currentPressedKeyCode = 0;
+    currentPressedKeyStr[0] = 0;
+    return;
+  }
+
+  if (r47_is_async_program_running()) {
     currentPressedKeyCode = 0;
     currentPressedKeyStr[0] = 0;
     return;
