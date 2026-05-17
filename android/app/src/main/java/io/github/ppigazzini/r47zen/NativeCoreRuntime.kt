@@ -6,7 +6,6 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
 internal class NativeCoreRuntime(
-    private val isCoreThreadBusy: () -> Boolean = { false },
     private val filesDirPath: String,
     private val currentSlotIdProvider: () -> Int,
     private val nativePreInit: (String) -> Unit,
@@ -38,8 +37,6 @@ internal class NativeCoreRuntime(
 ) {
     companion object {
         private const val TAG = "R47CoreRuntime"
-        private const val IDLE_SLEEP_MS = 10L
-        private const val BUSY_SLEEP_MS = 1L
 
         private val coreTasks = LinkedBlockingQueue<Runnable>()
 
@@ -150,7 +147,7 @@ internal class NativeCoreRuntime(
 
                         drainCoreTasks()
                         tick()
-                        sleepMillis(if (isCoreThreadBusy()) BUSY_SLEEP_MS else IDLE_SLEEP_MS)
+                        sleepMillis(10)
                     }
                     Log.i(TAG, "Core thread exiting")
                 } catch (error: Exception) {

@@ -193,19 +193,6 @@ void r47_send_sim_key(const char *keyId, bool isFn, bool isRelease) {
     return;
   }
 
-  if (!isFn && r47_is_async_run_key_id(keyId)) {
-    if (r47_is_async_program_running()) {
-      r47_request_async_program_stop();
-    } else if (isRelease) {
-      r47_schedule_async_program_start();
-    }
-    return;
-  }
-
-  if (r47_is_async_program_running()) {
-    return;
-  }
-
   pthread_mutex_lock(&screenMutex);
   if (isFn) {
     if (isRelease) {
@@ -263,14 +250,6 @@ Java_com_example_r47_MainActivity_sendSimKeyNative(
   (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
 }
 
-JNIEXPORT jboolean JNICALL
-Java_com_example_r47_MainActivity_isAsyncProgramRunningNative(
-    JNIEnv *env, jobject thiz) {
-  (void)env;
-  (void)thiz;
-  return r47_is_async_program_running() ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode) {
   (void)env;
@@ -283,21 +262,6 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
 
   if (keyCode > 0) {
     LOGD("sendKey: DOWN %d", keyCode);
-
-    if (keyCode == R47_ASYNC_RUN_KEY_CODE) {
-      currentPressedKeyCode = keyCode;
-      strncpy(currentPressedKeyStr, kR47AsyncRunKeyId,
-              sizeof(currentPressedKeyStr) - 1);
-      currentPressedKeyStr[sizeof(currentPressedKeyStr) - 1] = 0;
-      if (r47_is_async_program_running()) {
-        r47_request_async_program_stop();
-      }
-      return;
-    }
-
-    if (r47_is_async_program_running()) {
-      return;
-    }
 
     currentPressedKeyCode = keyCode;
     pthread_mutex_lock(&screenMutex);
@@ -315,22 +279,6 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
   }
 
   LOGD("sendKey: UP (last=%d)", currentPressedKeyCode);
-  if (currentPressedKeyCode == R47_ASYNC_RUN_KEY_CODE) {
-    if (r47_is_async_program_running()) {
-      r47_request_async_program_stop();
-    } else {
-      r47_schedule_async_program_start();
-    }
-    currentPressedKeyCode = 0;
-    currentPressedKeyStr[0] = 0;
-    return;
-  }
-
-  if (r47_is_async_program_running()) {
-    currentPressedKeyCode = 0;
-    currentPressedKeyStr[0] = 0;
-    return;
-  }
 
   pthread_mutex_lock(&screenMutex);
   if (currentPressedKeyCode >= 38 && currentPressedKeyCode <= 43) {

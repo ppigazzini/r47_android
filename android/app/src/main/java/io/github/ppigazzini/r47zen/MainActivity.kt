@@ -254,7 +254,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     private fun createCoreRuntime(): NativeCoreRuntime {
         return NativeCoreRuntime(
-            isCoreThreadBusy = ::isAsyncProgramRunningNative,
             filesDirPath = filesDir.absolutePath,
             currentSlotIdProvider = slotSessionController::currentSlotId,
             nativePreInit = ::nativePreInit,
@@ -375,7 +374,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private external fun nativePreInit(storagePath: String)
     private external fun initNative(storagePath: String, slotId: Int)
     private external fun tick()
-    private external fun isAsyncProgramRunningNative(): Boolean
     private external fun releaseNativeRuntime()
     private external fun sendKey(keyCode: Int)
     private external fun sendSimKeyNative(keyId: String, isFn: Boolean, isRelease: Boolean)
