@@ -185,6 +185,7 @@ uint32_t sys_current_ms(void);
 void processCoreTasksNative(void);
 void yieldToAndroidWithMs(int ms);
 void yieldToAndroid(void);
+void r47_handle_async_program_tick(uint32_t now_ms);
 int requestAndroidFile(int isSave, const char *defaultName, int fileType);
 void r47_set_file_request_override(int fd, int isSave, int fileType);
 void r47_clear_file_request_override(void);
