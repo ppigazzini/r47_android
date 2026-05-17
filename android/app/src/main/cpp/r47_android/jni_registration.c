@@ -52,6 +52,8 @@ int register_main_activity_natives(JNIEnv *env) {
         (void *)Java_com_example_r47_MainActivity_initNative},
        {"tick", "()V", (void *)Java_com_example_r47_MainActivity_tick},
        {"sendKey", "(I)V", (void *)Java_com_example_r47_MainActivity_sendKey},
+      {"isAsyncProgramRunningNative", "()Z",
+        (void *)Java_com_example_r47_MainActivity_isAsyncProgramRunningNative},
       {"sendSimKeyNative", "(Ljava/lang/String;ZZ)V",
         (void *)Java_com_example_r47_MainActivity_sendSimKeyNative},
       {"sendSimMenuNative", "(I)V",

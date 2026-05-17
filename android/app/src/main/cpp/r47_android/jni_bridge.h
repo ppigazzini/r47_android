@@ -185,6 +185,7 @@ uint32_t sys_current_ms(void);
 void processCoreTasksNative(void);
 void yieldToAndroidWithMs(int ms);
 void yieldToAndroid(void);
+bool r47_is_async_program_running(void);
 void r47_handle_async_program_tick(uint32_t now_ms);
 int requestAndroidFile(int isSave, const char *defaultName, int fileType);
 void r47_set_file_request_override(int fd, int isSave, int fileType);
@@ -207,6 +208,9 @@ JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_tick(
     JNIEnv *env, jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
     JNIEnv *env, jobject thiz, jint keyCode);
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_isAsyncProgramRunningNative(JNIEnv *env,
+                                                                     jobject thiz);
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendSimKeyNative(
     JNIEnv *env, jobject thiz, jstring keyId, jboolean isFn,
     jboolean isRelease);

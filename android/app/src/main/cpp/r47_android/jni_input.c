@@ -21,8 +21,8 @@ static int currentPressedKeyCode = 0;
 
 enum {
   R47_ASYNC_RUN_KEY_CODE = 36,
-  R47_ASYNC_RUN_SLICE_MS = 4,
-  R47_ASYNC_RUN_MAX_STEPS = 64,
+  R47_ASYNC_RUN_SLICE_MS = 8,
+  R47_ASYNC_RUN_MAX_STEPS = 4096,
   R47_PROGRAM_END_OPCODE = 0x7fff,
 };
 
@@ -37,7 +37,7 @@ static bool r47_is_async_run_key_id(const char *keyId) {
   return keyId != NULL && strcmp(keyId, kR47AsyncRunKeyId) == 0;
 }
 
-static bool r47_is_async_program_running(void) {
+bool r47_is_async_program_running(void) {
   bool running = false;
 
   pthread_mutex_lock(&r47_async_program_mutex);
@@ -261,6 +261,14 @@ Java_com_example_r47_MainActivity_sendSimKeyNative(
 
   r47_send_sim_key(nativeKeyId, isFn == JNI_TRUE, isRelease == JNI_TRUE);
   (*env)->ReleaseStringUTFChars(env, keyId, nativeKeyId);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_r47_MainActivity_isAsyncProgramRunningNative(
+    JNIEnv *env, jobject thiz) {
+  (void)env;
+  (void)thiz;
+  return r47_is_async_program_running() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_com_example_r47_MainActivity_sendKey(
